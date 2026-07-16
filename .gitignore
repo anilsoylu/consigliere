@@ -1,0 +1,4 @@
+*.consigliere.bak
+*.consigliere-uninstall.bak
+.DS_Store
+node_modules/
