@@ -36,12 +36,25 @@ When Sol REVIEWS (critique of a diff/code, not initial planning), tell it to lab
 **Zero-filter:** relay ALL of Sol's findings to the user verbatim; never silently drop any. The user
 decides what to apply — human control over final implementation.
 
+**Ground the call:** Sol only sees what you put in the prompt (plus its own read-only git/ripgrep).
+On a review, name the exact diff/commit to inspect; on a recurring error, paste the failing output.
+Don't send a bare one-line task when concrete context exists.
+
+**Evidence over advice:** if Sol's guidance contradicts what you actually observe — a recommended
+step fails when tried, or file contents differ from its assumption — surface the conflict to the user
+instead of following it blindly. Still relay verbatim; just flag the contradiction.
+
 ## Flow
 
 Source-code change or real design work — INCLUDING skills like `/code-review`, `/apple-design`, `/improve`:
 1. **Plan** via the watchdog. 2. **Present**, wait for approval. 3. **Execute** as Opus high.
-4. **Verify** (on critical changes, a categorized Sol review).
+4. **Re-consult on a recurring error** — if the same error or verifier fails twice, STOP and re-run
+   the watchdog with the actual error output before a third attempt. Don't loop the same fix blindly.
+5. **Verify** (on critical changes, a categorized Sol review).
 Pure questions / chat / notes / config edits → act directly, no advisor.
+
+**On-demand:** the user can ask for a Sol consultation at any point ("consult Sol", "danış"), not
+only at plan/review — run the watchdog then, mid-task.
 
 ## Enforcement gate (usable, narrow)
 

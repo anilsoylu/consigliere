@@ -21,8 +21,10 @@ process.stdout.write(
   "2) If the plan contains 'RESEARCH NEEDED', research it via WebSearch/WebFetch, then re-run the watchdog with the findings appended so Sol finalizes. " +
   "3) PRESENT the plan, WAIT for approval, do NOT write code yet. " +
   "4) EXECUTE as the executor (Opus 4.8 high). " +
-  "5) VERIFY — on critical changes have Sol REVIEW read-only and label every finding [ADOPT]/[DISCUSS]/[STYLE]/[OVER-ENGINEERED]; relay ALL findings to the user verbatim (zero-filter), user decides. " +
+  "5) RE-CONSULT on a recurring error: if the same error/verifier fails twice, STOP and re-run the watchdog with the actual error output before a third attempt — don't loop the same fix blindly. " +
+  "6) VERIFY — on critical changes have Sol REVIEW read-only and label every finding [ADOPT]/[DISCUSS]/[STYLE]/[OVER-ENGINEERED]; relay ALL findings to the user verbatim (zero-filter), user decides. Ground the review by naming the exact diff/error for Sol; if Sol's advice contradicts what you observe (a step fails when tried, file contents differ), surface the conflict instead of following it blindly. " +
   "Advisor is always read-only (never pass --write). " +
+  "The user can request a Sol consultation at any point (\"consult Sol\"/\"danış\"), not only at plan/review. " +
   "Pure questions/chat/notes/config edits → act directly, no advisor. " +
   "Gate blocks Edit/Write on source-code files until the advisor is called; ~/.claude ~/.codex /tmp ~/Desktop and non-code files are exempt."
 );
