@@ -19,8 +19,10 @@ if (!isCode) process.exit(0);
 
 if (fs.existsSync(`/tmp/advisor-gate-${sid}.flag`)) process.exit(0);
 process.stderr.write(
-  "ADVISOR GATE (source code): Call the `codex:rescue` agent (subagent_type `codex:codex-rescue`) " +
-  "for a plan first, relay it to the user, and get approval before writing code. " +
-  "There is NO agent named `advisor`. If this is genuinely trivial, STOP and ask the user for an explicit go-ahead."
+  "ADVISOR GATE (source code): Get a plan from the advisor first by running\n" +
+  "  bash ~/.claude/hooks/advisor-watchdog.sh \"<task>. Do NOT web-search; mark external needs as 'RESEARCH NEEDED: <q>'.\"\n" +
+  "then relay the plan to the user before writing code. This is the only advisor entry point — " +
+  "do not spawn a subagent for it. Details: ~/.claude/rules/advisor-executor.md\n" +
+  "If this is genuinely trivial, STOP and ask the user for an explicit go-ahead."
 );
 process.exit(2);

@@ -13,6 +13,7 @@ const REPO = path.dirname(fileURLToPath(import.meta.url));
 const CLAUDE = path.join(HOME, '.claude');
 const HOOKS = path.join(CLAUDE, 'hooks');
 const RULES = path.join(CLAUDE, 'rules');
+const SKILLS = path.join(CLAUDE, 'skills');
 const SETTINGS = path.join(CLAUDE, 'settings.json');
 const CODEX_CONF = path.join(HOME, '.codex', 'config.toml');
 const withWorkflow = process.argv.slice(2).includes('--with-workflow');
@@ -45,7 +46,8 @@ if (!findCompanion()) {
   warn('Continuing install anyway — hooks will be in place once the plugin is added.');
 }
 
-// --with-workflow ships rules/workflow.md, whose Ralph protocol runs on the ralph-loop plugin.
+// --with-workflow ships rules/workflow.md plus the ralph-protocol skill it defers to,
+// whose bounded execution loop runs on the ralph-loop plugin.
 function hasRalphLoop() {
   return [
     path.join(CLAUDE, 'plugins', 'cache', 'claude-plugins-official', 'ralph-loop'),
@@ -76,8 +78,19 @@ for (const f of RULE_FILES) {
   fs.copyFileSync(src, dest);
 }
 log(`copied ${HOOK_FILES.length} hooks → ~/.claude/hooks and ${RULE_FILES.length} rules → ~/.claude/rules`);
-if (!withWorkflow) {
-  log('skipped rules/workflow.md (bounded Ralph loop + tasks/todo.md protocol) — add it with:  node install.mjs --with-workflow');
+
+// workflow.md keeps the Ralph details out of the always-loaded context by pointing at
+// this skill, so the two must ship together or that reference dangles.
+if (withWorkflow) {
+  const src = path.join(REPO, 'skills', 'ralph-protocol', 'SKILL.md');
+  const destDir = path.join(SKILLS, 'ralph-protocol');
+  const dest = path.join(destDir, 'SKILL.md');
+  fs.mkdirSync(destDir, { recursive: true });
+  if (fs.existsSync(dest) && !fs.readFileSync(dest).equals(fs.readFileSync(src))) backup(dest);
+  fs.copyFileSync(src, dest);
+  log('copied skills/ralph-protocol → ~/.claude/skills (loaded on demand, not every session)');
+} else {
+  log('skipped rules/workflow.md + the ralph-protocol skill — add them with:  node install.mjs --with-workflow');
 }
 
 // --- 3. Idempotent settings.json merge (never clobbers existing hooks) ---

@@ -36,6 +36,19 @@ for (const f of RULE_FILES) {
   else log(`kept ${f} — it differs from this repo's copy, so it is yours to delete`);
 }
 
+// --- 1c. Remove the ralph-protocol skill, same untouched-only rule ---
+{
+  const installed = path.join(CLAUDE, 'skills', 'ralph-protocol', 'SKILL.md');
+  const source = path.join(REPO, 'skills', 'ralph-protocol', 'SKILL.md');
+  if (fs.existsSync(installed) && fs.existsSync(source)) {
+    if (fs.readFileSync(installed).equals(fs.readFileSync(source))) {
+      fs.rmSync(installed);
+      try { fs.rmdirSync(path.dirname(installed)); } catch {} // only when it is now empty
+      log('removed skills/ralph-protocol');
+    } else log("kept skills/ralph-protocol — it differs from this repo's copy, so it is yours to delete");
+  }
+}
+
 // --- 2. Strip consigliere hook entries from settings.json (keep the rest) ---
 if (fs.existsSync(SETTINGS)) {
   const bak = `${SETTINGS}.consigliere-uninstall.bak`;

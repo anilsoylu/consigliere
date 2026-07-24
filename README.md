@@ -24,7 +24,7 @@ your prompt
 Six pieces, all installed under `~/.claude`:
 
 - **`advisor-watchdog.sh`** — runs Sol as a background Codex job, polls its log, and cancels it if it stalls for 5 minutes. No more one-hour hangs; a stuck advisor just falls back to Opus alone.
-- **`advisor-inject.mjs`** — a `UserPromptSubmit` hook that reminds the loop what to do and resets the gate on each new task.
+- **`advisor-inject.mjs`** — a `UserPromptSubmit` hook that resets the gate on each new task and emits a one-line trigger. Deliberately one line: the full loop is in `advisor-executor.md` and in the gate's own error message, and repeating it every turn only competes with them.
 - **`advisor-gate.mjs`** — a `PreToolUse` hook that blocks edits to real source-code files until the advisor has been consulted. Notes, configs, `~/.claude`, `~/.codex`, `/tmp`, and `~/Desktop` are exempt, so it never gets in the way of scratch work.
 - **`advisor-mark.mjs`** — clears the gate once the advisor is actually called.
 - **`advisor-executor.md`** — the behavioral spec Claude reads every session.
@@ -62,7 +62,9 @@ The installer is idempotent — re-running it changes nothing. It backs up `sett
 node install.mjs --with-workflow
 ```
 
-This adds a third rule, `workflow.md`: a bounded execution loop on top of the advisor loop. Plans live in `tasks/todo.md` with a fixed shape (goal, acceptance criteria, verification commands, attempts, review), a verifier hierarchy decides what counts as proof, and long jobs run through `/ralph-loop` capped at 8 iterations with an explicit `RESULT: VERIFIED_COMPLETE` / `RESULT: BLOCKED` stop line.
+This adds a third rule, `workflow.md`, plus the `ralph-protocol` skill it defers to: a bounded execution loop on top of the advisor loop. Plans live in `tasks/todo.md` with a fixed shape (goal, acceptance criteria, verification commands, attempts, review), a verifier hierarchy decides what counts as proof, and long jobs run through `/ralph-loop` capped at 8 iterations with an explicit `RESULT: VERIFIED_COMPLETE` / `RESULT: BLOCKED` stop line.
+
+The rule stays short on purpose — the entry conditions, iteration discipline, verifier hierarchy, and stop conditions live in the skill, which Claude loads when Ralph actually comes up instead of on every session.
 
 It's opt-in because it's opinionated and because the Ralph half needs a plugin Consigliere doesn't ship — `/plugin install ralph-loop@claude-plugins-official`. Install it without the plugin and you get the planning and verification discipline, just not the `/ralph-loop` and `/cancel-ralph` commands; the installer warns and continues.
 
