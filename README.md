@@ -21,13 +21,14 @@ your prompt
    → done
 ```
 
-Five pieces, all installed under `~/.claude`:
+Six pieces, all installed under `~/.claude`:
 
 - **`advisor-watchdog.sh`** — runs Sol as a background Codex job, polls its log, and cancels it if it stalls for 5 minutes. No more one-hour hangs; a stuck advisor just falls back to Opus alone.
 - **`advisor-inject.mjs`** — a `UserPromptSubmit` hook that reminds the loop what to do and resets the gate on each new task.
 - **`advisor-gate.mjs`** — a `PreToolUse` hook that blocks edits to real source-code files until the advisor has been consulted. Notes, configs, `~/.claude`, `~/.codex`, `/tmp`, and `~/Desktop` are exempt, so it never gets in the way of scratch work.
 - **`advisor-mark.mjs`** — clears the gate once the advisor is actually called.
 - **`advisor-executor.md`** — the behavioral spec Claude reads every session.
+- **`coding-discipline.md`** — a short rule that keeps the *executor* honest: state assumptions before coding, write the minimum that solves the problem, touch only what the request implies. Independent of the advisor loop; useful on its own.
 
 Two design choices that matter:
 
@@ -41,6 +42,7 @@ Sol has no web access (that was the thing that kept hanging). When it needs a cu
 - **Claude Code** (ships Node).
 - The **Codex plugin** — `/plugin install codex@openai-codex` inside Claude Code.
 - A **ChatGPT Plus / Codex login** — `codex login`. Not an API key.
+- *Optional, only for `--with-workflow`:* the **ralph-loop plugin** — `/plugin install ralph-loop@claude-plugins-official`.
 
 ## Install
 
@@ -52,7 +54,17 @@ node install.mjs
 
 Or hand the repo to Claude Code and say: *"run `node install.mjs` in this repo."*
 
-The installer is idempotent — re-running it changes nothing. It backs up `settings.json` and `config.toml` before editing (`.consigliere.bak`), merges its hooks without touching your existing ones, and offers to disable Codex web search. Restart Claude Code (plain `claude`) afterward so the rule and hooks load.
+The installer is idempotent — re-running it changes nothing. It backs up `settings.json`, `config.toml`, and any rule file it would overwrite (`.consigliere.bak`), merges its hooks without touching your existing ones, and offers to disable Codex web search. Restart Claude Code (plain `claude`) afterward so the rules and hooks load.
+
+### Optional: the workflow rule
+
+```bash
+node install.mjs --with-workflow
+```
+
+This adds a third rule, `workflow.md`: a bounded execution loop on top of the advisor loop. Plans live in `tasks/todo.md` with a fixed shape (goal, acceptance criteria, verification commands, attempts, review), a verifier hierarchy decides what counts as proof, and long jobs run through `/ralph-loop` capped at 8 iterations with an explicit `RESULT: VERIFIED_COMPLETE` / `RESULT: BLOCKED` stop line.
+
+It's opt-in because it's opinionated and because the Ralph half needs a plugin Consigliere doesn't ship — `/plugin install ralph-loop@claude-plugins-official`. Install it without the plugin and you get the planning and verification discipline, just not the `/ralph-loop` and `/cancel-ralph` commands; the installer warns and continues.
 
 ## Uninstall
 
@@ -60,7 +72,7 @@ The installer is idempotent — re-running it changes nothing. It backs up `sett
 node uninstall.mjs
 ```
 
-Removes the hooks and rule, strips only its own entries from `settings.json`, and leaves your backups in place.
+Removes the hooks, strips only its own entries from `settings.json`, and leaves your backups in place. A rule is deleted only while it's still byte-identical to this repo's copy — edit one and the uninstaller keeps it and tells you, rather than throwing away your version.
 
 ## Limits
 

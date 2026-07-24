@@ -1,12 +1,16 @@
 #!/usr/bin/env node
-// Consigliere uninstaller — removes the hooks + rule and strips ONLY the consigliere
+// Consigliere uninstaller — removes the hooks + rules and strips ONLY the consigliere
 // hook entries from settings.json, leaving your other hooks untouched. Backs up
 // settings.json before editing. Your .consigliere.bak files are left in place.
+// A rule is only deleted when it is still byte-identical to this repo's copy, so a
+// file you wrote or edited yourself is never silently removed.
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { fileURLToPath } from 'node:url';
 
 const HOME = os.homedir();
+const REPO = path.dirname(fileURLToPath(import.meta.url));
 const CLAUDE = path.join(HOME, '.claude');
 const HOOKS = path.join(CLAUDE, 'hooks');
 const RULES = path.join(CLAUDE, 'rules');
@@ -14,14 +18,23 @@ const SETTINGS = path.join(CLAUDE, 'settings.json');
 
 const log = (...a) => console.log('[consigliere]', ...a);
 const ADVISOR = ['advisor-inject.mjs', 'advisor-mark.mjs', 'advisor-gate.mjs', 'advisor-watchdog.sh'];
+const RULE_FILES = ['advisor-executor.md', 'coding-discipline.md', 'workflow.md'];
 
-// --- 1. Remove hook files + rule ---
+// --- 1. Remove hook files ---
 for (const f of ADVISOR) {
   const p = path.join(HOOKS, f);
   if (fs.existsSync(p)) { fs.rmSync(p); log(`removed ${f}`); }
 }
-const rule = path.join(RULES, 'advisor-executor.md');
-if (fs.existsSync(rule)) { fs.rmSync(rule); log('removed advisor-executor.md'); }
+
+// --- 1b. Remove rules, but only the untouched ones this installer placed ---
+for (const f of RULE_FILES) {
+  const installed = path.join(RULES, f);
+  const source = path.join(REPO, 'rules', f);
+  if (!fs.existsSync(installed)) continue;
+  if (!fs.existsSync(source)) { log(`kept ${f} — no repo copy to compare it against`); continue; }
+  if (fs.readFileSync(installed).equals(fs.readFileSync(source))) { fs.rmSync(installed); log(`removed ${f}`); }
+  else log(`kept ${f} — it differs from this repo's copy, so it is yours to delete`);
+}
 
 // --- 2. Strip consigliere hook entries from settings.json (keep the rest) ---
 if (fs.existsSync(SETTINGS)) {

@@ -15,6 +15,7 @@ const HOOKS = path.join(CLAUDE, 'hooks');
 const RULES = path.join(CLAUDE, 'rules');
 const SETTINGS = path.join(CLAUDE, 'settings.json');
 const CODEX_CONF = path.join(HOME, '.codex', 'config.toml');
+const withWorkflow = process.argv.slice(2).includes('--with-workflow');
 
 const log = (...a) => console.log('[consigliere]', ...a);
 const warn = (...a) => console.warn('[consigliere] WARN:', ...a);
@@ -44,7 +45,20 @@ if (!findCompanion()) {
   warn('Continuing install anyway — hooks will be in place once the plugin is added.');
 }
 
-// --- 2. Copy hooks + rule ---
+// --with-workflow ships rules/workflow.md, whose Ralph protocol runs on the ralph-loop plugin.
+function hasRalphLoop() {
+  return [
+    path.join(CLAUDE, 'plugins', 'cache', 'claude-plugins-official', 'ralph-loop'),
+    path.join(CLAUDE, 'plugins', 'marketplaces', 'claude-plugins-official', 'plugins', 'ralph-loop'),
+  ].some((p) => fs.existsSync(p));
+}
+if (withWorkflow && !hasRalphLoop()) {
+  warn('ralph-loop plugin not found. rules/workflow.md drives its bounded execution loop through it.');
+  warn('Install it in Claude Code:  /plugin install ralph-loop@claude-plugins-official');
+  warn('Continuing install anyway — the rest of the rule works, but /ralph-loop and /cancel-ralph will not exist.');
+}
+
+// --- 2. Copy hooks + rules ---
 fs.mkdirSync(HOOKS, { recursive: true });
 fs.mkdirSync(RULES, { recursive: true });
 const HOOK_FILES = ['advisor-inject.mjs', 'advisor-mark.mjs', 'advisor-gate.mjs', 'advisor-watchdog.sh'];
@@ -52,8 +66,19 @@ for (const f of HOOK_FILES) {
   fs.copyFileSync(path.join(REPO, 'hooks', f), path.join(HOOKS, f));
 }
 try { fs.chmodSync(path.join(HOOKS, 'advisor-watchdog.sh'), 0o755); } catch {}
-fs.copyFileSync(path.join(REPO, 'rules', 'advisor-executor.md'), path.join(RULES, 'advisor-executor.md'));
-log(`copied ${HOOK_FILES.length} hooks → ~/.claude/hooks and the rule → ~/.claude/rules`);
+const RULE_FILES = ['advisor-executor.md', 'coding-discipline.md'];
+if (withWorkflow) RULE_FILES.push('workflow.md');
+for (const f of RULE_FILES) {
+  const src = path.join(REPO, 'rules', f);
+  const dest = path.join(RULES, f);
+  // you may already have a rule by this name — keep a copy before overwriting it
+  if (fs.existsSync(dest) && !fs.readFileSync(dest).equals(fs.readFileSync(src))) backup(dest);
+  fs.copyFileSync(src, dest);
+}
+log(`copied ${HOOK_FILES.length} hooks → ~/.claude/hooks and ${RULE_FILES.length} rules → ~/.claude/rules`);
+if (!withWorkflow) {
+  log('skipped rules/workflow.md (bounded Ralph loop + tasks/todo.md protocol) — add it with:  node install.mjs --with-workflow');
+}
 
 // --- 3. Idempotent settings.json merge (never clobbers existing hooks) ---
 let settings = {};
