@@ -2,17 +2,46 @@
 # Consigliere advisor watchdog.
 # Runs Codex Sol as a background job via the codex-plugin-cc companion, polls its log,
 # cancels it if it stalls (no log growth), and prints the result otherwise.
+# Appends the advisor doctrine (verdict discipline + no web-search) to every prompt,
+# so callers never retype it.
 #
 # Usage: advisor-watchdog.sh "<prompt>" [max_idle_sec] [poll_sec]
+#        advisor-watchdog.sh --file <prompt_file> [max_idle_sec] [poll_sec]
+#   --file:       read the prompt from a file — use for long context (diffs, failing
+#                 output); avoids shell-quoting hazards
 #   max_idle_sec: cancel if the job log does not grow for this long (default 300 = 5 min)
 #   poll_sec:     status/log poll interval (default 20)
 #
 # Exit codes: 0 = result printed | 124 = hung, cancelled | 3 = could not start | 4 = job failed
 set -uo pipefail
 
-PROMPT="${1:?prompt required}"
-MAX_IDLE="${2:-300}"
-POLL="${3:-20}"
+if [ "${1:-}" = "--file" ]; then
+  FILE="${2:?prompt file required after --file}"
+  if [ ! -f "$FILE" ]; then
+    echo "WATCHDOG_ERROR: prompt file not found: $FILE" >&2
+    exit 3
+  fi
+  PROMPT=$(cat "$FILE")
+  shift 2
+else
+  PROMPT="${1:?prompt required}"
+  shift 1
+fi
+MAX_IDLE="${1:-300}"
+POLL="${2:-20}"
+
+# Advisor doctrine — appended to every consult so each call is disciplined by default.
+# The no-web-search rule is deliberate: Sol runs without search, and search would burn
+# the Codex plan's token budget even if it worked.
+DOCTRINE='
+
+--- ADVISOR DOCTRINE (always applies) ---
+- Do NOT web-search; mark external needs as "RESEARCH NEEDED: <question>".
+- Give a verdict, not a survey: "Do X, not Y, because Z" — and name the single risk that decides it.
+- A sound plan gets one line. Do not manufacture objections to justify being consulted.
+- Name missing information precisely: what it is and what each answer would imply. No bare "it depends".
+- Stay under ~300 words. Your reader is another model mid-task, not a human reading a report.'
+PROMPT="${PROMPT}${DOCTRINE}"
 
 # Resolve the companion script, robust to plugin version drift (newest version wins).
 C=$(ls -dt "$HOME"/.claude/plugins/cache/openai-codex/codex/*/scripts/codex-companion.mjs 2>/dev/null | head -1)

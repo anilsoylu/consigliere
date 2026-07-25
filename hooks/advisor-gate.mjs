@@ -20,9 +20,10 @@ if (!isCode) process.exit(0);
 if (fs.existsSync(`/tmp/advisor-gate-${sid}.flag`)) process.exit(0);
 process.stderr.write(
   "ADVISOR GATE (source code): Get a plan from the advisor first by running\n" +
-  "  bash ~/.claude/hooks/advisor-watchdog.sh \"<task>. Do NOT web-search; mark external needs as 'RESEARCH NEEDED: <q>'.\"\n" +
-  "then relay the plan to the user before writing code. This is the only advisor entry point — " +
-  "do not spawn a subagent for it. Details: ~/.claude/rules/advisor-executor.md\n" +
+  "  bash ~/.claude/hooks/advisor-watchdog.sh \"<consult>\"   (or --file <path> for long context)\n" +
+  "then relay the plan to the user before writing code. The watchdog appends the advisor doctrine itself — " +
+  "do not retype it. This is the only advisor entry point — do not spawn a subagent for it. " +
+  "Details: ~/.claude/rules/advisor-executor.md\n" +
   "If this is genuinely trivial, STOP and ask the user for an explicit go-ahead."
 );
 process.exit(2);

@@ -40,12 +40,13 @@ if (!onDemand && !CODE_SIGNAL.test(prompt)) process.exit(0);
 process.stdout.write(
   'ADVISOR/EXECUTOR LOOP — this prompt carries a code/design signal.\n' +
   '1) PLAN via Sol. This is the only entry point; do not spawn a subagent for it:\n' +
-  '   bash ~/.claude/hooks/advisor-watchdog.sh "<task>. Do NOT web-search; mark external needs as \'RESEARCH NEEDED: <q>\'."\n' +
-  '   Ground it — name the exact file, diff, or failing output. A bare one-line task wastes the call.\n' +
+  '   bash ~/.claude/hooks/advisor-watchdog.sh "<consult>"  — or --file <path> for long context (diffs, failing output).\n' +
+  '   The watchdog appends the advisor doctrine (verdict discipline, no web-search) itself — do not retype it.\n' +
+  '   Carry the five-part contract: objective, files, evidence (actual diff/output, never a paraphrase), constraints, options considered.\n' +
   '   Stalls >5 min → WATCHDOG_HUNG (exit 124); continue on Opus alone.\n' +
   '2) RESEARCH each "RESEARCH NEEDED" yourself (Sol has no web), then re-run the watchdog with the findings appended.\n' +
   '3) RELAY the plan to the user, then execute. Auto mode: do not stop for plan approval.\n' +
   '4) RE-CONSULT when the same error or verifier fails twice — stop before the third attempt and re-run with the actual output.\n' +
-  '5) REVIEW critical diffs through Sol: every finding labelled [ADOPT]/[DISCUSS]/[STYLE]/[OVER-ENGINEERED], all of them relayed verbatim.\n' +
+  '5) FINAL REVIEW, mandatory before reporting done: send the accumulated diff + stated goal to Sol via --file; ask for a SHIP/FIX-FIRST/RETHINK verdict, findings labelled [ADOPT]/[DISCUSS]/[STYLE]/[OVER-ENGINEERED], all relayed verbatim. Watchdog dead → fresh-context read-only Claude subagent review, stated as same-vendor.\n' +
   'Sol is read-only — never pass --write. Details: ~/.claude/rules/advisor-executor.md'
 );
