@@ -23,5 +23,15 @@ After any correction from the user, save a `type: feedback` memory capturing the
 ## Task tracking
 For multi-step implementation work, keep `tasks/todo.md` with checkable items and mark them off as you go. The `ralph-protocol` skill has the full template.
 
+## Git & PR
+- One branch per task: `feat/ fix/ chore/ refactor/` + kebab-case summary. Never commit straight to `main`.
+- Conventional commit subjects: `feat: … / fix: … / refactor: … / test: … / chore: … / docs: …`.
+- Before `gh pr create`: tests green, lint clean, and `git diff origin/main` self-reviewed line by line.
+- Open as `--draft` while work continues, `gh pr ready` when it is reviewable.
+- Keep a PR under ~400 changed lines. Bigger work gets split into stacked PRs.
+- Sync with `git rebase origin/main`; push rewritten history only with `--force-with-lease`, never bare `--force`.
+- PR body answers three things: what changed, why, how it was verified. Link the issue.
+- Delete the branch after merge; never reuse a merged branch.
+
 ## Core
 No laziness. Find root causes, no temporary patches.

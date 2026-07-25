@@ -24,7 +24,7 @@ your prompt
 Six pieces, all installed under `~/.claude`:
 
 - **`advisor-watchdog.sh`** — runs Sol as a background Codex job, polls its log, and cancels it if it stalls for 5 minutes. No more one-hour hangs; a stuck advisor just falls back to Opus alone.
-- **`advisor-inject.mjs`** — a `UserPromptSubmit` hook that resets the gate on each new task and emits a one-line trigger. Deliberately one line: the full loop is in `advisor-executor.md` and in the gate's own error message, and repeating it every turn only competes with them.
+- **`advisor-inject.mjs`** — a `UserPromptSubmit` hook that resets the gate on each new task and states the loop, but only when the prompt actually carries a code/design signal (a source filename, a design skill, an intent verb, or an outright "consult Sol"). Everything else gets silence. A directive that fires on "how much does this cost" is one the model learns to skip, so the selectivity is what keeps it worth reading.
 - **`advisor-gate.mjs`** — a `PreToolUse` hook that blocks edits to real source-code files until the advisor has been consulted. Notes, configs, `~/.claude`, `~/.codex`, `/tmp`, and `~/Desktop` are exempt, so it never gets in the way of scratch work.
 - **`advisor-mark.mjs`** — clears the gate once the advisor is actually called.
 - **`advisor-executor.md`** — the behavioral spec Claude reads every session.
