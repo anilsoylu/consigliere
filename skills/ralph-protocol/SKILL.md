@@ -1,6 +1,6 @@
 ---
 name: ralph-protocol
-description: Rules for running a bounded Ralph execution loop (/ralph-loop) — when it may start, iteration discipline, the verifier hierarchy, and the exact stop conditions. Read this BEFORE presenting or starting any /ralph-loop command, and when writing tasks/todo.md for multi-step implementation work.
+description: Rules for a bounded /ralph-loop: start conditions, iteration discipline, verifier hierarchy, stop conditions. Read before starting one.
 ---
 
 # Ralph Loop Protocol

@@ -46,6 +46,8 @@ Fallback: if the watchdog fails or hangs, delegate the review to a fresh-context
 
 Any diff review — final or mid-task — asks Sol to open with the SHIP/FIX-FIRST/RETHINK verdict, then label every finding `[ADOPT]` (real bug/security/perf), `[DISCUSS]` (debatable), `[STYLE]` (preference), `[OVER-ENGINEERED]` (complexity to cut).
 
+Ask the reviewer to report everything it finds — never "only high-severity issues" or "be conservative". A reviewer told to filter under-reports; prioritization happens with the user.
+
 Relay all findings verbatim. Never silently drop one — the user decides what to apply.
 
 ## Gate

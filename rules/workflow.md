@@ -6,7 +6,7 @@
 - Ask for approval only before irreversible or outward-facing actions.
 
 ## Delegation
-Match the primitive to the task. Small work needs no agents; deterministic steps belong in scripts. Reserve subagents for research and parallel exploration that would otherwise pollute main context — one focused task each.
+Match the primitive to the task. Small work needs no agents; deterministic steps belong in scripts. Reserve subagents for research and parallel exploration that would otherwise pollute main context — one focused task each. If one subagent can complete the task, use one rather than several, and keep spawn counts low. Never spawn a subagent to verify or double-check your own work — independent review comes from the advisor loop, not self-checks.
 
 ## Continuation loops
 For work with a verifiable exit criterion, use exactly one runtime continuation mechanism: `/goal` or Ralph, never both. Before presenting or starting any `/ralph-loop`, read the `ralph-protocol` skill.
