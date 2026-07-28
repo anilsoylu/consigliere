@@ -1,6 +1,6 @@
 ---
 name: ralph-protocol
-description: Rules for a bounded /ralph-loop: start conditions, iteration discipline, verifier hierarchy, stop conditions. Read before starting one.
+description: "Rules for a bounded /ralph-loop: start conditions, iteration discipline, verifier hierarchy, stop conditions. Read before starting one."
 ---
 
 # Ralph Loop Protocol
