@@ -63,7 +63,7 @@ To verify an install without changing anything:
 node doctor.mjs
 ```
 
-The doctor checks the installed hooks, default rules, `settings.json` hook entries, the Codex companion, Codex web-search setting, and watchdog executability. It exits non-zero only for hard failures such as invalid JSON or missing repo assets; incomplete installs are reported as warnings so you can fix them and re-run the installer.
+The doctor byte-compares the installed hooks against this repo's copies — an existing but edited hook is not the hook you think is running — and checks the default rules, `settings.json` hook entries, the Codex companion, Codex web-search setting, and watchdog executability. A rule you customized is reported, not flagged. It exits non-zero only for hard failures such as an unusable `settings.json` or missing repo assets; incomplete installs are warnings you fix by re-running the installer.
 
 For machine-readable output:
 
