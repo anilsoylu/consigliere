@@ -57,6 +57,20 @@ Or hand the repo to Claude Code and say: *"run `node install.mjs` in this repo."
 
 The installer is idempotent — re-running it changes nothing. It backs up `settings.json`, `config.toml`, and any rule file it would overwrite (`.consigliere.bak`), merges its hooks without touching your existing ones, and offers to disable Codex web search. Restart Claude Code (plain `claude`) afterward so the rules and hooks load.
 
+To verify an install without changing anything:
+
+```bash
+node doctor.mjs
+```
+
+The doctor checks the installed hooks, default rules, `settings.json` hook entries, the Codex companion, Codex web-search setting, and watchdog executability. It exits non-zero only for hard failures such as invalid JSON or missing repo assets; incomplete installs are reported as warnings so you can fix them and re-run the installer.
+
+For machine-readable output:
+
+```bash
+node doctor.mjs --json
+```
+
 ### Optional: the workflow rule
 
 ```bash
