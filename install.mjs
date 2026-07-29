@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { HOOK_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, hookCommand, findCompanion, hasRalphLoop } from './manifest.mjs';
 
 const HOME = os.homedir();
 const REPO = path.dirname(fileURLToPath(import.meta.url));
@@ -30,17 +31,7 @@ function backup(file) {
 }
 
 // --- 1. Prerequisite: the codex-plugin-cc companion must exist ---
-function findCompanion() {
-  const base = path.join(CLAUDE, 'plugins', 'cache', 'openai-codex', 'codex');
-  if (!fs.existsSync(base)) return null;
-  const versions = fs.readdirSync(base).sort().reverse();
-  for (const v of versions) {
-    const p = path.join(base, v, 'scripts', 'codex-companion.mjs');
-    if (fs.existsSync(p)) return p;
-  }
-  return null;
-}
-if (!findCompanion()) {
+if (!findCompanion(CLAUDE)) {
   warn('openai/codex-plugin-cc not found. Consigliere needs it for the Codex Sol advisor.');
   warn('Install it in Claude Code:  /plugin install codex@openai-codex   (and sign in with `codex login` / ChatGPT Plus).');
   warn('Continuing install anyway — hooks will be in place once the plugin is added.');
@@ -48,13 +39,7 @@ if (!findCompanion()) {
 
 // --with-workflow ships rules/workflow.md plus the ralph-protocol skill it defers to,
 // whose bounded execution loop runs on the ralph-loop plugin.
-function hasRalphLoop() {
-  return [
-    path.join(CLAUDE, 'plugins', 'cache', 'claude-plugins-official', 'ralph-loop'),
-    path.join(CLAUDE, 'plugins', 'marketplaces', 'claude-plugins-official', 'plugins', 'ralph-loop'),
-  ].some((p) => fs.existsSync(p));
-}
-if (withWorkflow && !hasRalphLoop()) {
+if (withWorkflow && !hasRalphLoop(CLAUDE)) {
   warn('ralph-loop plugin not found. rules/workflow.md drives its bounded execution loop through it.');
   warn('Install it in Claude Code:  /plugin install ralph-loop@claude-plugins-official');
   warn('Continuing install anyway — the rest of the rule works, but /ralph-loop and /cancel-ralph will not exist.');
@@ -63,13 +48,12 @@ if (withWorkflow && !hasRalphLoop()) {
 // --- 2. Copy hooks + rules ---
 fs.mkdirSync(HOOKS, { recursive: true });
 fs.mkdirSync(RULES, { recursive: true });
-const HOOK_FILES = ['advisor-inject.mjs', 'advisor-mark.mjs', 'advisor-gate.mjs', 'advisor-watchdog.sh'];
 for (const f of HOOK_FILES) {
   fs.copyFileSync(path.join(REPO, 'hooks', f), path.join(HOOKS, f));
 }
 try { fs.chmodSync(path.join(HOOKS, 'advisor-watchdog.sh'), 0o755); } catch {}
-const RULE_FILES = ['advisor-executor.md', 'coding-discipline.md'];
-if (withWorkflow) RULE_FILES.push('workflow.md');
+const RULE_FILES = [...DEFAULT_RULES];
+if (withWorkflow) RULE_FILES.push(WORKFLOW_RULE);
 for (const f of RULE_FILES) {
   const src = path.join(REPO, 'rules', f);
   const dest = path.join(RULES, f);
@@ -102,7 +86,6 @@ if (fs.existsSync(SETTINGS)) {
 }
 settings.hooks ??= {};
 
-function hookCmd(script) { return `node "${path.join(HOOKS, script)}"`; }
 function ensureHook(event, matcher, script) {
   settings.hooks[event] ??= [];
   const present = settings.hooks[event].some(b =>
@@ -112,14 +95,11 @@ function ensureHook(event, matcher, script) {
   let block = settings.hooks[event].find(b => (matcher ? b.matcher === matcher : !b.matcher));
   if (!block) { block = matcher ? { matcher, hooks: [] } : { hooks: [] }; settings.hooks[event].push(block); }
   block.hooks ??= [];
-  block.hooks.push({ type: 'command', command: hookCmd(script) });
+  block.hooks.push({ type: 'command', command: hookCommand(HOOKS, script) });
   return true;
 }
 let added = 0;
-added += ensureHook('PreToolUse', 'Bash', 'advisor-mark.mjs') ? 1 : 0;
-added += ensureHook('PreToolUse', 'Task', 'advisor-mark.mjs') ? 1 : 0;
-added += ensureHook('PreToolUse', 'Edit|Write|MultiEdit', 'advisor-gate.mjs') ? 1 : 0;
-added += ensureHook('UserPromptSubmit', null, 'advisor-inject.mjs') ? 1 : 0;
+for (const [event, matcher, script] of HOOK_ENTRIES) added += ensureHook(event, matcher, script) ? 1 : 0;
 fs.writeFileSync(SETTINGS, JSON.stringify(settings, null, 2) + '\n');
 log(added ? `merged ${added} hook entr${added === 1 ? 'y' : 'ies'} into settings.json` : 'settings.json already had all hook entries (no change)');
 

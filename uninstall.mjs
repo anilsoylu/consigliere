@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { HOOK_FILES, DEFAULT_RULES, WORKFLOW_RULE } from './manifest.mjs';
 
 const HOME = os.homedir();
 const REPO = path.dirname(fileURLToPath(import.meta.url));
@@ -17,8 +18,8 @@ const RULES = path.join(CLAUDE, 'rules');
 const SETTINGS = path.join(CLAUDE, 'settings.json');
 
 const log = (...a) => console.log('[consigliere]', ...a);
-const ADVISOR = ['advisor-inject.mjs', 'advisor-mark.mjs', 'advisor-gate.mjs', 'advisor-watchdog.sh'];
-const RULE_FILES = ['advisor-executor.md', 'coding-discipline.md', 'workflow.md'];
+const ADVISOR = HOOK_FILES;
+const RULE_FILES = [...DEFAULT_RULES, WORKFLOW_RULE];
 
 // --- 1. Remove hook files ---
 for (const f of ADVISOR) {
