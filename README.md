@@ -2,7 +2,7 @@
 
 A second brain for Claude Code: **Codex GPT-5.6 Sol plans, Claude Opus builds.**
 
-Sol thinks through *how* to do the work — architecture, edge cases, review — but never touches your files. Opus, the main Claude Code loop, writes the code. A watchdog keeps Codex from hanging, and a gate stops Claude from writing source until the advisor has weighed in.
+Sol thinks through *how* to do the work — architecture, edge cases, second opinions — but never touches your files. Opus, the main Claude Code loop, writes the code. A watchdog keeps Codex from hanging, and a gate stops Claude from writing source until the advisor has weighed in.
 
 It runs on your existing **ChatGPT Plus / Codex login**. No OpenAI API key, no proxy, no second subscription.
 
@@ -17,13 +17,15 @@ your prompt
    → Sol plans it (read-only, watchdog-wrapped)      ← the brain
    → you approve
    → Opus implements it                              ← the hands
-   → Sol reviews the final diff (verdict + categorized findings, zero-filter)
+   → Claude runs a risk-tiered /review on the diff (medium / high --fix / xhigh)
    → done
+
 ```
 
-Six pieces, all installed under `~/.claude`:
+Seven pieces, all installed under `~/.claude`:
 
 - **`advisor-watchdog.sh`** — runs Sol as a background Codex job, polls its log, and cancels it if it stalls for 5 minutes. No more one-hour hangs; a stuck advisor just falls back to Opus alone. Takes the prompt inline or via `--file` (for diffs and failing output), and appends the advisor doctrine — verdict-not-survey, no manufactured objections, ~300-word cap, no web search — to every consult so the caller never retypes it.
+- **`review-tier.sh`** — a deterministic classifier that reads the working-tree diff and prints the review effort tier: `medium` for routine CRUD/UI/config diffs, `high` for business logic and sizeable refactors (run with `--fix`), `xhigh` for payment, auth/session, and migration surfaces. Claude's built-in `/review` runs at that tier before any deliverable is reported done — the review runs on your Claude plan, keeping the Codex quota for planning. A `.review-tiers` file in a repo root adds per-project floors; the model may escalate a tier with a stated reason, never downgrade one.
 - **`advisor-inject.mjs`** — a `UserPromptSubmit` hook that resets the gate on each new task and states the loop, but only when the prompt actually carries a code/design signal (a source filename, a design skill, an intent verb, or an outright "consult Sol"). Everything else gets silence. A directive that fires on "how much does this cost" is one the model learns to skip, so the selectivity is what keeps it worth reading.
 - **`advisor-gate.mjs`** — a `PreToolUse` hook that blocks edits to real source-code files until the advisor has been consulted. Notes, configs, `~/.claude`, `~/.codex`, `/tmp`, and `~/Desktop` are exempt, so it never gets in the way of scratch work.
 - **`advisor-mark.mjs`** — clears the gate once the advisor is actually called.
@@ -34,7 +36,7 @@ Three design choices that matter:
 
 - **Read-only is a mechanism, not a promise.** The companion runs Codex without `--write`, so the advisor's sandbox is read-only. Sol *cannot* edit your files, even if a prompt told it to. It still reads them — `git diff`, `git blame`, `ripgrep` — to ground its judgment.
 - **Consults carry a five-part contract.** Sol shares none of the conversation's context, so every consult states the objective, the exact files, the evidence (the actual diff or failing output, never a paraphrase), the constraints, and the options considered. A consult you can't finish writing means the decision isn't formed yet.
-- **The final review is mandatory, categorized, and unfiltered.** Before Claude reports a deliverable done, Sol reads the accumulated diff fresh — against the stated goal, not the conversation — opens with a **SHIP / FIX-FIRST / RETHINK** verdict, then labels every finding `[ADOPT]` / `[DISCUSS]` / `[STYLE]` / `[OVER-ENGINEERED]`. All of them reach you verbatim; you decide what to apply.
+- **The final review is mandatory, tiered, and unfiltered.** Before Claude reports a deliverable done, `review-tier.sh` picks the effort tier from the diff and Claude's built-in review runs at it, asked to report everything it finds — no severity filtering; you prioritize. Sol reads a diff only on demand ("consult Sol"): a deliberate cross-vendor second opinion that opens with a **SHIP / FIX-FIRST / RETHINK** verdict and labels every finding `[ADOPT]` / `[DISCUSS]` / `[STYLE]` / `[OVER-ENGINEERED]`, all relayed verbatim.
 
 Sol has no web access (that was the thing that kept hanging). When it needs a current fact it writes `RESEARCH NEEDED: <question>` instead of searching; Opus looks it up with Claude's own web tools and hands the answer back.
 

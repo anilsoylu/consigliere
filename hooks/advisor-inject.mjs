@@ -47,6 +47,10 @@ process.stdout.write(
   '2) RESEARCH each "RESEARCH NEEDED" yourself (Sol has no web), then re-run the watchdog with the findings appended.\n' +
   '3) RELAY the plan to the user, then execute. Auto mode: do not stop for plan approval.\n' +
   '4) RE-CONSULT when the same error or verifier fails twice — stop before the third attempt and re-run with the actual output.\n' +
-  '5) FINAL REVIEW, mandatory before reporting done: send the accumulated diff + stated goal to Sol via --file; ask for a SHIP/FIX-FIRST/RETHINK verdict, findings labelled [ADOPT]/[DISCUSS]/[STYLE]/[OVER-ENGINEERED], all relayed verbatim. Watchdog dead → fresh-context read-only Claude subagent review, stated as same-vendor.\n' +
+  '5) FINAL REVIEW, mandatory before reporting done — native, not Sol (Codex quota is reserved for planning):\n' +
+  '   bash ~/.claude/hooks/review-tier.sh  → none|medium|high|xhigh (none = no source changes, skip).\n' +
+  '   Run the built-in /review skill at that tier; high → with --fix, then re-run the verifier on the fixed diff.\n' +
+  '   Escalate the tier with a stated reason if the diff warrants it; never downgrade. Relay all findings — no severity filtering.\n' +
+  '   Sol reads a diff only on demand ("danış") — that spends Codex quota deliberately.\n' +
   'Sol is read-only — never pass --write. Details: ~/.claude/rules/advisor-executor.md'
 );

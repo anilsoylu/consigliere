@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-export const HOOK_FILES = ['advisor-inject.mjs', 'advisor-mark.mjs', 'advisor-gate.mjs', 'advisor-watchdog.sh'];
+export const HOOK_FILES = ['advisor-inject.mjs', 'advisor-mark.mjs', 'advisor-gate.mjs', 'advisor-watchdog.sh', 'review-tier.sh'];
 export const DEFAULT_RULES = ['advisor-executor.md', 'coding-discipline.md'];
 export const WORKFLOW_RULE = 'workflow.md';
 

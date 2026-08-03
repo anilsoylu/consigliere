@@ -36,17 +36,21 @@ A consult you can't finish writing means the decision isn't formed yet — form 
 
 If Sol's guidance contradicts what you observe — a recommended step fails, file contents differ from its assumption — surface the conflict to the user instead of following it blindly.
 
-## Final review — mandatory
+## Final review — mandatory, native
 
-Before reporting any source-code deliverable done, run the watchdog once more (use `--file`) with the accumulated diff and the stated goal. Sol reads the changes fresh, against the goal rather than the conversation, and opens with a top-line verdict: **SHIP / FIX-FIRST / RETHINK**. Act on it or surface the disagreement — never silently ignore it, never report done without it.
+Before reporting any source-code deliverable done, run the tiered native review. Sol is NOT part of it — Codex quota is reserved for planning.
 
-Fallback: if the watchdog fails or hangs, delegate the review to a fresh-context read-only Claude subagent instead, and state explicitly that the review was same-vendor.
+1. `bash ~/.claude/hooks/review-tier.sh` prints the tier from the working-tree diff: `none` (no source changes — skip), `medium` (routine CRUD, UI, config-adjacent code), `high` (business logic, non-trivial refactors), `xhigh` (payments, auth/session, migrations). A `.review-tiers` file in the repo root (lines: `<xhigh|high> <regex>`) adds per-project floors.
+2. Run the built-in `/review` skill at that tier. `high` runs with `--fix`, then re-run the verifier on the fixed diff. Escalate the tier with a stated reason if the diff warrants it; never downgrade.
+3. Relay all findings; act on or surface each one.
+
+Sol reads a diff only on demand ("danış" / "consult Sol") or when the user asks for a cross-vendor second opinion on an xhigh deliverable — that call spends Codex quota deliberately.
 
 ## Review output
 
-Any diff review — final or mid-task — asks Sol to open with the SHIP/FIX-FIRST/RETHINK verdict, then label every finding `[ADOPT]` (real bug/security/perf), `[DISCUSS]` (debatable), `[STYLE]` (preference), `[OVER-ENGINEERED]` (complexity to cut).
+When Sol does review a diff (on demand), it opens with a **SHIP / FIX-FIRST / RETHINK** verdict, then labels every finding `[ADOPT]` (real bug/security/perf), `[DISCUSS]` (debatable), `[STYLE]` (preference), `[OVER-ENGINEERED]` (complexity to cut).
 
-Ask the reviewer to report everything it finds — never "only high-severity issues" or "be conservative". A reviewer told to filter under-reports; prioritization happens with the user.
+Ask any reviewer — native or Sol — to report everything it finds — never "only high-severity issues" or "be conservative". A reviewer told to filter under-reports; prioritization happens with the user.
 
 Relay all findings verbatim. Never silently drop one — the user decides what to apply.
 
