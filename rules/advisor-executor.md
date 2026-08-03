@@ -40,7 +40,7 @@ If Sol's guidance contradicts what you observe — a recommended step fails, fil
 
 Before reporting any source-code deliverable done, run the tiered native review. Sol is NOT part of it — Codex quota is reserved for planning.
 
-1. `bash ~/.claude/hooks/review-tier.sh` prints the tier from the working-tree diff: `none` (no source changes — skip), `medium` (routine CRUD, UI, config-adjacent code), `high` (business logic, non-trivial refactors), `xhigh` (payments, auth/session, migrations). A `.review-tiers` file in the repo root (lines: `<xhigh|high> <regex>`) adds per-project floors.
+1. `bash ~/.claude/hooks/review-tier.sh` prints the tier from the working-tree diff: `none` (no source changes — skip), `medium` (routine CRUD, UI, config-adjacent code), `high` (business logic, non-trivial refactors, risky vocabulary: auth/session/checkout/middleware), `xhigh` (unambiguous surfaces only: payment providers, crypto primitives, migrations/schema, or strong added-line signals like `STRIPE_SECRET_KEY`/`jwt.sign`). A `.review-tiers` file in the repo root (lines: `<xhigh|high> <regex>`) adds per-project floors.
 2. Run the built-in `/review` skill at that tier. `high` runs with `--fix`, then re-run the verifier on the fixed diff. Escalate the tier with a stated reason if the diff warrants it; never downgrade.
 3. Relay all findings; act on or surface each one.
 
