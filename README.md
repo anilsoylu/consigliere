@@ -57,7 +57,7 @@ node install.mjs
 
 Or hand the repo to Claude Code and say: *"run `node install.mjs` in this repo."*
 
-The installer is idempotent — re-running it changes nothing. It backs up `settings.json`, `config.toml`, and any rule file it would overwrite (`.consigliere.bak`), merges its hooks without touching your existing ones, and offers to disable Codex web search. Restart Claude Code (plain `claude`) afterward so the rules and hooks load.
+The installer is idempotent — re-running it changes nothing. It backs up `settings.json`, `config.toml`, and any rule, hook, or skill file it would overwrite (`.consigliere.bak`), merges its hooks without touching your existing ones, and offers to disable Codex web search. Restart Claude Code (plain `claude`) afterward so the rules and hooks load.
 
 To verify an install without changing anything:
 
