@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import { runChecks, summarize } from '../doctor.mjs';
-import { HOOK_FILES, DEFAULT_RULES, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, hookCommand } from '../manifest.mjs';
+import { HOOK_FILES, DEFAULT_RULES, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, hookCommand } from '../manifest.mjs';
 
 const DOCTOR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'doctor.mjs');
 const temps = [];
@@ -32,6 +32,7 @@ function makeRepoFixture() {
   const repo = temp('consigliere-repo-');
   for (const hook of HOOK_FILES) writeFile(path.join(repo, 'hooks', hook), hook);
   for (const rule of DEFAULT_RULES) writeFile(path.join(repo, 'rules', rule), rule);
+  for (const file of YAGNI_FILES) writeFile(path.join(repo, 'skills', YAGNI_SKILL, file), file);
   writeFile(path.join(repo, 'install.mjs'));
   writeFile(path.join(repo, 'uninstall.mjs'));
   return repo;
@@ -55,6 +56,7 @@ function installDefaultFiles(home) {
   for (const hook of HOOK_FILES) writeFile(path.join(claude, 'hooks', hook), hook);
   fs.chmodSync(path.join(claude, 'hooks', 'advisor-watchdog.sh'), 0o755);
   for (const rule of DEFAULT_RULES) writeFile(path.join(claude, 'rules', rule), rule);
+  for (const file of YAGNI_FILES) writeFile(path.join(claude, 'skills', YAGNI_SKILL, file), file);
   writeFile(path.join(claude, 'settings.json'), settingsFor(home));
   writeFile(path.join(claude, 'plugins', 'cache', 'openai-codex', 'codex', '1.0.0', 'scripts', 'codex-companion.mjs'));
   writeFile(path.join(home, '.codex', 'config.toml'), 'web_search = "disabled"\n');
@@ -256,6 +258,29 @@ test('warns about a locally customized merge-readiness file instead of certifyin
   writeFile(path.join(home, '.claude', 'skills', MERGE_READINESS_SKILL, 'SKILL.md'), 'my own version');
 
   const skill = check(run(home, repo), 'merge-readiness skill');
+
+  assert.equal(skill.level, 'warn');
+  assert.match(skill.detail, /customized locally.*SKILL\.md/);
+});
+
+// yagni ships by default, so unlike merge-readiness its absence is a finding, not silence
+test('warns when the yagni skill was never installed', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+  fs.rmSync(path.join(home, '.claude', 'skills', YAGNI_SKILL), { recursive: true });
+
+  const skill = check(run(home, makeRepoFixture()), 'yagni skill');
+
+  assert.equal(skill.level, 'warn');
+  assert.match(skill.detail, /missing: SKILL\.md/);
+});
+
+test('warns about a locally customized yagni skill instead of certifying it', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+  writeFile(path.join(home, '.claude', 'skills', YAGNI_SKILL, 'SKILL.md'), 'my own version');
+
+  const skill = check(run(home, makeRepoFixture()), 'yagni skill');
 
   assert.equal(skill.level, 'warn');
   assert.match(skill.detail, /customized locally.*SKILL\.md/);

@@ -22,7 +22,7 @@ your prompt
 
 ```
 
-Seven pieces, all installed under `~/.claude`:
+Eight pieces, all installed under `~/.claude`:
 
 - **`advisor-watchdog.sh`** — runs Sol as a background Codex job, polls its log, and cancels it if it stalls for 5 minutes. No more one-hour hangs; a stuck advisor just falls back to Opus alone. Takes the prompt inline or via `--file` (for diffs and failing output), and appends the advisor doctrine — verdict-not-survey, no manufactured objections, ~300-word cap, no web search — to every consult so the caller never retypes it.
 - **`review-tier.sh`** — a deterministic classifier that reads the working-tree diff and prints the review effort tier: `medium` for routine CRUD/UI/config diffs; `high` for business logic, sizeable refactors, and the broad risky vocabulary — auth, session, checkout, middleware — (run with `--fix`); `xhigh` reserved for unambiguous surfaces: payment providers, crypto primitives, migration and schema files, plus a narrow scan of added lines for signals like `STRIPE_SECRET_KEY` or `jwt.sign`. Repeated false alarms at the top tier would teach you to ignore it, so the expensive floor is deliberately precise. Claude's built-in `/review` runs at that tier before any deliverable is reported done — the review runs on your Claude plan, keeping the Codex quota for planning. A `.review-tiers` file in a repo root adds per-project floors; the model may escalate a tier with a stated reason, never downgrade one.
@@ -31,6 +31,7 @@ Seven pieces, all installed under `~/.claude`:
 - **`advisor-mark.mjs`** — clears the gate once the advisor is actually called.
 - **`advisor-executor.md`** — the behavioral spec Claude reads every session.
 - **`coding-discipline.md`** — a short rule that keeps the *executor* honest: state assumptions before coding, write the minimum that solves the problem, touch only what the request implies. Independent of the advisor loop; useful on its own.
+- **the `yagni` skill** — the deliberate enforcement pass for that rule, run as `/yagni`. It has one job: make the code smaller without making it do less. Interfaces with one implementation, wrappers that only forward, flags nobody sets, guards for states the types already rule out, the same fact maintained in two places. Every finding has to answer one question — does removing this leave fewer concepts, branches, config points, layers, or maintained facts, with no behavior lost — and anything that fails it is left to `/review`. That boundary is the whole design: a simplicity pass that also has opinions about naming and architecture is a second code review with softer criteria, and you stop reading it. It ships by default because it costs nothing until you invoke it.
 
 Three design choices that matter:
 

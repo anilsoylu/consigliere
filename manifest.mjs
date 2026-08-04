@@ -12,6 +12,12 @@ export const WORKFLOW_RULE = 'workflow.md';
 export const MERGE_READINESS_SKILL = 'merge-readiness';
 export const MERGE_READINESS_FILES = ['SKILL.md', 'merge-readiness.js'];
 
+// The deletion pass for rules/coding-discipline.md, which is already a default rule.
+// A prompt file with no runtime cost and no plugin dependency, so it ships by default
+// rather than behind a flag — inert until you run /yagni.
+export const YAGNI_SKILL = 'yagni';
+export const YAGNI_FILES = ['SKILL.md'];
+
 // [event, matcher, script] — matcher null means the block carries no matcher
 export const HOOK_ENTRIES = [
   ['PreToolUse', 'Bash', 'advisor-mark.mjs'],
