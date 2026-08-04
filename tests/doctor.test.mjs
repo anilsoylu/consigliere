@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import { runChecks, summarize } from '../doctor.mjs';
-import { HOOK_FILES, DEFAULT_RULES, HOOK_ENTRIES, hookCommand } from '../manifest.mjs';
+import { HOOK_FILES, DEFAULT_RULES, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, hookCommand } from '../manifest.mjs';
 
 const DOCTOR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'doctor.mjs');
 const temps = [];
@@ -208,6 +208,58 @@ for (const [label, toml] of [
     assert.equal(check(run(home, makeRepoFixture()), 'codex web search').level, 'warn');
   });
 }
+
+// the skill is optional, so the check only exists once the directory is there
+function installMergeReadiness(home, repo) {
+  for (const file of MERGE_READINESS_FILES) {
+    writeFile(path.join(repo, 'skills', MERGE_READINESS_SKILL, file), file);
+    writeFile(path.join(home, '.claude', 'skills', MERGE_READINESS_SKILL, file), file);
+  }
+}
+
+test('stays silent about merge-readiness when it was never installed', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+
+  assert.equal(check(run(home, makeRepoFixture()), 'merge-readiness skill'), undefined);
+});
+
+test('passes when the merge-readiness skill and its script both match the repo', () => {
+  const home = temp('consigliere-doctor-');
+  const repo = makeRepoFixture();
+  installDefaultFiles(home);
+  installMergeReadiness(home, repo);
+
+  const skill = check(run(home, repo), 'merge-readiness skill');
+
+  assert.equal(skill.level, 'pass');
+});
+
+test('warns when the skill is installed without the workflow script it invokes', () => {
+  const home = temp('consigliere-doctor-');
+  const repo = makeRepoFixture();
+  installDefaultFiles(home);
+  installMergeReadiness(home, repo);
+  fs.rmSync(path.join(home, '.claude', 'skills', MERGE_READINESS_SKILL, 'merge-readiness.js'));
+
+  const skill = check(run(home, repo), 'merge-readiness skill');
+
+  assert.equal(skill.level, 'warn');
+  assert.match(skill.detail, /missing: merge-readiness\.js/);
+});
+
+test('warns about a locally customized merge-readiness file instead of certifying it', () => {
+  const home = temp('consigliere-doctor-');
+  const repo = makeRepoFixture();
+  installDefaultFiles(home);
+  installMergeReadiness(home, repo);
+  writeFile(path.join(home, '.claude', 'skills', MERGE_READINESS_SKILL, 'SKILL.md'), 'my own version');
+
+  const skill = check(run(home, repo), 'merge-readiness skill');
+
+  assert.equal(skill.level, 'warn');
+  assert.match(skill.detail, /customized locally.*SKILL\.md/);
+});
 
 test('--json prints a summary and --help exits clean', () => {
   const output = JSON.parse(execFileSync(process.execPath, [DOCTOR, '--json'], { encoding: 'utf8' }));

@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { HOOK_FILES, DEFAULT_RULES, WORKFLOW_RULE } from './manifest.mjs';
+import { HOOK_FILES, DEFAULT_RULES, WORKFLOW_RULE, MERGE_READINESS_SKILL, MERGE_READINESS_FILES } from './manifest.mjs';
 
 const HOME = os.homedir();
 const REPO = path.dirname(fileURLToPath(import.meta.url));
@@ -48,6 +48,20 @@ for (const f of RULE_FILES) {
       log('removed skills/ralph-protocol');
     } else log("kept skills/ralph-protocol — it differs from this repo's copy, so it is yours to delete");
   }
+}
+
+// --- 1d. Remove the merge-readiness skill and its workflow script, same rule ---
+{
+  const destDir = path.join(CLAUDE, 'skills', MERGE_READINESS_SKILL);
+  const srcDir = path.join(REPO, 'skills', MERGE_READINESS_SKILL);
+  for (const f of MERGE_READINESS_FILES) {
+    const installed = path.join(destDir, f);
+    const source = path.join(srcDir, f);
+    if (!fs.existsSync(installed) || !fs.existsSync(source)) continue;
+    if (fs.readFileSync(installed).equals(fs.readFileSync(source))) { fs.rmSync(installed); log(`removed ${MERGE_READINESS_SKILL}/${f}`); }
+    else log(`kept ${MERGE_READINESS_SKILL}/${f} — it differs from this repo's copy, so it is yours to delete`);
+  }
+  try { fs.rmdirSync(destDir); } catch {} // only when it is now empty
 }
 
 // --- 2. Strip consigliere hook entries from settings.json (keep the rest) ---
