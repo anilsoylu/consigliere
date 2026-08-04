@@ -272,7 +272,9 @@ test('warns when the yagni skill was never installed', () => {
   const skill = check(run(home, makeRepoFixture()), 'yagni skill');
 
   assert.equal(skill.level, 'warn');
-  assert.match(skill.detail, /missing: SKILL\.md/);
+  assert.match(skill.detail, /not installed \(SKILL\.md\)/);
+  // doctor cannot tell a deliberate removal from a broken install, so it must not insist
+  assert.match(skill.detail, /ignore this if you removed it on purpose/);
 });
 
 test('warns about a locally customized yagni skill instead of certifying it', () => {
