@@ -17,7 +17,8 @@ softer criteria, and you learn to skip it.
 > Does removing this produce fewer concepts, branches, configuration points, layers, or
 > separately-maintained facts, without removing behavior something actually needs?
 
-No, it does not belong here. Say nothing. A short report is the normal outcome.
+If the answer is no, the finding does not belong here — say nothing about it. A short
+report is the normal outcome.
 
 "Something actually needs" means a caller, a test, a ticket, or a stated requirement.
 It does not mean a future that seems likely.
@@ -37,8 +38,8 @@ to the thing behind it, with the arguments unchanged. It adds a name and a file 
 behavior.
 
 **Configuration nobody sets.** A flag, option, env var, or parameter with a default and
-zero non-default callers. Every one of them doubles the states you have to reason about
-and be tested against. Delete the knob, keep the default.
+zero non-default callers. Every one of them multiplies the states you have to reason
+about and cannot afford to test. Delete the knob, keep the default.
 
 **Error handling for impossible states.** A branch guarding a case the type system,
 the caller, or the schema already rules out. It reads as caution and behaves as dead
@@ -63,9 +64,11 @@ showing the thing it fixes. It buys speed with invalidation bugs.
 ## What this pass does not report
 
 Naming. Formatting. General readability. Test coverage. The quality of error handling
-that is genuinely needed. Performance. Architectural preference — which pattern is
-nicer, whether composition beats inheritance, where state should live — unless the
-answer directly justifies deleting code or dropping generality nothing uses.
+that is genuinely needed. Whether the code is fast enough — an optimization already
+justified by a measurement stays, and one that is missing is `/review`'s problem, not
+this pass's. Architectural preference — which pattern is nicer, whether composition
+beats inheritance, where state should live — unless the answer directly justifies
+deleting code or dropping generality nothing uses.
 
 All of that belongs to `/review`. Sending it here is how this pass stops being read.
 
