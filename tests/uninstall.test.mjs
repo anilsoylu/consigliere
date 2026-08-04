@@ -81,7 +81,7 @@ test('strips only its own hook entries and leaves an unrelated hook in the same 
   const after = readSettings(home);
   const commands = JSON.stringify(after.hooks ?? {});
   assert.match(commands, /my-own-hook\.mjs/, 'an unrelated hook must survive');
-  for (const f of HOOK_FILES) assert.doesNotMatch(commands, new RegExp(f.replace('.', '\\.')));
+  for (const f of HOOK_FILES) assert.equal(commands.includes(f), false, `${f} should no longer be registered`);
   assert.equal('UserPromptSubmit' in (after.hooks ?? {}), false, 'an event left empty must be dropped, not kept as []');
   assert.equal(after.hooks.PreToolUse.length, 1, 'blocks left empty must be dropped too');
 });
@@ -102,11 +102,8 @@ test('installs cleanly again after an uninstall', () => {
 
   run(INSTALL, home);
 
-  for (const [event, matcher, script] of [['UserPromptSubmit', null, 'advisor-inject.mjs']]) {
-    const blocks = readSettings(home).hooks[event];
-    const found = blocks.some((b) => (matcher ? b.matcher === matcher : !b.matcher)
-      && b.hooks.some((h) => h.command === hookCommand(path.join(home, '.claude', 'hooks'), script)));
-    assert.ok(found, `${script} should be registered again`);
-  }
+  const registered = readSettings(home).hooks.UserPromptSubmit
+    .some((b) => !b.matcher && b.hooks.some((h) => h.command === hookCommand(path.join(home, '.claude', 'hooks'), 'advisor-inject.mjs')));
+  assert.ok(registered, 'advisor-inject.mjs should be registered again');
   assert.ok(fs.existsSync(hookPath(home, HOOK_FILES[0])));
 });
