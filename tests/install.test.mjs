@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { HOOK_FILES, DEFAULT_RULES } from '../manifest.mjs';
+import { HOOK_FILES, DEFAULT_RULES, YAGNI_SKILL, YAGNI_FILES } from '../manifest.mjs';
 
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const INSTALL = path.join(REPO, 'install.mjs');
@@ -28,15 +28,15 @@ function install(home = null) {
 const read = (p) => fs.readFileSync(p, 'utf8');
 const hookPath = (home, f) => path.join(home, '.claude', 'hooks', f);
 const rulePath = (home, f) => path.join(home, '.claude', 'rules', f);
+const yagniPath = (home, f) => path.join(home, '.claude', 'skills', YAGNI_SKILL, f);
 
 // The regression: install.mjs used to copy hooks with no backup at all, so a customized
 // hook was destroyed on the next install while a customized rule was carefully preserved.
-for (const [label, live, repoFile] of [
-  ['hook', hookPath, (f) => path.join(REPO, 'hooks', f)],
-  ['rule', rulePath, (f) => path.join(REPO, 'rules', f)],
+for (const [label, live, repoFile, file] of [
+  ['hook', hookPath, (f) => path.join(REPO, 'hooks', f), HOOK_FILES[0]],
+  ['rule', rulePath, (f) => path.join(REPO, 'rules', f), DEFAULT_RULES[0]],
+  ['yagni file', yagniPath, (f) => path.join(REPO, 'skills', YAGNI_SKILL, f), YAGNI_FILES[0]],
 ]) {
-  const file = label === 'hook' ? HOOK_FILES[0] : DEFAULT_RULES[0];
-
   test(`backs up a customized ${label} instead of overwriting it silently`, () => {
     const home = install();
     const target = live(home, file);

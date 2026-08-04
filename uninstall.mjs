@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { HOOK_FILES, DEFAULT_RULES, WORKFLOW_RULE, MERGE_READINESS_SKILL, MERGE_READINESS_FILES } from './manifest.mjs';
+import { HOOK_FILES, DEFAULT_RULES, WORKFLOW_RULE, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES } from './manifest.mjs';
 
 const HOME = os.homedir();
 const REPO = path.dirname(fileURLToPath(import.meta.url));
@@ -61,6 +61,21 @@ for (const f of RULE_FILES) {
     if (!fs.existsSync(source)) { log(`kept ${MERGE_READINESS_SKILL}/${f} — no repo copy to compare it against`); continue; }
     if (fs.readFileSync(installed).equals(fs.readFileSync(source))) { fs.rmSync(installed); log(`removed ${MERGE_READINESS_SKILL}/${f}`); }
     else log(`kept ${MERGE_READINESS_SKILL}/${f} — it differs from this repo's copy, so it is yours to delete`);
+  }
+  try { fs.rmdirSync(destDir); } catch {} // only when it is now empty
+}
+
+// --- 1e. Remove the yagni skill, same untouched-only rule ---
+{
+  const destDir = path.join(CLAUDE, 'skills', YAGNI_SKILL);
+  const srcDir = path.join(REPO, 'skills', YAGNI_SKILL);
+  for (const f of YAGNI_FILES) {
+    const installed = path.join(destDir, f);
+    const source = path.join(srcDir, f);
+    if (!fs.existsSync(installed)) continue;
+    if (!fs.existsSync(source)) { log(`kept ${YAGNI_SKILL}/${f} — no repo copy to compare it against`); continue; }
+    if (fs.readFileSync(installed).equals(fs.readFileSync(source))) { fs.rmSync(installed); log(`removed ${YAGNI_SKILL}/${f}`); }
+    else log(`kept ${YAGNI_SKILL}/${f} — it differs from this repo's copy, so it is yours to delete`);
   }
   try { fs.rmdirSync(destDir); } catch {} // only when it is now empty
 }

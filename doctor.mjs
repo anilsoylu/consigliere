@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { HOOK_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, hookCommand, findCompanion, hasRalphLoop } from './manifest.mjs';
+import { HOOK_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, hookCommand, findCompanion, hasRalphLoop } from './manifest.mjs';
 
 const REPO = path.dirname(fileURLToPath(import.meta.url));
 const USAGE = `Usage: node doctor.mjs [--json]
@@ -155,6 +155,16 @@ export function runChecks(options = {}) {
       : rules.modified.length
         ? status('warn', 'installed rules', `customized locally, no longer this repo's: ${list(rules.modified)}`)
         : status('pass', 'installed rules', 'default advisor rules are installed and match this repo')
+  );
+
+  // Default skill, so unlike merge-readiness its absence is a finding, not a skip.
+  const yagni = compare(YAGNI_FILES, path.join(repo, 'skills', YAGNI_SKILL), path.join(skillsDir, YAGNI_SKILL));
+  checks.push(
+    yagni.missing.length
+      ? status('warn', 'yagni skill', `missing: ${list(yagni.missing)}; rerun node install.mjs`)
+      : yagni.modified.length
+        ? status('warn', 'yagni skill', `customized locally, no longer this repo's: ${list(yagni.modified)}`)
+        : status('pass', 'yagni skill', 'the yagni deletion pass is installed and matches this repo')
   );
 
   const { present, settings, error } = parseSettings(settingsPath);

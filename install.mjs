@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { HOOK_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, hookCommand, findCompanion, hasRalphLoop } from './manifest.mjs';
+import { HOOK_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, hookCommand, findCompanion, hasRalphLoop } from './manifest.mjs';
 
 const HOME = os.homedir();
 const REPO = path.dirname(fileURLToPath(import.meta.url));
@@ -98,6 +98,21 @@ if (withMergeReadiness) {
   log(`copied skills/${MERGE_READINESS_SKILL} → ~/.claude/skills (run it with /${MERGE_READINESS_SKILL} once Claude Code restarts)`);
 } else {
   log(`skipped the ${MERGE_READINESS_SKILL} review graph — add it with:  node install.mjs --with-${MERGE_READINESS_SKILL}`);
+}
+
+// No flag: it is the enforcement pass for rules/coding-discipline.md, which is already a
+// default rule, and it costs nothing until you run /yagni.
+{
+  const srcDir = path.join(REPO, 'skills', YAGNI_SKILL);
+  const destDir = path.join(SKILLS, YAGNI_SKILL);
+  fs.mkdirSync(destDir, { recursive: true });
+  for (const f of YAGNI_FILES) {
+    const src = path.join(srcDir, f);
+    const dest = path.join(destDir, f);
+    if (fs.existsSync(dest) && !fs.readFileSync(dest).equals(fs.readFileSync(src))) backup(dest);
+    fs.copyFileSync(src, dest);
+  }
+  log(`copied skills/${YAGNI_SKILL} → ~/.claude/skills (run it with /${YAGNI_SKILL} once Claude Code restarts)`);
 }
 
 // --- 3. Idempotent settings.json merge (never clobbers existing hooks) ---
