@@ -50,7 +50,12 @@ if (withWorkflow && !hasRalphLoop(CLAUDE)) {
 fs.mkdirSync(HOOKS, { recursive: true });
 fs.mkdirSync(RULES, { recursive: true });
 for (const f of HOOK_FILES) {
-  fs.copyFileSync(path.join(REPO, 'hooks', f), path.join(HOOKS, f));
+  const src = path.join(REPO, 'hooks', f);
+  const dest = path.join(HOOKS, f);
+  // a hook you customized is a hook you meant to customize — keep it, same as rules.
+  // doctor.mjs already reports hook drift as meaningful; the installer must not destroy it.
+  if (fs.existsSync(dest) && !fs.readFileSync(dest).equals(fs.readFileSync(src))) backup(dest);
+  fs.copyFileSync(src, dest);
 }
 try { fs.chmodSync(path.join(HOOKS, 'advisor-watchdog.sh'), 0o755); } catch {}
 const RULE_FILES = [...DEFAULT_RULES];
