@@ -7,6 +7,11 @@ export const HOOK_FILES = ['advisor-inject.mjs', 'advisor-mark.mjs', 'advisor-ga
 export const DEFAULT_RULES = ['advisor-executor.md', 'coding-discipline.md'];
 export const WORKFLOW_RULE = 'workflow.md';
 
+// The merge-readiness skill and the Workflow script it invokes are one feature: the
+// skill points at the script by path, so either one alone is a dangling reference.
+export const MERGE_READINESS_SKILL = 'merge-readiness';
+export const MERGE_READINESS_FILES = ['SKILL.md', 'merge-readiness.js'];
+
 // [event, matcher, script] — matcher null means the block carries no matcher
 export const HOOK_ENTRIES = [
   ['PreToolUse', 'Bash', 'advisor-mark.mjs'],

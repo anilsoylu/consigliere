@@ -85,6 +85,20 @@ The rule stays short on purpose — the entry conditions, iteration discipline, 
 
 It's opt-in because it's opinionated and because the Ralph half needs a plugin Consigliere doesn't ship — `/plugin install ralph-loop@claude-plugins-official`. Install it without the plugin and you get the planning and verification discipline, just not the `/ralph-loop` and `/cancel-ralph` commands; the installer warns and continues.
 
+### Optional: the merge-readiness review graph
+
+```bash
+node install.mjs --with-merge-readiness
+```
+
+The advisor loop gives you one reviewer. This gives you a graph. Run `/merge-readiness` on a branch and four lenses — security, data-migration, api-contract, perf — read the diff in parallel, then every finding they produce is handed to a judge that didn't write it and told to refute it.
+
+Two rules hold it up. **The judge is never weaker than the author:** tier 1 is the same model at higher effort, tier 2 escalates the model instead and steps effort back down, so you never pay for both axes at once. **The judge doesn't see the author's reasoning:** it gets the claim and the hunk and nothing else, because a judge that reads the justification anchors to it and approves.
+
+The verdict on whether the tree is sound comes from your own verifier's exit code, not from a model's opinion — if the baseline is already red, the run stops instead of reviewing a broken tree. Nothing in the graph writes code; every judging node is schema-bound to return a verdict, and fixes happen afterwards in the main loop where you can see them.
+
+It's opt-in because it costs up to 13 agents a run, and because it's the wrong tool for a routine diff. This sits *above* `review-tier.sh` and the native tiered `/review`, not instead of them — reach for it when the tier comes back `high` or `xhigh` and the diff is big enough that one reviewer will miss something.
+
 ## Uninstall
 
 ```bash
@@ -98,6 +112,7 @@ Removes the hooks, strips only its own entries from `settings.json`, and leaves 
 - **Windows:** the watchdog is a bash script. Run Claude Code from Git Bash or WSL; pure PowerShell can't execute it.
 - **Codex Sol on Plus:** whether `gpt-5.6-sol` shows up depends on your ChatGPT plan. If it doesn't, Codex falls back to whatever your account can reach, and the loop still works — just with a different advisor model.
 - Consigliere assumes Opus as the executor. If you want a different main model, that's a `/model` choice, not a config change here.
+- **`--with-merge-readiness`:** the skill drives Claude Code's Workflow tool, so nothing fires automatically — you run `/merge-readiness` and Claude asks before spawning the graph. Its tier-2 judge pins Fable 5; if your account can't reach that model, change the `model` on the escalation stage in `merge-readiness.js` to `opus` and you lose the second axis but keep the loop.
 
 ## License
 

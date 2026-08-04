@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { HOOK_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, hookCommand, findCompanion, hasRalphLoop } from './manifest.mjs';
+import { HOOK_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, hookCommand, findCompanion, hasRalphLoop } from './manifest.mjs';
 
 const HOME = os.homedir();
 const REPO = path.dirname(fileURLToPath(import.meta.url));
@@ -18,6 +18,7 @@ const SKILLS = path.join(CLAUDE, 'skills');
 const SETTINGS = path.join(CLAUDE, 'settings.json');
 const CODEX_CONF = path.join(HOME, '.codex', 'config.toml');
 const withWorkflow = process.argv.slice(2).includes('--with-workflow');
+const withMergeReadiness = process.argv.slice(2).includes('--with-merge-readiness');
 
 const log = (...a) => console.log('[consigliere]', ...a);
 const warn = (...a) => console.warn('[consigliere] WARN:', ...a);
@@ -75,6 +76,23 @@ if (withWorkflow) {
   log('copied skills/ralph-protocol → ~/.claude/skills (loaded on demand, not every session)');
 } else {
   log('skipped rules/workflow.md + the ralph-protocol skill — add them with:  node install.mjs --with-workflow');
+}
+
+// The skill invokes its Workflow script by path, so the two ship together or the
+// reference dangles. Opt-in on its own flag: a run costs up to 13 premium agents.
+if (withMergeReadiness) {
+  const srcDir = path.join(REPO, 'skills', MERGE_READINESS_SKILL);
+  const destDir = path.join(SKILLS, MERGE_READINESS_SKILL);
+  fs.mkdirSync(destDir, { recursive: true });
+  for (const f of MERGE_READINESS_FILES) {
+    const src = path.join(srcDir, f);
+    const dest = path.join(destDir, f);
+    if (fs.existsSync(dest) && !fs.readFileSync(dest).equals(fs.readFileSync(src))) backup(dest);
+    fs.copyFileSync(src, dest);
+  }
+  log(`copied skills/${MERGE_READINESS_SKILL} → ~/.claude/skills (run it with /${MERGE_READINESS_SKILL} once Claude Code restarts)`);
+} else {
+  log(`skipped the ${MERGE_READINESS_SKILL} review graph — add it with:  node install.mjs --with-${MERGE_READINESS_SKILL}`);
 }
 
 // --- 3. Idempotent settings.json merge (never clobbers existing hooks) ---

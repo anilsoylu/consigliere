@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { HOOK_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, hookCommand, findCompanion, hasRalphLoop } from './manifest.mjs';
+import { HOOK_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, hookCommand, findCompanion, hasRalphLoop } from './manifest.mjs';
 
 const REPO = path.dirname(fileURLToPath(import.meta.url));
 const USAGE = `Usage: node doctor.mjs [--json]
@@ -231,6 +231,20 @@ export function runChecks(options = {}) {
       hasRalphLoop(claudeDir)
         ? status('pass', 'ralph-loop plugin', 'ralph-loop plugin is installed')
         : status('warn', 'ralph-loop plugin', 'optional plugin not found; /ralph-loop commands will not exist')
+    );
+  }
+
+  // Optional feature, so only checked once it is present. The skill invokes the script
+  // by path: one without the other is a command that fails when you run it.
+  const mergeReadinessDir = path.join(skillsDir, MERGE_READINESS_SKILL);
+  if (exists(mergeReadinessDir)) {
+    const skill = compare(MERGE_READINESS_FILES, path.join(repo, 'skills', MERGE_READINESS_SKILL), mergeReadinessDir);
+    checks.push(
+      skill.missing.length
+        ? status('warn', 'merge-readiness skill', `missing: ${list(skill.missing)}; rerun node install.mjs --with-merge-readiness`)
+        : skill.modified.length
+          ? status('warn', 'merge-readiness skill', `customized locally, no longer this repo's: ${list(skill.modified)}`)
+          : status('pass', 'merge-readiness skill', 'skill and its workflow script are installed and match this repo')
     );
   }
 
