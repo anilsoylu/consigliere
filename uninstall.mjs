@@ -21,10 +21,16 @@ const log = (...a) => console.log('[consigliere]', ...a);
 const ADVISOR = HOOK_FILES;
 const RULE_FILES = [...DEFAULT_RULES, WORKFLOW_RULE];
 
-// --- 1. Remove hook files ---
+// --- 1. Remove hook files, but only the untouched ones this installer placed ---
+// A hook you edited is yours. Its settings.json entry still goes in step 2, so the file
+// is left in place but no longer wired up — same outcome as a rule you customized.
 for (const f of ADVISOR) {
-  const p = path.join(HOOKS, f);
-  if (fs.existsSync(p)) { fs.rmSync(p); log(`removed ${f}`); }
+  const installed = path.join(HOOKS, f);
+  const source = path.join(REPO, 'hooks', f);
+  if (!fs.existsSync(installed)) continue;
+  if (!fs.existsSync(source)) { log(`kept ${f} — no repo copy to compare it against`); continue; }
+  if (fs.readFileSync(installed).equals(fs.readFileSync(source))) { fs.rmSync(installed); log(`removed ${f}`); }
+  else log(`kept ${f} — it differs from this repo's copy, so it is yours to delete`);
 }
 
 // --- 1b. Remove rules, but only the untouched ones this installer placed ---

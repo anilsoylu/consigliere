@@ -161,7 +161,7 @@ export function runChecks(options = {}) {
   const yagni = compare(YAGNI_FILES, path.join(repo, 'skills', YAGNI_SKILL), path.join(skillsDir, YAGNI_SKILL));
   checks.push(
     yagni.missing.length
-      ? status('warn', 'yagni skill', `missing: ${list(yagni.missing)}; rerun node install.mjs`)
+      ? status('warn', 'yagni skill', `not installed (${list(yagni.missing)}); rerun node install.mjs to restore, or ignore this if you removed it on purpose`)
       : yagni.modified.length
         ? status('warn', 'yagni skill', `customized locally, no longer this repo's: ${list(yagni.modified)}`)
         : status('pass', 'yagni skill', 'the yagni deletion pass is installed and matches this repo')

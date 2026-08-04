@@ -106,7 +106,7 @@ It's opt-in because it costs up to 13 agents a run, and because it's the wrong t
 node uninstall.mjs
 ```
 
-Removes the hooks, strips only its own entries from `settings.json`, and leaves your backups in place. A rule is deleted only while it's still byte-identical to this repo's copy — edit one and the uninstaller keeps it and tells you, rather than throwing away your version.
+Strips only its own entries from `settings.json` — an unrelated hook sharing the same block survives — and leaves your backups in place. Any file it placed is deleted only while it's still byte-identical to this repo's copy: hooks, rules, and skills alike. Edit one and the uninstaller keeps it and tells you, rather than throwing away your version; the hook stays on disk but is no longer wired up.
 
 ## Limits
 

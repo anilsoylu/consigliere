@@ -35,7 +35,7 @@ const yagniPath = (home, f) => path.join(home, '.claude', 'skills', YAGNI_SKILL,
 for (const [label, live, repoFile, file] of [
   ['hook', hookPath, (f) => path.join(REPO, 'hooks', f), HOOK_FILES[0]],
   ['rule', rulePath, (f) => path.join(REPO, 'rules', f), DEFAULT_RULES[0]],
-  ['yagni file', yagniPath, (f) => path.join(REPO, 'skills', YAGNI_SKILL, f), YAGNI_FILES[0]],
+  ['skill file', yagniPath, (f) => path.join(REPO, 'skills', YAGNI_SKILL, f), YAGNI_FILES[0]],
 ]) {
   test(`backs up a customized ${label} instead of overwriting it silently`, () => {
     const home = install();
