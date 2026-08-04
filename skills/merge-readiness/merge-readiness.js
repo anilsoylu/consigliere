@@ -57,11 +57,20 @@ const LENSES = [
 
 // ---- Baseline -------------------------------------------------------------
 // The oracle is the exit code, not a model's opinion. The agent is only the runner.
+// It also resolves the diff base, because this is the only node with a shell and an
+// unresolvable base has to abort the run rather than hand four lenses an empty diff.
 phase('Baseline')
 const baseline = await agent(
-  `Run the project's verifier on the CURRENT working tree and report the raw result.
+  `Two jobs, both on the CURRENT working tree. Report raw results; fix nothing.
+
+1. Resolve the diff base. Try \`git rev-parse --verify ${base}\`. If that fails, fall back in
+order: origin/main, origin/master, main, master, and finally the merge-base with whatever
+remote branch this one tracks. Report the ref that actually resolved, and the number of files
+in \`git diff --name-only <that ref>...HEAD\`. If nothing resolves, report resolvedBase "".
+
+2. Run the project's verifier.
 ${verifyCmd ? `The command is: ${verifyCmd}` : 'Find it yourself: package.json scripts (test/typecheck/lint), Makefile, or justfile. Prefer the narrowest one that actually compiles and tests the code.'}
-Report the exact command you ran and its exit code. Do not fix anything. Do not interpret a failure as acceptable.`,
+Report the exact command you ran and its exit code. Do not interpret a failure as acceptable.`,
   {
     label: 'baseline-gates',
     phase: 'Baseline',
@@ -69,10 +78,12 @@ Report the exact command you ran and its exit code. Do not fix anything. Do not 
     effort: 'low',
     schema: {
       type: 'object',
-      required: ['command', 'exitCode'],
+      required: ['command', 'exitCode', 'resolvedBase', 'changedFiles'],
       properties: {
         command: { type: 'string' },
         exitCode: { type: 'integer' },
+        resolvedBase: { type: 'string', description: 'the ref that resolved, or "" if none did' },
+        changedFiles: { type: 'integer' },
         summary: { type: 'string' },
       },
     },
@@ -84,12 +95,23 @@ if (!baseline || baseline.exitCode !== 0) {
   return { aborted: 'baseline-failed', baseline }
 }
 
+// A review that reports "nothing found" because its diff command errored is worse than
+// no review at all, so an unresolved base or an empty range stops the run out loud.
+if (!baseline.resolvedBase || !baseline.changedFiles) {
+  log(baseline.resolvedBase
+    ? `${baseline.resolvedBase}...HEAD is empty — there is nothing to review`
+    : `could not resolve a diff base (tried ${base} and the usual fallbacks) — pass args.base explicitly`)
+  return { aborted: baseline.resolvedBase ? 'empty-diff' : 'unresolved-base', baseline }
+}
+
+const range = `${baseline.resolvedBase}...HEAD`
+
 // ---- Audit ----------------------------------------------------------------
 phase('Audit')
 const audits = await parallel(
   LENSES.map((l) => () =>
     agent(
-      `Review the diff \`git diff ${base}...HEAD\` through ONE lens only: ${l.key} — ${l.brief}.
+      `Review the diff \`git diff ${range}\` through ONE lens only: ${l.key} — ${l.brief}.
 Ignore everything outside your lens; another reviewer owns it.
 Report every defect you find, no severity filter. For each one include the diff hunk it lives in as evidence.
 Do not propose fixes. Do not write code.`,
@@ -111,13 +133,13 @@ const byLocation = new Map()
 for (const f of audits.filter(Boolean).flatMap((a) => a.findings || [])) {
   const k = `${f.file}:${f.line}`
   const prev = byLocation.get(k)
-  if (!prev || RANK[f.severity] < RANK[prev.severity]) byLocation.set(k, f);
+  if (!prev || RANK[f.severity] < RANK[prev.severity]) byLocation.set(k, f)
 }
 const deduped = [...byLocation.values()]
 
 if (!deduped.length) return { baseline, findings: [], note: 'four lenses found nothing' }
 
-const ordered = deduped.sort((a, b) => RANK[a.severity] - RANK[b.severity])
+const ordered = [...deduped].sort((a, b) => RANK[a.severity] - RANK[b.severity])
 
 const TIER1_CAP = 5
 const forVerify = ordered.slice(0, TIER1_CAP)
@@ -138,7 +160,7 @@ const judged = await pipeline(
 File: ${f.file}:${f.line}
 Claim: ${f.claim}
 Hunk:
-${f.evidence || '(read it yourself with git diff)'}
+${f.evidence || `(not captured — read it with git diff ${range})`}
 
 You have not been told why the reviewer believes this, and you should not go looking for their reasoning.
 Read the surrounding code and decide for yourself. If you cannot establish that the defect is real, mark it not real.
@@ -169,7 +191,7 @@ const settled = await parallel(
 File: ${f.file}:${f.line}
 Claim: ${f.claim}
 Hunk:
-${f.evidence || '(read it yourself with git diff)'}
+${f.evidence || `(not captured — read it with git diff ${range})`}
 
 Previous judge said real=${f.tier1.real} (confidence ${f.tier1.confidence}): ${f.tier1.why}
 

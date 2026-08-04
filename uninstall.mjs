@@ -57,7 +57,8 @@ for (const f of RULE_FILES) {
   for (const f of MERGE_READINESS_FILES) {
     const installed = path.join(destDir, f);
     const source = path.join(srcDir, f);
-    if (!fs.existsSync(installed) || !fs.existsSync(source)) continue;
+    if (!fs.existsSync(installed)) continue;
+    if (!fs.existsSync(source)) { log(`kept ${MERGE_READINESS_SKILL}/${f} — no repo copy to compare it against`); continue; }
     if (fs.readFileSync(installed).equals(fs.readFileSync(source))) { fs.rmSync(installed); log(`removed ${MERGE_READINESS_SKILL}/${f}`); }
     else log(`kept ${MERGE_READINESS_SKILL}/${f} — it differs from this repo's copy, so it is yours to delete`);
   }

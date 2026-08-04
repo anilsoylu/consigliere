@@ -25,11 +25,18 @@ Workflow({
 })
 ```
 
+Installed with `node install.mjs --with-merge-readiness`, that path is
+`~/.claude/skills/merge-readiness/merge-readiness.js`.
+
 Both args are optional:
 
 - `verify` — the command that decides whether the tree is sound. Omitted, the first
   agent finds it from `package.json` scripts, a Makefile, or a justfile.
-- `base` — what to diff against. Defaults to `origin/HEAD`.
+- `base` — what to diff against. Defaults to `origin/HEAD`; when that does not resolve the
+  first agent falls back through `origin/main`, `origin/master`, `main`, `master`, and the
+  tracked branch's merge-base. `origin/HEAD` is unset more often than you would think —
+  `git init` plus a remote, or a CI checkout — and a diff command that errors would
+  otherwise hand four lenses nothing and yield a confident "found no defects".
 
 ## What it costs
 
@@ -37,7 +44,7 @@ Thirteen agents at most, and the assignment is deliberate:
 
 | Stage | Model | Effort | Count | Role |
 | --- | --- | --- | --- | --- |
-| `baseline-gates` | sonnet | low | 1 | Runs the verifier, reports the exit code |
+| `baseline-gates` | sonnet | low | 1 | Resolves the diff base, runs the verifier, reports the exit code |
 | `audit` | opus | high | 4 | security, data-migration, api-contract, perf — parallel |
 | `verify-tier-1` | opus | xhigh | ≤5 | Tries to refute each finding |
 | `verify-tier-2` | fable | high | ≤2 | Settles the disputed ones |
@@ -64,8 +71,12 @@ loop stays where you can see it and stop it.
 ## What it returns
 
 A ranked list of findings that survived refutation, plus counts of what was audited,
-verified, and escalated. If the baseline verifier fails, it stops there and returns
-`aborted: 'baseline-failed'` — reviewing a tree that is already broken wastes the run.
+verified, and escalated.
+
+It aborts after the first agent rather than reviewing something it cannot review, and says
+which case it hit: `baseline-failed` (the verifier is already red, so reviewing this tree
+wastes the run), `unresolved-base` (no diff base resolved — pass `base` yourself), or
+`empty-diff` (the range holds no files).
 
 Caps are logged, never silent. If more findings were found than verified, or more
 warranted escalation than were escalated, the run says so.
