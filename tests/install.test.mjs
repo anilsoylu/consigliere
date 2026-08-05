@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { HOOK_FILES, DEFAULT_RULES, YAGNI_SKILL, YAGNI_FILES } from '../manifest.mjs';
+import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, YAGNI_SKILL, YAGNI_FILES } from '../manifest.mjs';
 
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const INSTALL = path.join(REPO, 'install.mjs');
@@ -27,6 +27,7 @@ function install(home = null) {
 
 const read = (p) => fs.readFileSync(p, 'utf8');
 const hookPath = (home, f) => path.join(home, '.claude', 'hooks', f);
+const agentPath = (home, f) => path.join(home, '.claude', 'agents', f);
 const rulePath = (home, f) => path.join(home, '.claude', 'rules', f);
 const yagniPath = (home, f) => path.join(home, '.claude', 'skills', YAGNI_SKILL, f);
 
@@ -34,6 +35,7 @@ const yagniPath = (home, f) => path.join(home, '.claude', 'skills', YAGNI_SKILL,
 // hook was destroyed on the next install while a customized rule was carefully preserved.
 for (const [label, live, repoFile, file] of [
   ['hook', hookPath, (f) => path.join(REPO, 'hooks', f), HOOK_FILES[0]],
+  ['agent', agentPath, (f) => path.join(REPO, 'agents', f), AGENT_FILES[0]],
   ['rule', rulePath, (f) => path.join(REPO, 'rules', f), DEFAULT_RULES[0]],
   ['skill file', yagniPath, (f) => path.join(REPO, 'skills', YAGNI_SKILL, f), YAGNI_FILES[0]],
 ]) {

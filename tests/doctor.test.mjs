@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import { runChecks, summarize } from '../doctor.mjs';
-import { HOOK_FILES, DEFAULT_RULES, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, hookCommand } from '../manifest.mjs';
+import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, hookCommand } from '../manifest.mjs';
 
 const DOCTOR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'doctor.mjs');
 const temps = [];
@@ -31,6 +31,7 @@ function writeFile(file, content = '') {
 function makeRepoFixture() {
   const repo = temp('consigliere-repo-');
   for (const hook of HOOK_FILES) writeFile(path.join(repo, 'hooks', hook), hook);
+  for (const agent of AGENT_FILES) writeFile(path.join(repo, 'agents', agent), agent);
   for (const rule of DEFAULT_RULES) writeFile(path.join(repo, 'rules', rule), rule);
   for (const file of YAGNI_FILES) writeFile(path.join(repo, 'skills', YAGNI_SKILL, file), file);
   writeFile(path.join(repo, 'install.mjs'));
@@ -54,12 +55,10 @@ function settingsFor(home) {
 function installDefaultFiles(home) {
   const claude = path.join(home, '.claude');
   for (const hook of HOOK_FILES) writeFile(path.join(claude, 'hooks', hook), hook);
-  fs.chmodSync(path.join(claude, 'hooks', 'advisor-watchdog.sh'), 0o755);
+  for (const agent of AGENT_FILES) writeFile(path.join(claude, 'agents', agent), agent);
   for (const rule of DEFAULT_RULES) writeFile(path.join(claude, 'rules', rule), rule);
   for (const file of YAGNI_FILES) writeFile(path.join(claude, 'skills', YAGNI_SKILL, file), file);
   writeFile(path.join(claude, 'settings.json'), settingsFor(home));
-  writeFile(path.join(claude, 'plugins', 'cache', 'openai-codex', 'codex', '1.0.0', 'scripts', 'codex-companion.mjs'));
-  writeFile(path.join(home, '.codex', 'config.toml'), 'web_search = "disabled"\n');
 }
 
 function check(checks, name) {
@@ -67,7 +66,7 @@ function check(checks, name) {
 }
 
 function run(home, repo) {
-  return runChecks({ home, repo, platform: 'darwin' });
+  return runChecks({ home, repo });
 }
 
 test('passes for a complete default install', () => {
@@ -113,7 +112,7 @@ test('warns when a hook entry does not carry the command the installer writes', 
   const entries = check(run(home, makeRepoFixture()), 'settings hooks');
 
   assert.equal(entries.level, 'warn');
-  assert.match(entries.detail, /PreToolUse\/Bash:advisor-mark\.mjs/);
+  assert.match(entries.detail, /PreToolUse\/Task:advisor-mark\.mjs/);
 });
 
 test('warns when the installer command is registered twice for one entry', () => {
@@ -128,7 +127,7 @@ test('warns when the installer command is registered twice for one entry', () =>
   const entries = check(run(home, makeRepoFixture()), 'settings hooks');
 
   assert.equal(entries.level, 'warn');
-  assert.match(entries.detail, /exactly once.*PreToolUse\/Bash:advisor-mark\.mjs/);
+  assert.match(entries.detail, /exactly once.*PreToolUse\/Task:advisor-mark\.mjs/);
 });
 
 test('reports missing and wrongly registered entries together', () => {
@@ -144,7 +143,7 @@ test('reports missing and wrongly registered entries together', () => {
 
   assert.equal(entries.level, 'warn');
   assert.match(entries.detail, /missing: UserPromptSubmit:advisor-inject\.mjs/);
-  assert.match(entries.detail, /exactly once.*PreToolUse\/Bash:advisor-mark\.mjs/);
+  assert.match(entries.detail, /exactly once.*PreToolUse\/Task:advisor-mark\.mjs/);
 });
 
 test('reports invalid settings JSON as a failure without echoing its contents', () => {
@@ -182,34 +181,42 @@ test('warns when installed hook entries are missing', () => {
   assert.equal(check(run(home, makeRepoFixture()), 'settings hooks').level, 'warn');
 });
 
-for (const [label, toml] of [
-  ['carries a trailing comment', 'web_search = "disabled" # consigliere\n'],
-  ['follows a multiline string', "notes = '''\nanything\n'''\nweb_search = \"disabled\"\n"],
-]) {
-  test(`accepts a disabled web_search that ${label}`, () => {
-    const home = temp('consigliere-doctor-');
-    installDefaultFiles(home);
-    writeFile(path.join(home, '.codex', 'config.toml'), toml);
+// advisor-gate.mjs blocks source edits and names this subagent as the way through, so a
+// gate installed without the agent is a lock with no key — the check has to say that much.
+test('warns when the advisor agent is missing, naming what breaks', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+  fs.rmSync(path.join(home, '.claude', 'agents', AGENT_FILES[0]));
 
-    assert.equal(check(run(home, makeRepoFixture()), 'codex web search').level, 'pass');
-  });
-}
+  const agent = check(run(home, makeRepoFixture()), 'advisor agent');
 
-for (const [label, toml] of [
-  ['set to something other than disabled', 'web_search = "live"\n'],
-  ['disabled only inside another table', '[profiles.fast]\nweb_search = "disabled"\n'],
-  ['assigned twice at the top level', 'web_search = "disabled"\nweb_search = "live"\n'],
-  ['only mentioned inside a multiline string', "notes = '''\nweb_search = \"disabled\"\n'''\n"],
-  ['only mentioned past an escaped delimiter', 'notes = """\nstill inside: \\"""\nweb_search = "disabled"\n"""\n'],
-]) {
-  test(`warns when web_search is ${label}`, () => {
-    const home = temp('consigliere-doctor-');
-    installDefaultFiles(home);
-    writeFile(path.join(home, '.codex', 'config.toml'), toml);
+  assert.equal(agent.level, 'warn');
+  assert.match(agent.detail, /missing: advisor\.md/);
+  assert.match(agent.detail, /advisor-gate\.mjs will block source edits/);
+});
 
-    assert.equal(check(run(home, makeRepoFixture()), 'codex web search').level, 'warn');
-  });
-}
+test('warns about a locally customized advisor agent instead of certifying it', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+  writeFile(path.join(home, '.claude', 'agents', AGENT_FILES[0]), 'my own version');
+
+  const agent = check(run(home, makeRepoFixture()), 'advisor agent');
+
+  assert.equal(agent.level, 'warn');
+  assert.match(agent.detail, /customized locally.*advisor\.md/);
+});
+
+test('fails when the repo itself is missing the advisor agent', () => {
+  const home = temp('consigliere-doctor-');
+  const repo = makeRepoFixture();
+  installDefaultFiles(home);
+  fs.rmSync(path.join(repo, 'agents', AGENT_FILES[0]));
+
+  const assets = check(run(home, repo), 'repo assets');
+
+  assert.equal(assets.level, 'fail');
+  assert.match(assets.detail, /agents\/advisor\.md/);
+});
 
 // the skill is optional, so the check only exists once the directory is there
 function installMergeReadiness(home, repo) {
