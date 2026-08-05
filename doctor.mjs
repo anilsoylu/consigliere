@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { HOOK_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, hookCommand, findCompanion, hasRalphLoop } from './manifest.mjs';
+import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, hookCommand, hasRalphLoop } from './manifest.mjs';
 
 const REPO = path.dirname(fileURLToPath(import.meta.url));
 const USAGE = `Usage: node doctor.mjs [--json]
@@ -68,59 +68,20 @@ function findEntries(settings, event, matcher, script) {
     .flatMap((block) => block.hooks.filter((hook) => String(hook.command || '').includes(script)));
 }
 
-// Inside a basic string \""" is text, not a delimiter; a literal ''' string has no escapes.
-function delimiters(line, delimiter) {
-  const text = delimiter === '"""' ? line.replace(/\\./g, '') : line;
-  return text.split(delimiter).length - 1;
-}
-
-// A single top-level assignment, or Codex may still search the web on the value that wins.
-function webSearchState(toml) {
-  let table = '';
-  let quoted = null; // inside a ''' or """ block, where a web_search line is just text
-  const found = [];
-  for (const raw of toml.split(/\r?\n/)) {
-    const line = raw.trim();
-    if (quoted) {
-      if (delimiters(line, quoted)) quoted = null;
-      continue;
-    }
-
-    const header = /^\[+(.+?)\]+\s*(#.*)?$/.exec(line);
-    if (header) table = header[1];
-    else {
-      const assignment = /^web_search\s*=\s*(.+?)\s*(#.*)?$/.exec(line);
-      if (assignment) found.push({ table, value: assignment[1] });
-    }
-    quoted = ['"""', "'''"].find((d) => delimiters(line, d) % 2 === 1) || null;
-  }
-
-  const top = found.filter((f) => !f.table);
-  if (!found.length) return status('warn', 'codex web search', 'web_search is not set; advisor calls may hang on web search');
-  if (top.length !== 1) {
-    return status('warn', 'codex web search', top.length
-      ? `web_search is assigned ${top.length} times at the top level; leave one`
-      : `web_search is only set under [${found[0].table}], which does not disable the tool`);
-  }
-  return /^(["']disabled["']|false)$/.test(top[0].value)
-    ? status('pass', 'codex web search', 'web_search is disabled')
-    : status('warn', 'codex web search', `web_search = ${top[0].value}; set it to "disabled" or advisor calls may hang`);
-}
-
 export function runChecks(options = {}) {
   const home = options.home || os.homedir();
   const repo = options.repo || REPO;
-  const platform = options.platform || process.platform;
   const claudeDir = path.join(home, '.claude');
   const hooksDir = path.join(claudeDir, 'hooks');
   const rulesDir = path.join(claudeDir, 'rules');
+  const agentsDir = path.join(claudeDir, 'agents');
   const skillsDir = path.join(claudeDir, 'skills');
   const settingsPath = path.join(claudeDir, 'settings.json');
-  const codexConfigPath = path.join(home, '.codex', 'config.toml');
   const checks = [];
 
   const missingRepoAssets = [
     ...HOOK_FILES.map((f) => path.join(repo, 'hooks', f)),
+    ...AGENT_FILES.map((f) => path.join(repo, 'agents', f)),
     ...DEFAULT_RULES.map((f) => path.join(repo, 'rules', f)),
     path.join(repo, 'install.mjs'),
     path.join(repo, 'uninstall.mjs'),
@@ -128,7 +89,7 @@ export function runChecks(options = {}) {
 
   checks.push(
     missingRepoAssets.length === 0
-      ? status('pass', 'repo assets', 'required hook, rule, install, and uninstall files are present')
+      ? status('pass', 'repo assets', 'required agent, hook, rule, install, and uninstall files are present')
       : status('fail', 'repo assets', `missing: ${list(missingRepoAssets.map((f) => path.relative(repo, f)))}`)
   );
 
@@ -136,6 +97,17 @@ export function runChecks(options = {}) {
     exists(claudeDir)
       ? status('pass', 'claude directory', `${claudeDir} exists`)
       : status('warn', 'claude directory', `${claudeDir} does not exist yet; run Claude Code before or after install`)
+  );
+
+  // The gate blocks source edits and names this subagent as the way through. Missing, it
+  // is a lock with no key — the loudest thing an otherwise-complete install can get wrong.
+  const agents = compare(AGENT_FILES, path.join(repo, 'agents'), agentsDir);
+  checks.push(
+    agents.missing.length
+      ? status('warn', 'advisor agent', `missing: ${list(agents.missing)}; advisor-gate.mjs will block source edits naming a subagent that does not exist — rerun node install.mjs`)
+      : agents.modified.length
+        ? status('warn', 'advisor agent', `customized locally, no longer this repo's: ${list(agents.modified)}`)
+        : status('pass', 'advisor agent', 'the advisor subagent is installed and matches this repo')
   );
 
   const hooks = compare(HOOK_FILES, path.join(repo, 'hooks'), hooksDir);
@@ -195,30 +167,6 @@ export function runChecks(options = {}) {
           : status('pass', 'settings hooks', 'all advisor hook entries are registered as installed')
       );
     }
-  }
-
-  const companion = findCompanion(claudeDir);
-  checks.push(
-    companion
-      ? status('pass', 'codex companion', `found ${companion}`)
-      : status('warn', 'codex companion', 'not found; install in Claude Code with: /plugin install codex@openai-codex')
-  );
-
-  if (exists(codexConfigPath)) {
-    checks.push(webSearchState(fs.readFileSync(codexConfigPath, 'utf8')));
-  } else {
-    checks.push(status('warn', 'codex config', `${codexConfigPath} does not exist yet`));
-  }
-
-  const watchdogPath = path.join(hooksDir, 'advisor-watchdog.sh');
-  if (platform === 'win32') {
-    checks.push(status('warn', 'watchdog shell', 'Windows needs Git Bash or WSL for advisor-watchdog.sh'));
-  } else if (exists(watchdogPath)) {
-    checks.push(
-      (fs.statSync(watchdogPath).mode & 0o111) !== 0
-        ? status('pass', 'watchdog executable', 'advisor-watchdog.sh is executable')
-        : status('warn', 'watchdog executable', 'advisor-watchdog.sh is not executable; rerun node install.mjs')
-    );
   }
 
   // --with-workflow ships these two together; one without the other leaves a dangling reference

@@ -1,90 +1,51 @@
 #!/usr/bin/env node
-// Consigliere uninstaller — removes the hooks + rules and strips ONLY the consigliere
-// hook entries from settings.json, leaving your other hooks untouched. Backs up
-// settings.json before editing. Your .consigliere.bak files are left in place.
-// A rule is only deleted when it is still byte-identical to this repo's copy, so a
-// file you wrote or edited yourself is never silently removed.
+// Consigliere uninstaller — removes the agent, hooks and rules it placed, and strips ONLY
+// the consigliere hook entries from settings.json, leaving your other hooks untouched.
+// Backs up settings.json before editing. Your .consigliere.bak files are left in place.
+// A file is only deleted when it is still byte-identical to this repo's copy, so anything
+// you wrote or edited yourself is never silently removed.
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { HOOK_FILES, DEFAULT_RULES, WORKFLOW_RULE, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES } from './manifest.mjs';
+import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES } from './manifest.mjs';
 
 const HOME = os.homedir();
 const REPO = path.dirname(fileURLToPath(import.meta.url));
 const CLAUDE = path.join(HOME, '.claude');
 const HOOKS = path.join(CLAUDE, 'hooks');
 const RULES = path.join(CLAUDE, 'rules');
+const AGENTS = path.join(CLAUDE, 'agents');
+const SKILLS = path.join(CLAUDE, 'skills');
 const SETTINGS = path.join(CLAUDE, 'settings.json');
 
 const log = (...a) => console.log('[consigliere]', ...a);
 const ADVISOR = HOOK_FILES;
 const RULE_FILES = [...DEFAULT_RULES, WORKFLOW_RULE];
 
-// --- 1. Remove hook files, but only the untouched ones this installer placed ---
-// A hook you edited is yours. Its settings.json entry still goes in step 2, so the file
-// is left in place but no longer wired up — same outcome as a rule you customized.
-for (const f of ADVISOR) {
-  const installed = path.join(HOOKS, f);
-  const source = path.join(REPO, 'hooks', f);
-  if (!fs.existsSync(installed)) continue;
-  if (!fs.existsSync(source)) { log(`kept ${f} — no repo copy to compare it against`); continue; }
-  if (fs.readFileSync(installed).equals(fs.readFileSync(source))) { fs.rmSync(installed); log(`removed ${f}`); }
-  else log(`kept ${f} — it differs from this repo's copy, so it is yours to delete`);
-}
-
-// --- 1b. Remove rules, but only the untouched ones this installer placed ---
-for (const f of RULE_FILES) {
-  const installed = path.join(RULES, f);
-  const source = path.join(REPO, 'rules', f);
-  if (!fs.existsSync(installed)) continue;
-  if (!fs.existsSync(source)) { log(`kept ${f} — no repo copy to compare it against`); continue; }
-  if (fs.readFileSync(installed).equals(fs.readFileSync(source))) { fs.rmSync(installed); log(`removed ${f}`); }
-  else log(`kept ${f} — it differs from this repo's copy, so it is yours to delete`);
-}
-
-// --- 1c. Remove the ralph-protocol skill, same untouched-only rule ---
-{
-  const installed = path.join(CLAUDE, 'skills', 'ralph-protocol', 'SKILL.md');
-  const source = path.join(REPO, 'skills', 'ralph-protocol', 'SKILL.md');
-  if (fs.existsSync(installed) && fs.existsSync(source)) {
-    if (fs.readFileSync(installed).equals(fs.readFileSync(source))) {
-      fs.rmSync(installed);
-      try { fs.rmdirSync(path.dirname(installed)); } catch {} // only when it is now empty
-      log('removed skills/ralph-protocol');
-    } else log("kept skills/ralph-protocol — it differs from this repo's copy, so it is yours to delete");
-  }
-}
-
-// --- 1d. Remove the merge-readiness skill and its workflow script, same rule ---
-{
-  const destDir = path.join(CLAUDE, 'skills', MERGE_READINESS_SKILL);
-  const srcDir = path.join(REPO, 'skills', MERGE_READINESS_SKILL);
-  for (const f of MERGE_READINESS_FILES) {
+// A file you edited is yours. For a hook, its settings.json entry still goes in step 2,
+// so the file is left in place but no longer wired up. prune drops the directory when
+// this leaves it empty — rmdir fails harmlessly when anything of yours is still in it.
+function removeUntouched(files, srcDir, destDir, { prune = false } = {}) {
+  const where = path.basename(destDir);
+  for (const f of files) {
     const installed = path.join(destDir, f);
     const source = path.join(srcDir, f);
     if (!fs.existsSync(installed)) continue;
-    if (!fs.existsSync(source)) { log(`kept ${MERGE_READINESS_SKILL}/${f} — no repo copy to compare it against`); continue; }
-    if (fs.readFileSync(installed).equals(fs.readFileSync(source))) { fs.rmSync(installed); log(`removed ${MERGE_READINESS_SKILL}/${f}`); }
-    else log(`kept ${MERGE_READINESS_SKILL}/${f} — it differs from this repo's copy, so it is yours to delete`);
+    if (!fs.existsSync(source)) { log(`kept ${where}/${f} — no repo copy to compare it against`); continue; }
+    if (fs.readFileSync(installed).equals(fs.readFileSync(source))) { fs.rmSync(installed); log(`removed ${where}/${f}`); }
+    else log(`kept ${where}/${f} — it differs from this repo's copy, so it is yours to delete`);
   }
-  try { fs.rmdirSync(destDir); } catch {} // only when it is now empty
+  if (prune) { try { fs.rmdirSync(destDir); } catch {} }
 }
 
-// --- 1e. Remove the yagni skill, same untouched-only rule ---
-{
-  const destDir = path.join(CLAUDE, 'skills', YAGNI_SKILL);
-  const srcDir = path.join(REPO, 'skills', YAGNI_SKILL);
-  for (const f of YAGNI_FILES) {
-    const installed = path.join(destDir, f);
-    const source = path.join(srcDir, f);
-    if (!fs.existsSync(installed)) continue;
-    if (!fs.existsSync(source)) { log(`kept ${YAGNI_SKILL}/${f} — no repo copy to compare it against`); continue; }
-    if (fs.readFileSync(installed).equals(fs.readFileSync(source))) { fs.rmSync(installed); log(`removed ${YAGNI_SKILL}/${f}`); }
-    else log(`kept ${YAGNI_SKILL}/${f} — it differs from this repo's copy, so it is yours to delete`);
-  }
-  try { fs.rmdirSync(destDir); } catch {} // only when it is now empty
-}
+// --- 1. Remove the files this installer placed, untouched ones only ---
+removeUntouched(AGENT_FILES, path.join(REPO, 'agents'), AGENTS, { prune: true });
+removeUntouched(ADVISOR, path.join(REPO, 'hooks'), HOOKS);
+removeUntouched(RULE_FILES, path.join(REPO, 'rules'), RULES);
+removeUntouched(['SKILL.md'], path.join(REPO, 'skills', 'ralph-protocol'), path.join(SKILLS, 'ralph-protocol'), { prune: true });
+removeUntouched(MERGE_READINESS_FILES, path.join(REPO, 'skills', MERGE_READINESS_SKILL), path.join(SKILLS, MERGE_READINESS_SKILL), { prune: true });
+removeUntouched(YAGNI_FILES, path.join(REPO, 'skills', YAGNI_SKILL), path.join(SKILLS, YAGNI_SKILL), { prune: true });
 
 // --- 2. Strip consigliere hook entries from settings.json (keep the rest) ---
 if (fs.existsSync(SETTINGS)) {
@@ -104,4 +65,4 @@ if (fs.existsSync(SETTINGS)) {
   log('stripped consigliere hook entries from settings.json (your other hooks kept)');
 }
 
-log('done. web_search="disabled" in ~/.codex/config.toml was left as-is — remove it by hand if you want Codex web search back (a .consigliere.bak is next to it).');
+log('done. Restart Claude Code so the agent, rules and hooks stop loading.');

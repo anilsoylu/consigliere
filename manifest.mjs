@@ -3,9 +3,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-export const HOOK_FILES = ['advisor-inject.mjs', 'advisor-mark.mjs', 'advisor-gate.mjs', 'advisor-watchdog.sh', 'review-tier.sh'];
+export const HOOK_FILES = ['advisor-inject.mjs', 'advisor-mark.mjs', 'advisor-gate.mjs', 'review-tier.sh'];
 export const DEFAULT_RULES = ['advisor-executor.md', 'coding-discipline.md'];
 export const WORKFLOW_RULE = 'workflow.md';
+
+// The advisor itself, as a Claude Code subagent definition. advisor-gate.mjs blocks
+// source edits and names this subagent as the way through, so a gate installed without
+// the agent is a lock with no key. It gets the same missing/modified treatment as a hook.
+export const AGENT_FILES = ['advisor.md'];
 
 // The merge-readiness skill and the Workflow script it invokes are one feature: the
 // skill points at the script by path, so either one alone is a dangling reference.
@@ -20,7 +25,6 @@ export const YAGNI_FILES = ['SKILL.md'];
 
 // [event, matcher, script] — matcher null means the block carries no matcher
 export const HOOK_ENTRIES = [
-  ['PreToolUse', 'Bash', 'advisor-mark.mjs'],
   ['PreToolUse', 'Task', 'advisor-mark.mjs'],
   ['PreToolUse', 'Edit|Write|MultiEdit', 'advisor-gate.mjs'],
   ['UserPromptSubmit', null, 'advisor-inject.mjs'],
@@ -29,16 +33,6 @@ export const HOOK_ENTRIES = [
 // the exact command the installer writes into settings.json
 export function hookCommand(hooksDir, script) {
   return `node "${path.join(hooksDir, script)}"`;
-}
-
-export function findCompanion(claudeDir) {
-  const base = path.join(claudeDir, 'plugins', 'cache', 'openai-codex', 'codex');
-  if (!fs.existsSync(base)) return null;
-  for (const v of fs.readdirSync(base).sort().reverse()) {
-    const p = path.join(base, v, 'scripts', 'codex-companion.mjs');
-    if (fs.existsSync(p)) return p;
-  }
-  return null;
 }
 
 export function hasRalphLoop(claudeDir) {
