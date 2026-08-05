@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, YAGNI_SKILL, YAGNI_FILES } from '../manifest.mjs';
+import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, YAGNI_SKILL, YAGNI_FILES, hookCommand } from '../manifest.mjs';
 
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const INSTALL = path.join(REPO, 'install.mjs');
@@ -30,6 +30,50 @@ const hookPath = (home, f) => path.join(home, '.claude', 'hooks', f);
 const agentPath = (home, f) => path.join(home, '.claude', 'agents', f);
 const rulePath = (home, f) => path.join(home, '.claude', 'rules', f);
 const yagniPath = (home, f) => path.join(home, '.claude', 'skills', YAGNI_SKILL, f);
+
+// Upgrading is the only way to end up with an entry the manifest no longer lists, and
+// upgrading runs this installer — so the installer is where it has to be healed.
+test('removes a stale entry it once wrote and keeps a hook of yours on the same matcher', () => {
+  const home = install();
+  const settingsPath = path.join(home, '.claude', 'settings.json');
+  const hooks = path.join(home, '.claude', 'hooks');
+  const settings = JSON.parse(read(settingsPath));
+  // exactly what the previous release registered, next to two entries that must survive:
+  // a hook of the user's own, and a wrapper of theirs around one of our scripts
+  settings.hooks.PreToolUse.push({
+    matcher: 'Bash',
+    hooks: [
+      { type: 'command', command: hookCommand(hooks, 'advisor-mark.mjs') },
+      { type: 'command', command: 'node /somewhere/else/my-own-hook.mjs' },
+      { type: 'command', command: `node /my/shim.mjs ${path.join(hooks, 'advisor-mark.mjs')}` },
+    ],
+  });
+  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+
+  install(home);
+
+  const after = JSON.parse(read(settingsPath));
+  const bash = after.hooks.PreToolUse.find((b) => b.matcher === 'Bash');
+  const commands = bash.hooks.map((h) => h.command);
+  assert.equal(commands.includes(hookCommand(hooks, 'advisor-mark.mjs')), false, 'the stale entry must be gone');
+  assert.equal(commands.length, 2, 'both of the user\'s entries must survive');
+  const task = after.hooks.PreToolUse.find((b) => b.matcher === 'Task');
+  assert.ok(task.hooks.some((h) => h.command === hookCommand(hooks, 'advisor-mark.mjs')), 'the listed entry must stay');
+});
+
+test('leaves a block empty of our entries out of settings.json entirely', () => {
+  const home = install();
+  const settingsPath = path.join(home, '.claude', 'settings.json');
+  const hooks = path.join(home, '.claude', 'hooks');
+  const settings = JSON.parse(read(settingsPath));
+  settings.hooks.PreToolUse.push({ matcher: 'Bash', hooks: [{ type: 'command', command: hookCommand(hooks, 'advisor-mark.mjs') }] });
+  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+
+  install(home);
+
+  const after = JSON.parse(read(settingsPath));
+  assert.equal(after.hooks.PreToolUse.some((b) => b.matcher === 'Bash'), false, 'no {matcher, hooks: []} litter');
+});
 
 // The regression: install.mjs used to copy hooks with no backup at all, so a customized
 // hook was destroyed on the next install while a customized rule was carefully preserved.
