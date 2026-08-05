@@ -1,10 +1,16 @@
 #!/usr/bin/env node
-// PreToolUse(Edit|Write|MultiEdit): block SOURCE-CODE writes until the codex:rescue advisor
+// PreToolUse(Edit|Write|MultiEdit): block SOURCE-CODE writes until the advisor subagent
 // was called for this task. Exempt so meta-work and notes never get locked:
 //   - harness/config dirs (~/.claude, ~/.codex)
 //   - scratch dirs (/tmp, ~/Desktop)
 //   - any non-code file (md/txt/json/toml/yaml/notes/etc.)
-// Exit 2 = block, stderr is fed back to the model.
+// The decision goes out as JSON rather than exit 2 — same block, no red hook error in
+// the transcript. Exit 0 with no output = no decision.
+//
+// There was once a second guard here: a scope check that pushed writes outside the
+// session's cwd to a permission prompt. In a monorepo it counted sibling packages/* as
+// outside and prompted on every one, which overrides auto mode and strands unattended
+// runs. Removed on purpose — the boundary lives in rules/workflow.md as a rule instead.
 import fs from 'node:fs';
 let payload = {};
 try { payload = JSON.parse(fs.readFileSync(0, 'utf8')); } catch {}
@@ -18,12 +24,12 @@ const isCode = /\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|rb|php|java|kt|swift|c|h|cpp|h
 if (!isCode) process.exit(0);
 
 if (fs.existsSync(`/tmp/advisor-gate-${sid}.flag`)) process.exit(0);
-process.stderr.write(
-  "ADVISOR GATE (source code): Get a plan from the advisor first by running\n" +
-  "  bash ~/.claude/hooks/advisor-watchdog.sh \"<consult>\"   (or --file <path> for long context)\n" +
-  "then relay the plan to the user before writing code. The watchdog appends the advisor doctrine itself — " +
-  "do not retype it. This is the only advisor entry point — do not spawn a subagent for it. " +
-  "Details: ~/.claude/rules/advisor-executor.md\n" +
-  "If this is genuinely trivial, STOP and ask the user for an explicit go-ahead."
-);
-process.exit(2);
+process.stdout.write(JSON.stringify({
+  hookSpecificOutput: {
+    hookEventName: 'PreToolUse',
+    permissionDecision: 'deny',
+    permissionDecisionReason:
+      'ADVISOR GATE: plan first — Agent({ subagent_type: "advisor", prompt: "<consult>" }), then relay the plan before writing code. See ~/.claude/rules/advisor-executor.md.\n' +
+      'Genuinely trivial? Stop and ask the user for an explicit go-ahead.',
+  },
+}));
