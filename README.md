@@ -1,20 +1,20 @@
 # Consigliere
 
-A second brain for Claude Code: **Codex GPT-5.6 Sol plans, Claude Opus builds.**
+A second brain for Claude Code: **Fable 5 plans, Claude Opus builds.**
 
-Sol thinks through *how* to do the work — architecture, edge cases, second opinions — but never touches your files. Opus, the main Claude Code loop, writes the code. A watchdog keeps Codex from hanging, and a gate stops Claude from writing source until the advisor has weighed in.
+The advisor thinks through *how* to do the work — architecture, edge cases, second opinions — but never touches your files. Opus, the main Claude Code loop, writes the code. A gate stops Claude from writing source until the advisor has weighed in.
 
-It runs on your existing **ChatGPT Plus / Codex login**. No OpenAI API key, no proxy, no second subscription.
+It runs entirely inside Claude Code. No second vendor, no API key, no plugin, no login.
 
 ## Why
 
-Letting one model plan and build in the same breath is how you get code that solves the wrong problem confidently. Splitting the roles helps: a planner that only reasons, a builder that only executes. Codex Sol is strong at planning and critique; Opus is strong at disciplined execution. Consigliere wires them together and handles the parts that break in practice — Codex hanging on a web search for 40 minutes, a review that quietly drops half its findings, an advisor that "promises" not to edit but could.
+Letting one model plan and build in the same breath is how you get code that solves the wrong problem confidently. Splitting the roles helps: a planner that only reasons, a builder that only executes. Fable is strong at planning and critique; Opus is strong at disciplined execution. Consigliere wires them together and handles the parts that break in practice — a review that quietly drops half its findings, an advisor that "promises" not to edit but could, a gate that fires on scratch files and teaches you to ignore it.
 
 ## How it works
 
 ```
 your prompt
-   → Sol plans it (read-only, watchdog-wrapped)      ← the brain
+   → the advisor plans it (Read/Grep/Glob only)      ← the brain
    → you approve
    → Opus implements it                              ← the hands
    → Claude runs a risk-tiered /review on the diff (medium / high --fix / xhigh)
@@ -24,29 +24,29 @@ your prompt
 
 Eight pieces, all installed under `~/.claude`:
 
-- **`advisor-watchdog.sh`** — runs Sol as a background Codex job, polls its log, and cancels it if it stalls for 5 minutes. No more one-hour hangs; a stuck advisor just falls back to Opus alone. Takes the prompt inline or via `--file` (for diffs and failing output), and appends the advisor doctrine — verdict-not-survey, no manufactured objections, ~300-word cap, no web search — to every consult so the caller never retypes it.
-- **`review-tier.sh`** — a deterministic classifier that reads the working-tree diff and prints the review effort tier: `medium` for routine CRUD/UI/config diffs; `high` for business logic, sizeable refactors, and the broad risky vocabulary — auth, session, checkout, middleware — (run with `--fix`); `xhigh` reserved for unambiguous surfaces: payment providers, crypto primitives, migration and schema files, plus a narrow scan of added lines for signals like `STRIPE_SECRET_KEY` or `jwt.sign`. Repeated false alarms at the top tier would teach you to ignore it, so the expensive floor is deliberately precise. Claude's built-in `/review` runs at that tier before any deliverable is reported done — the review runs on your Claude plan, keeping the Codex quota for planning. A `.review-tiers` file in a repo root adds per-project floors; the model may escalate a tier with a stated reason, never downgrade one.
-- **`advisor-inject.mjs`** — a `UserPromptSubmit` hook that resets the gate on each new task and states the loop, but only when the prompt actually carries a code/design signal (a source filename, a design skill, an intent verb, or an outright "consult Sol"). Everything else gets silence. A directive that fires on "how much does this cost" is one the model learns to skip, so the selectivity is what keeps it worth reading.
+- **`agents/advisor.md`** — the advisor itself, a Claude Code subagent pinned to `model: fable` with `effort: high` and exactly three tools: `Read`, `Grep`, `Glob`. The doctrine lives here rather than in every consult — verdict-not-survey, no manufactured objections, prefer deleting, ~300-word cap — so the caller never retypes it. Called as `Agent({ subagent_type: "advisor", run_in_background: false })`.
+- **`review-tier.sh`** — a deterministic classifier that reads the working-tree diff and prints the review effort tier: `medium` for routine CRUD/UI/config diffs; `high` for business logic, sizeable refactors, and the broad risky vocabulary — auth, session, checkout, middleware — (run with `--fix`); `xhigh` reserved for unambiguous surfaces: payment providers, crypto primitives, migration and schema files, plus a narrow scan of added lines for signals like `STRIPE_SECRET_KEY` or `jwt.sign`. Repeated false alarms at the top tier would teach you to ignore it, so the expensive floor is deliberately precise. Claude's built-in `/review` runs at that tier before any deliverable is reported done. A `.review-tiers` file in a repo root adds per-project floors; the model may escalate a tier with a stated reason, never downgrade one.
+- **`advisor-inject.mjs`** — a `UserPromptSubmit` hook that resets the gate on each new task and states the loop, but only when the prompt actually carries a code/design signal (a source filename, a design skill, an intent verb, or an outright "consult the advisor"). Everything else gets silence. A directive that fires on "how much does this cost" is one the model learns to skip, so the selectivity is what keeps it worth reading.
 - **`advisor-gate.mjs`** — a `PreToolUse` hook that blocks edits to real source-code files until the advisor has been consulted. Notes, configs, `~/.claude`, `~/.codex`, `/tmp`, and `~/Desktop` are exempt, so it never gets in the way of scratch work.
-- **`advisor-mark.mjs`** — clears the gate once the advisor is actually called.
+- **`advisor-mark.mjs`** — clears the gate once the advisor subagent is actually called.
 - **`advisor-executor.md`** — the behavioral spec Claude reads every session.
 - **`coding-discipline.md`** — a short rule that keeps the *executor* honest: state assumptions before coding, write the minimum that solves the problem, touch only what the request implies. Independent of the advisor loop; useful on its own.
 - **the `yagni` skill** — the deliberate enforcement pass for that rule, run as `/yagni`. It has one job: make the code smaller without making it do less. Interfaces with one implementation, wrappers that only forward, flags nobody sets, guards for states the types already rule out, the same fact maintained in two places. Every finding has to answer one question — does removing this leave fewer concepts, branches, config points, layers, or maintained facts, with no behavior lost — and anything that fails it is left to `/review`. That boundary is the whole design: a simplicity pass that also has opinions about naming and architecture is a second code review with softer criteria, and you stop reading it. It ships by default because it costs nothing until you invoke it.
 
 Three design choices that matter:
 
-- **Read-only is a mechanism, not a promise.** The companion runs Codex without `--write`, so the advisor's sandbox is read-only. Sol *cannot* edit your files, even if a prompt told it to. It still reads them — `git diff`, `git blame`, `ripgrep` — to ground its judgment.
-- **Consults carry a five-part contract.** Sol shares none of the conversation's context, so every consult states the objective, the exact files, the evidence (the actual diff or failing output, never a paraphrase), the constraints, and the options considered. A consult you can't finish writing means the decision isn't formed yet.
-- **The final review is mandatory, tiered, and unfiltered.** Before Claude reports a deliverable done, `review-tier.sh` picks the effort tier from the diff and Claude's built-in review runs at it, asked to report everything it finds — no severity filtering; you prioritize. Sol reads a diff only on demand ("consult Sol"): a deliberate cross-vendor second opinion that opens with a **SHIP / FIX-FIRST / RETHINK** verdict and labels every finding `[ADOPT]` / `[DISCUSS]` / `[STYLE]` / `[OVER-ENGINEERED]`, all relayed verbatim.
+- **Read-only is structural, not a promise.** The subagent's `tools:` line grants `Read`, `Grep`, `Glob` and nothing else — no `Edit`, no `Write`, no `Bash`. The advisor *cannot* change the repository even if a prompt told it to, or if it decides it should. It still reads the files you name, to ground its judgment.
+- **Consults carry a five-part contract.** The advisor shares none of the conversation's context, so every consult states the objective, the exact files, the evidence (the actual diff or failing output, never a paraphrase), the constraints, and the options considered. A consult you can't finish writing means the decision isn't formed yet.
+- **The final review is mandatory, tiered, and unfiltered.** Before Claude reports a deliverable done, `review-tier.sh` picks the effort tier from the diff and Claude's built-in review runs at it, asked to report everything it finds — no severity filtering; you prioritize. The advisor reads a diff only on demand ("consult the advisor"): a second opinion from a model that didn't write the code, opening with a **SHIP / FIX-FIRST / RETHINK** verdict and labeling every finding `[ADOPT]` / `[DISCUSS]` / `[STYLE]` / `[OVER-ENGINEERED]`, all relayed verbatim.
 
-Sol has no web access (that was the thing that kept hanging). When it needs a current fact it writes `RESEARCH NEEDED: <question>` instead of searching; Opus looks it up with Claude's own web tools and hands the answer back.
+The advisor has no web access. When it needs a current fact it writes `RESEARCH NEEDED: <question>` instead of guessing; the main loop looks it up with Claude's own web tools and re-consults with the answer appended.
 
 ## Requirements
 
-- **Claude Code** (ships Node).
-- The **Codex plugin** — `/plugin install codex@openai-codex` inside Claude Code.
-- A **ChatGPT Plus / Codex login** — `codex login`. Not an API key.
+- **Claude Code** (ships Node). That's it.
 - *Optional, only for `--with-workflow`:* the **ralph-loop plugin** — `/plugin install ralph-loop@claude-plugins-official`.
+
+The advisor pins `model: fable`. If your account can't reach Fable 5, Claude Code falls back to the inherited model rather than failing the request — the loop still works, just with the same model on both sides of it, which costs you the independent perspective. Change the `model:` line in `~/.claude/agents/advisor.md` to something your plan reaches and the fallback stops being silent.
 
 ## Install
 
@@ -58,7 +58,7 @@ node install.mjs
 
 Or hand the repo to Claude Code and say: *"run `node install.mjs` in this repo."*
 
-The installer is idempotent — re-running it changes nothing. It backs up `settings.json`, `config.toml`, and any rule, hook, or skill file it would overwrite (`.consigliere.bak`), merges its hooks without touching your existing ones, and offers to disable Codex web search. Restart Claude Code (plain `claude`) afterward so the rules and hooks load.
+The installer is idempotent — re-running it changes nothing. It backs up `settings.json` and any agent, rule, hook, or skill file it would overwrite (`.consigliere.bak`), and merges its hooks without touching your existing ones. Restart Claude Code (plain `claude`) afterward so the agent, rules, and hooks load.
 
 To verify an install without changing anything:
 
@@ -66,7 +66,9 @@ To verify an install without changing anything:
 node doctor.mjs
 ```
 
-The doctor byte-compares the installed hooks against this repo's copies — an existing but edited hook is not the hook you think is running — and checks the default rules, `settings.json` hook entries, the Codex companion, Codex web-search setting, and watchdog executability. A rule you customized is reported, not flagged. It exits non-zero only for hard failures such as an unusable `settings.json` or missing repo assets; incomplete installs are warnings you fix by re-running the installer.
+The doctor byte-compares the installed agent and hooks against this repo's copies — an existing but edited hook is not the hook you think is running — and checks the default rules, the `settings.json` hook entries, and the yagni skill. A file you customized is reported, not flagged. It exits non-zero only for hard failures such as an unusable `settings.json` or missing repo assets; incomplete installs are warnings you fix by re-running the installer.
+
+A missing `agents/advisor.md` is called out specifically, because the gate blocks source edits and names that subagent as the way through: installed without it, you have a lock with no key.
 
 For machine-readable output:
 
@@ -106,14 +108,25 @@ It's opt-in because it costs up to 13 agents a run, and because it's the wrong t
 node uninstall.mjs
 ```
 
-Strips only its own entries from `settings.json` — an unrelated hook sharing the same block survives — and leaves your backups in place. Any file it placed is deleted only while it's still byte-identical to this repo's copy: hooks, rules, and skills alike. Edit one and the uninstaller keeps it and tells you, rather than throwing away your version; the hook stays on disk but is no longer wired up.
+Strips only its own entries from `settings.json` — an unrelated hook sharing the same block survives — and leaves your backups in place. Any file it placed is deleted only while it's still byte-identical to this repo's copy: agent, hooks, rules, and skills alike. Edit one and the uninstaller keeps it and tells you, rather than throwing away your version; the hook stays on disk but is no longer wired up.
+
+## Upgrading from the Codex Sol advisor
+
+Before this version the advisor was Codex GPT-5.6 Sol, driven over the Codex plugin by a bash watchdog. That version is tagged [`v1-sol`](https://github.com/anilsoylu/consigliere/releases/tag/v1-sol) and still installs:
+
+```bash
+git checkout v1-sol && node install.mjs
+```
+
+The native subagent replaced it because it needs none of what Sol needed — no ChatGPT Plus, no plugin, no `codex login`, and no watchdog to survive 40-minute web-search hangs.
+
+Upgrading in place leaves one orphan: `~/.claude/hooks/advisor-watchdog.sh` is no longer in the manifest, so neither the installer nor the uninstaller touches it. Nothing invokes it and it costs nothing to keep; `rm ~/.claude/hooks/advisor-watchdog.sh` when you want it gone. The installer says so if it finds one.
 
 ## Limits
 
-- **Windows:** the watchdog is a bash script. Run Claude Code from Git Bash or WSL; pure PowerShell can't execute it.
-- **Codex Sol on Plus:** whether `gpt-5.6-sol` shows up depends on your ChatGPT plan. If it doesn't, Codex falls back to whatever your account can reach, and the loop still works — just with a different advisor model.
+- **Fable availability:** the advisor pins `model: fable`. On a plan that can't reach it, Claude Code silently falls back to the inherited model — the loop keeps working, but planner and builder become the same model and you lose the independent read. See [Requirements](#requirements).
 - Consigliere assumes Opus as the executor. If you want a different main model, that's a `/model` choice, not a config change here.
-- **`--with-merge-readiness`:** the skill drives Claude Code's Workflow tool, so nothing fires automatically — you run `/merge-readiness` and Claude asks before spawning the graph. Its tier-2 judge pins Fable 5; if your account can't reach that model, change the `model` on the escalation stage in `merge-readiness.js` to `opus` and you lose the second axis but keep the loop.
+- **`--with-merge-readiness`:** the skill drives Claude Code's Workflow tool, so nothing fires automatically — you run `/merge-readiness` and Claude asks before spawning the graph. Its tier-2 judge pins Fable 5 for the same reason the advisor does, with the same fallback.
 
 ## License
 
