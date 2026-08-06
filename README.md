@@ -91,12 +91,22 @@ Run `node doctor.mjs` and it reports which of these have no value set. Delete an
 
 The heaviest thing in a long session is raw tool output sitting in the context window forever. [context-mode](https://github.com/mksglu/context-mode) is a third-party MCP server that runs commands in a sandbox, indexes the output, and hands back only what you searched for.
 
-Consigliere does not install it for you. `/plugin install` shows a trust prompt before running someone else's code, and writing the plugin entries from a script would answer that prompt on your behalf — for every person who installs this package. So the installer prints the two commands and the doctor reports whether you ran them:
+Consigliere does not install it for you. `/plugin install` shows a trust prompt before running someone else's code, and writing the plugin entries from a script would answer that prompt on your behalf — for every person who installs this package. So the installer prints the procedure and the doctor reports whether you ran it:
 
 ```
 /plugin marketplace add mksglu/context-mode
 /plugin install context-mode@context-mode
 ```
+
+Then restart Claude Code (or `/reload-plugins`) and verify with `/context-mode:ctx-doctor` — it checks runtimes, hooks, FTS5, and plugin registration. Routing is automatic after that: a `SessionStart` hook injects the instructions at runtime and writes nothing into your project.
+
+Its savings bar is a separate, manual step, because a Claude Code plugin manifest can't declare a status line. The installer prints this when context-mode is enabled and your `statusLine` is empty, and never writes it — there is one slot, it's a whole terminal row, and an empty one means you want no bar, not that you have no opinion:
+
+```json
+{ "statusLine": { "type": "command", "command": "context-mode statusline" } }
+```
+
+One caveat the vendor's docs don't mention: that command has to resolve on your `PATH`, and on the machine this was written on it did not (`command -v context-mode` → not found), even with the plugin installed and working. If your bar comes up empty, that's why — the CLI is bundled inside the plugin cache at `~/.claude/plugins/cache/context-mode/context-mode/<version>/bin/statusline.mjs`, which runs fine when invoked directly, so point `node` at it and re-point it after an upgrade.
 
 It's licensed ELv2, not MIT, and its performance numbers are its authors'. What's observable from the outside: it intercepts tool output before it lands in the window, which is exactly the pressure this loop is under when the advisor and the executor both need room to think.
 

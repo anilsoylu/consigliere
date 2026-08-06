@@ -177,6 +177,12 @@ if (filled.length) {
 if (!hasContextMode(settings)) {
   log(`optional: ${CONTEXT_MODE.plugin} keeps raw tool output out of the context window. Run these in Claude Code:`);
   for (const c of CONTEXT_MODE.commands) log(`    ${c}`);
+  log(`    then restart Claude Code (or /reload-plugins) and check it with ${CONTEXT_MODE.verify}`);
+} else if (!settings.statusLine) {
+  // printed, not written: statusLine is one slot and a whole terminal row, so an empty
+  // one means "no bar", not "no opinion". See README for why the command may not resolve.
+  log(`${CONTEXT_MODE.plugin} is enabled and you have no statusLine. Its savings bar is this, added by hand:`);
+  log(`    "statusLine": ${JSON.stringify(CONTEXT_MODE.statusLine)}`);
 }
 
 // --- 5. Leftovers from the Codex Sol era (tag v1-sol) ---

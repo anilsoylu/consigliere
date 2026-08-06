@@ -61,6 +61,8 @@ export const RECOMMENDED_SETTINGS = {
 export const CONTEXT_MODE = {
   plugin: 'context-mode',
   commands: ['/plugin marketplace add mksglu/context-mode', '/plugin install context-mode@context-mode'],
+  verify: '/context-mode:ctx-doctor',
+  statusLine: { type: 'command', command: 'context-mode statusline' },
 };
 
 // [event, matcher, script] — matcher null means the block carries no matcher

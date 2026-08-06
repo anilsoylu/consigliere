@@ -196,9 +196,11 @@ export function runChecks(options = {}) {
     );
 
     // Third-party and opt-in: you enable it through /plugin, so its absence is a note.
+    // An occupied statusLine is a choice, not a gap, so only an empty one is mentioned.
+    const bar = settings.statusLine ? '' : `; its savings bar is available, see README`;
     checks.push(
       hasContextMode(settings)
-        ? status('pass', 'context-mode plugin', `${CONTEXT_MODE.plugin} is enabled`)
+        ? status('pass', 'context-mode plugin', `${CONTEXT_MODE.plugin} is enabled${bar}`)
         : status('warn', 'context-mode plugin', `optional, not enabled. In Claude Code: ${list(CONTEXT_MODE.commands)}`)
     );
   }
