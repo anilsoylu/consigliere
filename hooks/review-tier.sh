@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Prints the review effort tier for the current working-tree diff: none|medium|high|xhigh.
+# Prints the review effort tier for a diff: none|medium|high|xhigh.
 # Deterministic floors — the model may escalate the printed tier with a stated reason,
 # never downgrade it. Optional per-repo overrides: a .review-tiers file in the repo root,
 # one rule per line: "<xhigh|high> <extended-regex matched against changed paths>".
@@ -9,13 +9,20 @@
 # a strict content scan of added lines), while the broad risky vocabulary (auth, login,
 # session, checkout, ...) floors at high.
 #
-# Usage: review-tier.sh [repo-dir]
+# Usage: review-tier.sh [repo-dir] [diff-base]
+# The base defaults to HEAD, i.e. the working tree. Work you already committed on a branch
+# leaves a clean tree and would classify as none, so pass the branch point for that:
+#   review-tier.sh . "$(git merge-base origin/main HEAD)"
 set -u
 cd "${1:-.}" 2>/dev/null || { echo none; exit 0; }
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo none; exit 0; }
+# A base that does not resolve falls back to the working tree, never to none — a typo
+# must not read as "no source changes, skip the review".
+BASE="${2:-HEAD}"
+git rev-parse --verify --quiet "$BASE" >/dev/null || { echo "review-tier: base '$BASE' does not resolve; using HEAD" >&2; BASE=HEAD; }
 
 EXT='\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|rb|php|java|kt|swift|c|h|cpp|hpp|cc|vue|svelte|sql|sh|prisma)$'
-FILES=$( { git diff --name-only HEAD -- 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null; } | sort -u)
+FILES=$( { git diff --name-only "$BASE" -- 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null; } | sort -u)
 SRC=$(printf '%s\n' "$FILES" | grep -E "$EXT" || true)
 [ -z "$SRC" ] && { echo none; exit 0; }
 
@@ -45,7 +52,7 @@ printf '%s\n' "$SRC" | grep -qiE "$XHIGH_PATH" && raise xhigh
 if [ "$tier" != xhigh ]; then
   CONTENT='(STRIPE|PAYPAL|PADDLE|BRAINTREE|ADYEN|LEMONSQUEEZY|IYZICO)[A-Z0-9_]*(SECRET|PRIVATE|API)[_-]?KEY|service_role|payment_intent|PaymentIntent|jwt\.sign|createHmac|constructEvent|verifyWebhook'
   {
-    git diff HEAD -- 2>/dev/null | awk -v ext="$EXT" '/^\+\+\+ /{insrc=(substr($0,7) ~ ext); next} insrc && /^\+/{print}'
+    git diff "$BASE" -- 2>/dev/null | awk -v ext="$EXT" '/^\+\+\+ /{insrc=(substr($0,7) ~ ext); next} insrc && /^\+/{print}'
     git ls-files --others --exclude-standard 2>/dev/null | grep -E "$EXT" | while IFS= read -r f; do cat "$f" 2>/dev/null; done
   } | grep -E "$CONTENT" >/dev/null && raise xhigh
 fi
@@ -57,7 +64,7 @@ if [ "$tier" = medium ]; then
 fi
 if [ "$tier" = medium ]; then
   n=$(printf '%s\n' "$SRC" | grep -c .)
-  lines=$(git diff HEAD --numstat -- 2>/dev/null | awk -v ext="$EXT" '$3 ~ ext {s+=$1+$2} END{print s+0}')
+  lines=$(git diff "$BASE" --numstat -- 2>/dev/null | awk -v ext="$EXT" '$3 ~ ext {s+=$1+$2} END{print s+0}')
   { [ "$n" -gt 3 ] || [ "${lines:-0}" -gt 150 ]; } && raise high
   printf '%s\n' "$SRC" | grep -qiE '/(server|api|services|lib|db|models)/' && raise high
 fi

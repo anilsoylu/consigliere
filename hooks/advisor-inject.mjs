@@ -21,7 +21,7 @@ if (!isApproval) {
 }
 
 // An explicit request always wins, regardless of what else the prompt says.
-const onDemand = /dan[ıi]ş|consult sol|sol'?a sor|ask sol/i.test(prompt);
+const onDemand = /dan[ıi]ş|consult (the )?advisor|advisor'?a sor|ask the advisor/i.test(prompt);
 
 // Otherwise: does this prompt plausibly end in a source-code edit? Config, markdown
 // and questions deliberately miss — advisor-executor.md routes those straight to the
@@ -39,18 +39,17 @@ if (!onDemand && !CODE_SIGNAL.test(prompt)) process.exit(0);
 
 process.stdout.write(
   'ADVISOR/EXECUTOR LOOP — this prompt carries a code/design signal.\n' +
-  '1) PLAN via Sol. This is the only entry point; do not spawn a subagent for it:\n' +
-  '   bash ~/.claude/hooks/advisor-watchdog.sh "<consult>"  — or --file <path> for long context (diffs, failing output).\n' +
-  '   The watchdog appends the advisor doctrine (verdict discipline, no web-search) itself — do not retype it.\n' +
-  '   Carry the five-part contract: objective, files, evidence (actual diff/output, never a paraphrase), constraints, options considered.\n' +
-  '   Stalls >5 min → WATCHDOG_HUNG (exit 124); continue on Opus alone.\n' +
-  '2) RESEARCH each "RESEARCH NEEDED" yourself (Sol has no web), then re-run the watchdog with the findings appended.\n' +
+  '1) PLAN via the advisor subagent — spawn it with the Agent tool, synchronously:\n' +
+  '   Agent({ subagent_type: "advisor", prompt: "<consult>", run_in_background: false })\n' +
+  '   The agent definition carries the advisor doctrine (verdict discipline, ~300 words) — do not retype it.\n' +
+  '   Carry the five-part contract in the prompt: objective, files, evidence (actual diff/output, never a paraphrase), constraints, options considered.\n' +
+  '2) RESEARCH each "RESEARCH NEEDED" yourself (the advisor has no web), then re-consult with the findings appended.\n' +
   '3) RELAY the plan to the user, then execute. Auto mode: do not stop for plan approval.\n' +
-  '4) RE-CONSULT when the same error or verifier fails twice — stop before the third attempt and re-run with the actual output.\n' +
-  '5) FINAL REVIEW, mandatory before reporting done — native, not Sol (Codex quota is reserved for planning):\n' +
+  '4) RE-CONSULT when the same error or verifier fails twice — stop before the third attempt and consult with the actual output.\n' +
+  '5) FINAL REVIEW, mandatory before reporting done — the native /review skill, not the advisor:\n' +
   '   bash ~/.claude/hooks/review-tier.sh  → none|medium|high|xhigh (none = no source changes, skip).\n' +
   '   Run the built-in /review skill at that tier; high → with --fix, then re-run the verifier on the fixed diff.\n' +
   '   Escalate the tier with a stated reason if the diff warrants it; never downgrade. Relay all findings — no severity filtering.\n' +
-  '   Sol reads a diff only on demand ("danış") — that spends Codex quota deliberately.\n' +
-  'Sol is read-only — never pass --write. Details: ~/.claude/rules/advisor-executor.md'
+  '   The advisor reads a diff only on demand ("danış").\n' +
+  'The advisor has Read/Grep/Glob and nothing else — it cannot write code. Details: ~/.claude/rules/advisor-executor.md'
 );

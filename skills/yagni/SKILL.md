@@ -1,6 +1,6 @@
 ---
 name: yagni
-description: "A deletion pass over code you just wrote or are about to write: find generality nothing asked for, abstractions with one caller, configuration nobody sets, and facts maintained in two places, then remove them. Use when a change feels bigger than the problem, before opening a PR, or when reviewing a diff for size rather than correctness. Not a code review — it reports only what can be deleted."
+description: "A deletion pass over code you just wrote or are about to write: find generality nothing asked for, abstractions with one caller, configuration nobody sets, and facts maintained in two places including prose that only restates the code, then remove them. Use when a change feels bigger than the problem, before opening a PR, or when reviewing a diff for size rather than correctness. Not a code review — it reports only what can be deleted."
 ---
 
 # YAGNI
@@ -52,6 +52,13 @@ definition and derive the rest. Two blocks that merely look alike are not this: 
 them only when doing so removes code or removes a synchronization burden, not because
 they rhyme.
 
+**Prose that restates the code.** A comment narrating what the line below it does, a
+docstring repeating the signature, a test name explaining itself, a plan file describing
+a diff. It is the same fact in two places with no compiler keeping them in step, so it
+goes stale silently — and unlike stale code, nothing ever fails because of it. A comment
+carrying *why* (a constraint, a rejected alternative, a bug it prevents) is load-bearing
+and stays; the test is whether deleting it loses information the code cannot give you.
+
 **Layers passed straight through.** A value that enters at the edge and reaches its
 use unchanged through three intermediaries that each name it, type it, and forward it.
 
@@ -63,7 +70,8 @@ showing the thing it fixes. It buys speed with invalidation bugs.
 
 ## What this pass does not report
 
-Naming. Formatting. General readability. Test coverage. The quality of error handling
+Naming. Formatting. General readability. Whether a comment that does carry a reason is
+well written — its length is a matter for the author, its redundancy is not. Test coverage. The quality of error handling
 that is genuinely needed. Whether the code is fast enough — an optimization already
 justified by a measurement stays, and one that is missing is `/review`'s problem, not
 this pass's. Architectural preference — which pattern is nicer, whether composition

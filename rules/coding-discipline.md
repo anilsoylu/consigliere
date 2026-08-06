@@ -3,6 +3,10 @@
 ## Simplicity
 Minimum code that solves the problem. No speculative abstraction, no unrequested configurability, no error handling for impossible cases. If you wrote 200 lines and it could be 50, rewrite it.
 
+## Comments
+A comment earns its line by saying **why** — the constraint, the rejected alternative, the bug it prevents. Never what the code already says. Default to one line; two when the reason genuinely needs it. If the explanation is longer than the code it sits on, it belongs in the commit message or the README, not the file.
+Same rule for prose you write into the repo: a docstring restating the signature, a test name explaining itself, a plan file narrating what a diff already shows. Every one of them is read into context on every future session.
+
 ## Surgical edits
 - Touch only what the request requires. Don't refactor, reformat, or "improve" adjacent code.
 - Clean up orphans **your** changes created (unused imports, dead vars). Leave pre-existing dead code alone — mention it instead.

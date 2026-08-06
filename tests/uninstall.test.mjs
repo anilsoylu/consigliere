@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { HOOK_FILES, DEFAULT_RULES, YAGNI_SKILL, YAGNI_FILES, hookCommand } from '../manifest.mjs';
+import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, hookCommand } from '../manifest.mjs';
 
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const INSTALL = path.join(REPO, 'install.mjs');
@@ -33,6 +33,7 @@ function installed() {
 }
 
 const hookPath = (home, f) => path.join(home, '.claude', 'hooks', f);
+const agentPath = (home, f) => path.join(home, '.claude', 'agents', f);
 const rulePath = (home, f) => path.join(home, '.claude', 'rules', f);
 const yagniPath = (home, f) => path.join(home, '.claude', 'skills', YAGNI_SKILL, f);
 const settingsPath = (home) => path.join(home, '.claude', 'settings.json');
@@ -45,14 +46,28 @@ test('removes the files it placed, and running it twice is not an error', () => 
   run(UNINSTALL, home);
 
   for (const f of HOOK_FILES) assert.equal(fs.existsSync(hookPath(home, f)), false, `${f} should be gone`);
+  for (const f of AGENT_FILES) assert.equal(fs.existsSync(agentPath(home, f)), false, `agents/${f} should be gone`);
   for (const f of DEFAULT_RULES) assert.equal(fs.existsSync(rulePath(home, f)), false, `${f} should be gone`);
   for (const f of YAGNI_FILES) assert.equal(fs.existsSync(yagniPath(home, f)), false, `yagni/${f} should be gone`);
+});
+
+// rmdir on the skill root alone leaves rules/, agents/, assets/ and evals/ behind as
+// empty directories, which reads as "still installed" to anyone looking.
+test('prunes a skill directory down to nothing, subdirectories included', () => {
+  const home = installed();
+  const skill = path.join(home, '.claude', 'skills', SHADCN_SKILL);
+  assert.ok(fs.existsSync(skill), 'fixture must have the skill installed');
+
+  run(UNINSTALL, home);
+
+  assert.equal(fs.existsSync(skill), false, 'no empty directory tree should be left');
 });
 
 // A file you edited is yours. The installer backs drift up; the uninstaller must not
 // then delete the thing that backup was protecting.
 for (const [label, live, file] of [
   ['hook', hookPath, HOOK_FILES[0]],
+  ['agent', agentPath, AGENT_FILES[0]],
   ['rule', rulePath, DEFAULT_RULES[0]],
   ['yagni skill file', yagniPath, YAGNI_FILES[0]],
 ]) {
@@ -70,9 +85,9 @@ for (const [label, live, file] of [
 test('strips only its own hook entries and leaves an unrelated hook in the same block', () => {
   const home = installed();
   const settings = readSettings(home);
-  // a third-party hook sharing consigliere's PreToolUse/Bash block, plus an event
+  // a third-party hook sharing consigliere's PreToolUse/Task block, plus an event
   // consigliere owns outright — the first must survive, the second must vanish entirely
-  const mine = settings.hooks.PreToolUse.find((b) => b.matcher === 'Bash');
+  const mine = settings.hooks.PreToolUse.find((b) => b.matcher === 'Task');
   mine.hooks.push({ type: 'command', command: 'node /somewhere/else/my-own-hook.mjs' });
   fs.writeFileSync(settingsPath(home), JSON.stringify(settings, null, 2));
 
