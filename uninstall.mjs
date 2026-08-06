@@ -40,7 +40,9 @@ function removeUntouched(files, srcDir, destDir, { prune = false } = {}) {
 }
 
 // --- 1. Remove the files this installer placed, untouched ones only ---
-removeUntouched(AGENT_FILES, path.join(REPO, 'agents'), AGENTS, { prune: true });
+// No prune for agents: ~/.claude/agents is the harness's directory, not one this
+// package created, so it stays even when removing advisor.md leaves it empty.
+removeUntouched(AGENT_FILES, path.join(REPO, 'agents'), AGENTS);
 removeUntouched(ADVISOR, path.join(REPO, 'hooks'), HOOKS);
 removeUntouched(RULE_FILES, path.join(REPO, 'rules'), RULES);
 removeUntouched(['SKILL.md'], path.join(REPO, 'skills', 'ralph-protocol'), path.join(SKILLS, 'ralph-protocol'), { prune: true });

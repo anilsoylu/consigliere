@@ -21,7 +21,7 @@ Never raise Bash's `timeout` parameter either. Reaching for a bigger ceiling mea
 Search with Grep/Glob, not shell `grep`/`find`/`ls`. The tools return instantly, a shell round-trip does not.
 
 ## Round-trips
-Every tool call is a separate request that re-reads the entire context. Measured across 36,700 tool-carrying requests: all but two carried exactly one call, so the context was paid for once per call. Batch independent calls into a single response — parallel Reads, Globs, Greps, unrelated Bash checks. Serialize only when a call's input depends on a prior result.
+Every tool call is a separate request that re-reads the entire context. Measured across 36,700 tool-carrying requests in one long-running setup: all but two carried exactly one call, so the context was paid for once per call. Batch independent calls into a single response — parallel Reads, Globs, Greps, unrelated Bash checks. Serialize only when a call's input depends on a prior result.
 Never re-read a file already read this session; it is still in the context above. The harness suppresses the duplicate and returns "Wasted call" instead, so the repeat buys nothing and still costs a round-trip.
 
 ## Verification

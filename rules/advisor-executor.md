@@ -59,7 +59,7 @@ following it blindly.
 Before reporting any source-code deliverable done, run the tiered native review. The
 advisor is NOT part of it — it plans, it does not gate.
 
-1. `bash ~/.claude/hooks/review-tier.sh` prints the tier from the working-tree diff: `none` (no source changes — skip), `medium` (routine CRUD, UI, config-adjacent code), `high` (business logic, non-trivial refactors, risky vocabulary: auth/session/checkout/middleware), `xhigh` (unambiguous surfaces only: payment providers, crypto primitives, migrations/schema, or strong added-line signals like `STRIPE_SECRET_KEY`/`jwt.sign`). A `.review-tiers` file in the repo root (lines: `<xhigh|high> <regex>`) adds per-project floors.
+1. `bash ~/.claude/hooks/review-tier.sh` prints the tier from the working-tree diff. When the work is already committed on a branch the tree is clean, so pass the branch point instead — `bash ~/.claude/hooks/review-tier.sh . "$(git merge-base origin/main HEAD)"` — or the review silently classifies as `none`. Tiers: `none` (no source changes — skip), `medium` (routine CRUD, UI, config-adjacent code), `high` (business logic, non-trivial refactors, risky vocabulary: auth/session/checkout/middleware), `xhigh` (unambiguous surfaces only: payment providers, crypto primitives, migrations/schema, or strong added-line signals like `STRIPE_SECRET_KEY`/`jwt.sign`). A `.review-tiers` file in the repo root (lines: `<xhigh|high> <regex>`) adds per-project floors.
 2. Run the built-in `/review` skill at that tier. `high` runs with `--fix`, then re-run the verifier on the fixed diff. Escalate the tier with a stated reason if the diff warrants it; never downgrade.
 3. Relay all findings; act on or surface each one.
 
@@ -81,8 +81,8 @@ Relay all findings verbatim. Never silently drop one — the user decides what t
 ## Gate
 
 A PreToolUse hook blocks Edit/Write on real source files (`.ts .tsx .js .py .go .rs …`)
-until the advisor was called this task. Never gated: `~/.claude`, `~/.codex`, `/tmp`,
-`~/Desktop`, and any non-code file. The flag resets on each new task prompt and survives
+until the advisor was called this task. Never gated: `~/.claude`, `/tmp`, `~/Desktop`,
+and any non-code file. The flag resets on each new task prompt and survives
 approval messages. Trivial source change → ask the user, don't fake the flag.
 
 Advisor unreachable → continue alone. Only planning is lost.
