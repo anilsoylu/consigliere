@@ -36,6 +36,7 @@ After any correction from the user, save a `type: feedback` memory capturing the
 
 ## Task tracking
 For multi-step implementation work, keep `tasks/todo.md` with checkable items and mark them off as you go. The `ralph-protocol` skill has the full template.
+Update it in batches, not per checkbox. A tick is a full tool round-trip that re-reads the context to change one character, so a plan file rewritten after every item costs more than the tracking is worth. Write it once when a group of items lands, when the plan itself changes, or before you stop.
 
 ## Git & PR
 - One branch per task: `feat/ fix/ chore/ refactor/` + kebab-case summary. Never commit straight to `main`.
