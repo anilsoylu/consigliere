@@ -46,10 +46,15 @@ process.stdout.write(
   '2) RESEARCH each "RESEARCH NEEDED" yourself (the advisor has no web), then re-consult with the findings appended.\n' +
   '3) RELAY the plan to the user, then execute. Auto mode: do not stop for plan approval.\n' +
   '4) RE-CONSULT when the same error or verifier fails twice — stop before the third attempt and consult with the actual output.\n' +
-  '5) FINAL REVIEW, mandatory before reporting done — the native /review skill, not the advisor:\n' +
+  '5) FINAL REVIEW, mandatory before reporting done. The built-in /review skill is user-invocable\n' +
+  '   only (disable-model-invocation): never call it, and never hand-roll a stand-in for it.\n' +
   '   bash ~/.claude/hooks/review-tier.sh  → none|medium|high|xhigh (none = no source changes, skip).\n' +
-  '   Run the built-in /review skill at that tier; high → with --fix, then re-run the verifier on the fixed diff.\n' +
+  '   Already committed on a branch? The tree is clean and it prints none — pass the branch point:\n' +
+  '   review-tier.sh . "$(git merge-base origin/main HEAD)". Otherwise the gate silently skips.\n' +
+  '   medium|high → a FRESH advisor consult carrying the actual diff, asking for a review verdict.\n' +
+  '   State what the change does, not why you think it is right; a judge given your rationale anchors to it.\n' +
+  '   Fix every finding the reviewer stands behind, then re-run the verifier on the fixed diff.\n' +
+  '   xhigh → the merge-readiness skill via the Workflow tool. Up to 13 agents, so never below xhigh.\n' +
   '   Escalate the tier with a stated reason if the diff warrants it; never downgrade. Relay all findings — no severity filtering.\n' +
-  '   The advisor reads a diff only on demand ("danış").\n' +
   'The advisor has Read/Grep/Glob and nothing else — it cannot write code. Details: ~/.claude/rules/advisor-executor.md'
 );

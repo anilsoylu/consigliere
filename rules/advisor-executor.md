@@ -54,25 +54,30 @@ If the advisor's guidance contradicts what you observe — a recommended step fa
 contents differ from its assumption — surface the conflict to the user instead of
 following it blindly.
 
-## Final review — mandatory, native
+## Final review — mandatory
 
-Before reporting any source-code deliverable done, run the tiered native review. The
-advisor is NOT part of it — it plans, it does not gate.
+Before reporting any source-code deliverable done, run the tiered review. The built-in
+`/review` skill is not available for it: its frontmatter carries `disable-model-invocation`,
+so the Skill tool refuses it and forbids replicating its workflow. Reserved for the user
+typing `/review`, which is no use to a loop running while nobody is at the keyboard.
 
 1. `bash ~/.claude/hooks/review-tier.sh` prints the tier from the working-tree diff. When the work is already committed on a branch the tree is clean, so pass the branch point instead — `bash ~/.claude/hooks/review-tier.sh . "$(git merge-base origin/main HEAD)"` — or the review silently classifies as `none`. Tiers: `none` (no source changes — skip), `medium` (routine CRUD, UI, config-adjacent code), `high` (business logic, non-trivial refactors, risky vocabulary: auth/session/checkout/middleware), `xhigh` (unambiguous surfaces only: payment providers, crypto primitives, migrations/schema, or strong added-line signals like `STRIPE_SECRET_KEY`/`jwt.sign`). A `.review-tiers` file in the repo root (lines: `<xhigh|high> <regex>`) adds per-project floors.
-2. Run the built-in `/review` skill at that tier. `high` runs with `--fix`, then re-run the verifier on the fixed diff. Escalate the tier with a stated reason if the diff warrants it; never downgrade.
-3. Relay all findings; act on or surface each one.
+2. Route the tier: `medium` and `high` go to a **fresh** advisor consult carrying the actual diff and asking for a review verdict; `xhigh` goes to the `merge-readiness` skill through the Workflow tool. Escalate the tier with a stated reason if the diff warrants it; never downgrade. merge-readiness costs up to 13 agents, so it never runs below `xhigh`.
+3. Fix everything the reviewer stands behind — `[ADOPT]` from the advisor, anything that survived refutation from merge-readiness — then re-run the verifier on the fixed diff.
+4. Relay all findings; act on or surface each one.
 
-The advisor reads a diff only on demand ("danış" / "consult the advisor"), or when you
-want a second opinion on an xhigh deliverable from a model that did not write it.
+Write the review consult neutrally: state what the change does, never why you think it is
+right. Statelessness keeps the reviewer from having *seen* your plan, but the five-part
+contract will hand it your rationale if you let it, and a judge that reads the
+justification anchors to it. You can still consult mid-task on demand ("danış").
 
 ## Review output
 
-When the advisor does review a diff (on demand), it opens with a **SHIP / FIX-FIRST /
+When the advisor reviews a diff it opens with a **SHIP / FIX-FIRST /
 RETHINK** verdict, then labels every finding `[ADOPT]` (real bug/security/perf),
 `[DISCUSS]` (debatable), `[STYLE]` (preference), `[OVER-ENGINEERED]` (complexity to cut).
 
-Ask any reviewer — native `/review` or the advisor — to report everything it finds —
+Ask any reviewer — the advisor or merge-readiness — to report everything it finds —
 never "only high-severity issues" or "be conservative". A reviewer told to filter
 under-reports; prioritization happens with the user.
 
