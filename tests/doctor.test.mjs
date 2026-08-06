@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import { runChecks, summarize } from '../doctor.mjs';
-import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, hookCommand } from '../manifest.mjs';
+import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand } from '../manifest.mjs';
 
 const DOCTOR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'doctor.mjs');
 const temps = [];
@@ -34,6 +34,7 @@ function makeRepoFixture() {
   for (const agent of AGENT_FILES) writeFile(path.join(repo, 'agents', agent), agent);
   for (const rule of DEFAULT_RULES) writeFile(path.join(repo, 'rules', rule), rule);
   for (const file of YAGNI_FILES) writeFile(path.join(repo, 'skills', YAGNI_SKILL, file), file);
+  for (const file of SHADCN_FILES) writeFile(path.join(repo, 'skills', SHADCN_SKILL, file), file);
   writeFile(path.join(repo, 'install.mjs'));
   writeFile(path.join(repo, 'uninstall.mjs'));
   return repo;
@@ -49,7 +50,12 @@ function settingsFor(home) {
       || (hooks[event].push(matcher ? { matcher, hooks: [] } : { hooks: [] }), hooks[event].at(-1));
     block.hooks.push({ type: 'command', command: hookCommand(hooksDir, script) });
   }
-  return JSON.stringify({ hooks });
+  return JSON.stringify({
+    hooks,
+    env: { ...RECOMMENDED_ENV },
+    ...RECOMMENDED_SETTINGS,
+    enabledPlugins: { [`${CONTEXT_MODE.plugin}@${CONTEXT_MODE.plugin}`]: true },
+  });
 }
 
 function installDefaultFiles(home) {
@@ -58,6 +64,7 @@ function installDefaultFiles(home) {
   for (const agent of AGENT_FILES) writeFile(path.join(claude, 'agents', agent), agent);
   for (const rule of DEFAULT_RULES) writeFile(path.join(claude, 'rules', rule), rule);
   for (const file of YAGNI_FILES) writeFile(path.join(claude, 'skills', YAGNI_SKILL, file), file);
+  for (const file of SHADCN_FILES) writeFile(path.join(claude, 'skills', SHADCN_SKILL, file), file);
   writeFile(path.join(claude, 'settings.json'), settingsFor(home));
 }
 
@@ -293,6 +300,76 @@ test('warns about a locally customized yagni skill instead of certifying it', ()
 
   assert.equal(skill.level, 'warn');
   assert.match(skill.detail, /customized locally.*SKILL\.md/);
+});
+
+test('warns when the shadcn skill was never installed', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+  fs.rmSync(path.join(home, '.claude', 'skills', SHADCN_SKILL), { recursive: true });
+
+  const skill = check(run(home, makeRepoFixture()), 'shadcn skill');
+
+  assert.equal(skill.level, 'warn');
+  assert.match(skill.detail, /not installed/);
+  assert.match(skill.detail, /ignore this if you removed it on purpose/);
+});
+
+test('warns about a locally customized shadcn rule instead of certifying it', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+  writeFile(path.join(home, '.claude', 'skills', SHADCN_SKILL, 'rules', 'forms.md'), 'my own version');
+
+  const skill = check(run(home, makeRepoFixture()), 'shadcn skill');
+
+  assert.equal(skill.level, 'warn');
+  assert.match(skill.detail, /customized locally.*rules\/forms\.md/);
+});
+
+test('warns for a recommended key with no value, and only for that key', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+  const settingsPath = path.join(home, '.claude', 'settings.json');
+  const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+  const [envKey] = Object.keys(RECOMMENDED_ENV);
+  const [otherEnvKey] = Object.keys(RECOMMENDED_ENV).slice(1);
+  delete settings.env[envKey];
+  settings.env[otherEnvKey] = 'a value of my own';
+  writeFile(settingsPath, JSON.stringify(settings));
+
+  const recommended = check(run(home, makeRepoFixture()), 'recommended settings');
+
+  assert.equal(recommended.level, 'warn');
+  assert.match(recommended.detail, new RegExp(`env\\.${envKey}`));
+  // a key you set to something else is not a finding — the installer never overwrites one
+  assert.doesNotMatch(recommended.detail, new RegExp(`env\\.${otherEnvKey}`));
+});
+
+test('reports the recommended keys instead of crashing on an env of the wrong type', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+  const settingsPath = path.join(home, '.claude', 'settings.json');
+  const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+  settings.env = 'not an object';
+  writeFile(settingsPath, JSON.stringify(settings));
+
+  const recommended = check(run(home, makeRepoFixture()), 'recommended settings');
+
+  assert.equal(recommended.level, 'warn');
+  assert.match(recommended.detail, /env\.CLAUDE_CODE_EFFORT_LEVEL/);
+});
+
+test('reports context-mode as a note when it is not enabled, with the commands', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+  const settingsPath = path.join(home, '.claude', 'settings.json');
+  const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+  delete settings.enabledPlugins;
+  writeFile(settingsPath, JSON.stringify(settings));
+
+  const plugin = check(run(home, makeRepoFixture()), 'context-mode plugin');
+
+  assert.equal(plugin.level, 'warn');
+  assert.match(plugin.detail, /\/plugin install context-mode@context-mode/);
 });
 
 test('--json prints a summary and --help exits clean', () => {

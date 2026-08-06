@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, hookCommand, hasRalphLoop } from './manifest.mjs';
+import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand, hasRalphLoop, hasContextMode } from './manifest.mjs';
 
 const REPO = path.dirname(fileURLToPath(import.meta.url));
 const USAGE = `Usage: node doctor.mjs [--json]
@@ -139,6 +139,17 @@ export function runChecks(options = {}) {
         : status('pass', 'yagni skill', 'the yagni deletion pass is installed and matches this repo')
   );
 
+  // Also a default skill, and model-invoked rather than a slash command, so a missing
+  // one fails silently in use — Claude just writes shadcn code without the rules.
+  const shadcn = compare(SHADCN_FILES, path.join(repo, 'skills', SHADCN_SKILL), path.join(skillsDir, SHADCN_SKILL));
+  checks.push(
+    shadcn.missing.length
+      ? status('warn', 'shadcn skill', `not installed (${list(shadcn.missing)}); rerun node install.mjs to restore, or ignore this if you removed it on purpose`)
+      : shadcn.modified.length
+        ? status('warn', 'shadcn skill', `customized locally, no longer this repo's: ${list(shadcn.modified)}`)
+        : status('pass', 'shadcn skill', 'the shadcn skill is installed and matches this repo')
+  );
+
   const { present, settings, error } = parseSettings(settingsPath);
   if (!present) {
     checks.push(status('warn', 'settings.json', `${settingsPath} does not exist yet`));
@@ -167,6 +178,29 @@ export function runChecks(options = {}) {
           : status('pass', 'settings hooks', 'all advisor hook entries are registered as installed')
       );
     }
+  }
+
+  // A recommended key you set to a value of your own is not a finding — the installer
+  // never overwrites one, and neither does this. Only absence is reported.
+  if (isObject(settings)) {
+    const absent = [
+      // `in` throws on a primitive, and a diagnostic tool that crashes on the broken
+      // settings.json it exists to diagnose is worse than one that reports the keys missing
+      ...Object.keys(RECOMMENDED_ENV).filter((k) => !(k in (isObject(settings.env) ? settings.env : {}))).map((k) => `env.${k}`),
+      ...Object.keys(RECOMMENDED_SETTINGS).filter((k) => !(k in settings)),
+    ];
+    checks.push(
+      absent.length
+        ? status('warn', 'recommended settings', `no value set for: ${list(absent)}; rerun node install.mjs to fill them in`)
+        : status('pass', 'recommended settings', 'every recommended env key and setting has a value')
+    );
+
+    // Third-party and opt-in: you enable it through /plugin, so its absence is a note.
+    checks.push(
+      hasContextMode(settings)
+        ? status('pass', 'context-mode plugin', `${CONTEXT_MODE.plugin} is enabled`)
+        : status('warn', 'context-mode plugin', `optional, not enabled. In Claude Code: ${list(CONTEXT_MODE.commands)}`)
+    );
   }
 
   // --with-workflow ships these two together; one without the other leaves a dangling reference

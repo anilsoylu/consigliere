@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, YAGNI_SKILL, YAGNI_FILES, hookCommand } from '../manifest.mjs';
+import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, hookCommand } from '../manifest.mjs';
 
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const INSTALL = path.join(REPO, 'install.mjs');
@@ -73,6 +73,57 @@ test('leaves a block empty of our entries out of settings.json entirely', () => 
 
   const after = JSON.parse(read(settingsPath));
   assert.equal(after.hooks.PreToolUse.some((b) => b.matcher === 'Bash'), false, 'no {matcher, hooks: []} litter');
+});
+
+// copyAll() used to create the destination directory once, which is enough for a flat
+// skill and silently wrong for this one — every rules/*.md would throw ENOENT.
+test('copies a skill laid out in subdirectories, bytes intact', () => {
+  const home = install();
+
+  for (const f of SHADCN_FILES) {
+    const installed = path.join(home, '.claude', 'skills', SHADCN_SKILL, f);
+    assert.ok(fs.existsSync(installed), `skills/${SHADCN_SKILL}/${f} should be installed`);
+    assert.ok(
+      fs.readFileSync(installed).equals(fs.readFileSync(path.join(REPO, 'skills', SHADCN_SKILL, f))),
+      `skills/${SHADCN_SKILL}/${f} must match this repo byte for byte`
+    );
+  }
+});
+
+test('fills in the recommended settings and never overwrites a value of yours', () => {
+  const home = install();
+  const settingsPath = path.join(home, '.claude', 'settings.json');
+  const first = JSON.parse(read(settingsPath));
+  for (const [key, value] of Object.entries(RECOMMENDED_ENV)) assert.equal(first.env[key], value, `env.${key}`);
+  for (const [key, value] of Object.entries(RECOMMENDED_SETTINGS)) assert.equal(first[key], value, key);
+
+  const [envKey] = Object.keys(RECOMMENDED_ENV);
+  const [topKey] = Object.keys(RECOMMENDED_SETTINGS);
+  first.env[envKey] = 'mine';
+  first[topKey] = 'mine';
+  fs.writeFileSync(settingsPath, JSON.stringify(first, null, 2));
+
+  install(home);
+
+  const after = JSON.parse(read(settingsPath));
+  assert.equal(after.env[envKey], 'mine', 'an env value you set must survive a reinstall');
+  assert.equal(after[topKey], 'mine', 'a setting you set must survive a reinstall');
+});
+
+// `key in target` throws on a primitive, so an env of the wrong type would take the
+// installer down after it had already copied files and rewritten hooks.
+test('survives an env that is not an object, and leaves it as you wrote it', () => {
+  const home = install();
+  const settingsPath = path.join(home, '.claude', 'settings.json');
+  const settings = JSON.parse(read(settingsPath));
+  settings.env = 'not an object';
+  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+
+  install(home);
+
+  const after = JSON.parse(read(settingsPath));
+  assert.equal(after.env, 'not an object', 'the installer must not rewrite it');
+  assert.ok(after.hooks.PreToolUse.length, 'the rest of the merge must still have happened');
 });
 
 // The regression: install.mjs used to copy hooks with no backup at all, so a customized

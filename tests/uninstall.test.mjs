@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, YAGNI_SKILL, YAGNI_FILES, hookCommand } from '../manifest.mjs';
+import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, hookCommand } from '../manifest.mjs';
 
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const INSTALL = path.join(REPO, 'install.mjs');
@@ -49,6 +49,18 @@ test('removes the files it placed, and running it twice is not an error', () => 
   for (const f of AGENT_FILES) assert.equal(fs.existsSync(agentPath(home, f)), false, `agents/${f} should be gone`);
   for (const f of DEFAULT_RULES) assert.equal(fs.existsSync(rulePath(home, f)), false, `${f} should be gone`);
   for (const f of YAGNI_FILES) assert.equal(fs.existsSync(yagniPath(home, f)), false, `yagni/${f} should be gone`);
+});
+
+// rmdir on the skill root alone leaves rules/, agents/, assets/ and evals/ behind as
+// empty directories, which reads as "still installed" to anyone looking.
+test('prunes a skill directory down to nothing, subdirectories included', () => {
+  const home = installed();
+  const skill = path.join(home, '.claude', 'skills', SHADCN_SKILL);
+  assert.ok(fs.existsSync(skill), 'fixture must have the skill installed');
+
+  run(UNINSTALL, home);
+
+  assert.equal(fs.existsSync(skill), false, 'no empty directory tree should be left');
 });
 
 // A file you edited is yours. The installer backs drift up; the uninstaller must not

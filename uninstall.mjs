@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES } from './manifest.mjs';
+import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, SHADCN_FILES } from './manifest.mjs';
 
 const HOME = os.homedir();
 const REPO = path.dirname(fileURLToPath(import.meta.url));
@@ -36,7 +36,11 @@ function removeUntouched(files, srcDir, destDir, { prune = false } = {}) {
     if (fs.readFileSync(installed).equals(fs.readFileSync(source))) { fs.rmSync(installed); log(`removed ${where}/${f}`); }
     else log(`kept ${where}/${f} — it differs from this repo's copy, so it is yours to delete`);
   }
-  if (prune) { try { fs.rmdirSync(destDir); } catch {} }
+  // deepest first, so a skill laid out in subdirectories collapses from the leaves up
+  if (prune) {
+    const dirs = [...new Set(files.map((f) => path.dirname(path.join(destDir, f))))].sort((a, b) => b.length - a.length);
+    for (const dir of [...dirs, destDir]) { try { fs.rmdirSync(dir); } catch {} }
+  }
 }
 
 // --- 1. Remove the files this installer placed, untouched ones only ---
@@ -48,6 +52,7 @@ removeUntouched(RULE_FILES, path.join(REPO, 'rules'), RULES);
 removeUntouched(['SKILL.md'], path.join(REPO, 'skills', 'ralph-protocol'), path.join(SKILLS, 'ralph-protocol'), { prune: true });
 removeUntouched(MERGE_READINESS_FILES, path.join(REPO, 'skills', MERGE_READINESS_SKILL), path.join(SKILLS, MERGE_READINESS_SKILL), { prune: true });
 removeUntouched(YAGNI_FILES, path.join(REPO, 'skills', YAGNI_SKILL), path.join(SKILLS, YAGNI_SKILL), { prune: true });
+removeUntouched(SHADCN_FILES, path.join(REPO, 'skills', SHADCN_SKILL), path.join(SKILLS, SHADCN_SKILL), { prune: true });
 
 // --- 2. Strip consigliere hook entries from settings.json (keep the rest) ---
 if (fs.existsSync(SETTINGS)) {
@@ -65,6 +70,10 @@ if (fs.existsSync(SETTINGS)) {
   }
   fs.writeFileSync(SETTINGS, JSON.stringify(s, null, 2) + '\n');
   log('stripped consigliere hook entries from settings.json (your other hooks kept)');
+  // The recommended env keys and the context-mode plugin entry are not reverted. Once
+  // written they read as your settings, not this package's — an installer that fills a
+  // gap has no way to tell later whether you kept the value on purpose.
+  log('left your env keys, other settings and any plugins alone; the backup above predates this run');
 }
 
 log('done. Restart Claude Code so the agent, rules and hooks stop loading.');

@@ -22,7 +22,7 @@ your prompt
 
 ```
 
-Eight pieces, all installed under `~/.claude`:
+Nine pieces, all installed under `~/.claude`:
 
 - **`agents/advisor.md`** — the advisor itself, a Claude Code subagent pinned to `model: fable` with `effort: high` and exactly three tools: `Read`, `Grep`, `Glob`. The doctrine lives here rather than in every consult — verdict-not-survey, no manufactured objections, prefer deleting, ~300-word cap — so the caller never retypes it. Called as `Agent({ subagent_type: "advisor", run_in_background: false })`.
 - **`review-tier.sh`** — a deterministic classifier that reads the working-tree diff — or any base you pass as `review-tier.sh . <ref>`, which is what committed branch work needs — and prints the review effort tier: `medium` for routine CRUD/UI/config diffs; `high` for business logic, sizeable refactors, and the broad risky vocabulary — auth, session, checkout, middleware — (run with `--fix`); `xhigh` reserved for unambiguous surfaces: payment providers, crypto primitives, migration and schema files, plus a narrow scan of added lines for signals like `STRIPE_SECRET_KEY` or `jwt.sign`. Repeated false alarms at the top tier would teach you to ignore it, so the expensive floor is deliberately precise. Claude's built-in `/review` runs at that tier before any deliverable is reported done. A `.review-tiers` file in a repo root adds per-project floors; the model may escalate a tier with a stated reason, never downgrade one.
@@ -31,6 +31,7 @@ Eight pieces, all installed under `~/.claude`:
 - **`advisor-mark.mjs`** — clears the gate once the advisor subagent is actually called.
 - **`advisor-executor.md`** — the behavioral spec Claude reads every session.
 - **`coding-discipline.md`** — a short rule that keeps the *executor* honest: state assumptions before coding, write the minimum that solves the problem, touch only what the request implies. Independent of the advisor loop; useful on its own.
+- **the `shadcn` skill** — shadcn/ui's own skill, carrying this repo's edits to its rules: when to reach for Base UI versus Radix, how composition and forms are supposed to look, icons, styling, chat surfaces. Model-invoked rather than a slash command, so it costs nothing until Claude is actually writing shadcn code, and then it stops Claude from inventing component APIs. Upstream is [shadcn/ui](https://github.com/shadcn-ui/ui) (MIT) — the rules are modified, everything else is theirs.
 - **the `yagni` skill** — the deliberate enforcement pass for that rule, run as `/yagni`. It has one job: make the code smaller without making it do less. Interfaces with one implementation, wrappers that only forward, flags nobody sets, guards for states the types already rule out, the same fact maintained in two places. Every finding has to answer one question — does removing this leave fewer concepts, branches, config points, layers, or maintained facts, with no behavior lost — and anything that fails it is left to `/review`. That boundary is the whole design: a simplicity pass that also has opinions about naming and architecture is a second code review with softer criteria, and you stop reading it. It ships by default because it costs nothing until you invoke it.
 
 Three design choices that matter:
@@ -60,13 +61,52 @@ Or hand the repo to Claude Code and say: *"run `node install.mjs` in this repo."
 
 The installer is idempotent — re-running it changes nothing. It backs up `settings.json` and any agent, rule, hook, or skill file it would overwrite (`.consigliere.bak`), and merges its hooks without touching your existing ones. Restart Claude Code (plain `claude`) afterward so the agent, rules, and hooks load.
 
+### What it writes into settings.json
+
+Besides its hook entries, the installer fills in the settings this loop is tuned against — **only where you have no value of your own**. A key you already set is yours, even when it disagrees; the uninstaller doesn't revert any of them, because a filled gap is indistinguishable from a choice later.
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_EFFORT_LEVEL": "high",
+    "CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING": "1",
+    "MAX_THINKING_TOKENS": "31999",
+    "CLAUDE_CODE_DISABLE_1M_CONTEXT": "1",
+    "CLAUDE_CODE_NO_FLICKER": "1",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION": "claude-fable-5",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION_NAME": "Fable 5"
+  },
+  "includeCoAuthoredBy": false,
+  "alwaysThinkingEnabled": true
+}
+```
+
+The two that matter most to the loop: effort stays pinned high with adaptive thinking off, so the advisor's model doesn't quietly drop to a shallower pass on a consult that looks routine, and the thinking budget is fixed rather than inferred. `ANTHROPIC_CUSTOM_MODEL_OPTION` puts Fable 5 in the `/model` picker; it is not what makes the advisor work — `model: fable` in the subagent definition is a built-in alias and resolves without it. The 1M context window is off on purpose: a bigger window is a worse loop, not a better one, when the whole design is to keep the advisor's input small and deliberate. Every value takes effect on the next `claude` start, and `settings.json` is backed up before the installer touches it.
+
+Run `node doctor.mjs` and it reports which of these have no value set. Delete any you disagree with and re-running the installer puts them back — that's a gap, not a preference; set the key to your own value if you want it to stick.
+
+### Optional: context-mode
+
+The heaviest thing in a long session is raw tool output sitting in the context window forever. [context-mode](https://github.com/mksglu/context-mode) is a third-party MCP server that runs commands in a sandbox, indexes the output, and hands back only what you searched for.
+
+Consigliere does not install it for you. `/plugin install` shows a trust prompt before running someone else's code, and writing the plugin entries from a script would answer that prompt on your behalf — for every person who installs this package. So the installer prints the two commands and the doctor reports whether you ran them:
+
+```
+/plugin marketplace add mksglu/context-mode
+/plugin install context-mode@context-mode
+```
+
+It's licensed ELv2, not MIT, and its performance numbers are its authors'. What's observable from the outside: it intercepts tool output before it lands in the window, which is exactly the pressure this loop is under when the advisor and the executor both need room to think.
+
 To verify an install without changing anything:
 
 ```bash
 node doctor.mjs
 ```
 
-The doctor byte-compares the installed agent and hooks against this repo's copies — an existing but edited hook is not the hook you think is running — and checks the default rules, the `settings.json` hook entries, and the yagni skill. A file you customized is reported, not flagged. It exits non-zero only for hard failures such as an unusable `settings.json` or missing repo assets; incomplete installs are warnings you fix by re-running the installer.
+The doctor byte-compares the installed agent and hooks against this repo's copies — an existing but edited hook is not the hook you think is running — and checks the default rules, the `settings.json` hook entries, the recommended settings, the yagni and shadcn skills, and whether context-mode is enabled. A file you customized is reported, not flagged. It exits non-zero only for hard failures such as an unusable `settings.json` or missing repo assets; incomplete installs are warnings you fix by re-running the installer.
 
 A missing `agents/advisor.md` is called out specifically, because the gate blocks source edits and names that subagent as the way through: installed without it, you have a lock with no key.
 
@@ -108,7 +148,7 @@ It's opt-in because it costs up to 13 agents a run, and because it's the wrong t
 node uninstall.mjs
 ```
 
-Strips only its own entries from `settings.json` — an unrelated hook sharing the same block survives — and leaves your backups in place. Any file it placed is deleted only while it's still byte-identical to this repo's copy: agent, hooks, rules, and skills alike. Edit one and the uninstaller keeps it and tells you, rather than throwing away your version; the hook stays on disk but is no longer wired up.
+Strips only its own hook entries from `settings.json` — an unrelated hook sharing the same block survives — and leaves your backups in place. It does not revert the recommended env keys or settings, and does not touch plugins: once a value is in your settings.json there is no way to tell a gap the installer filled from one you kept on purpose. The pre-uninstall backup is right there if you want the old file. Any file it placed is deleted only while it's still byte-identical to this repo's copy: agent, hooks, rules, and skills alike. Edit one and the uninstaller keeps it and tells you, rather than throwing away your version; the hook stays on disk but is no longer wired up.
 
 ## Upgrading from the Codex Sol advisor
 
@@ -131,3 +171,5 @@ Upgrading in place leaves one orphan: `~/.claude/hooks/advisor-watchdog.sh` is n
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+`skills/shadcn` is shadcn/ui's skill, MIT, from [shadcn-ui/ui](https://github.com/shadcn-ui/ui); the files under its `rules/` are modified here. context-mode is neither bundled nor installed by this package — it's ELv2 and you install it yourself through `/plugin`.
