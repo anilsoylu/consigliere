@@ -136,6 +136,8 @@ This adds a third rule, `workflow.md`, plus the `ralph-protocol` skill it defers
 
 The rule stays short on purpose — the entry conditions, iteration discipline, verifier hierarchy, and stop conditions live in the skill, which Claude loads when Ralph actually comes up instead of on every session.
 
+The same flag ships the three skills the rule names for the git handoff: `/clean` polishes your own diff by hand, `/pr-update` opens or refreshes the PR, `/pr-ready` unblocks one that's already open. What the rule adds is their order — clean, *then* the review, *then* the PR — because cleaning rewrites the diff, so a review that ran before it judged code that no longer exists. It also tells you never to run the `cpr` shortcut, which fuses the polish and the PR into one pass and leaves no gap for the review; that skill is not shipped here. Upstream is [brooklyn-skills](https://github.com/OutThisLife/brooklyn-skills) (MIT) — the copies here drop the handoffs to sibling skills this package doesn't install.
+
 It's opt-in because it's opinionated and because the Ralph half needs a plugin Consigliere doesn't ship — `/plugin install ralph-loop@claude-plugins-official`. Install it without the plugin and you get the planning and verification discipline, just not the `/ralph-loop` and `/cancel-ralph` commands; the installer warns and continues.
 
 ### Optional: the merge-readiness review graph
@@ -182,4 +184,4 @@ Upgrading in place leaves one orphan: `~/.claude/hooks/advisor-watchdog.sh` is n
 
 MIT. See [LICENSE](LICENSE).
 
-`skills/shadcn` is shadcn/ui's skill, MIT, from [shadcn-ui/ui](https://github.com/shadcn-ui/ui); the files under its `rules/` are modified here. context-mode is neither bundled nor installed by this package — it's ELv2 and you install it yourself through `/plugin`.
+`skills/shadcn` is shadcn/ui's skill, MIT, from [shadcn-ui/ui](https://github.com/shadcn-ui/ui); the files under its `rules/` are modified here. `skills/clean`, `skills/pr-update` and `skills/pr-ready` are MIT, from [OutThisLife/brooklyn-skills](https://github.com/OutThisLife/brooklyn-skills), edited here to drop references to sibling skills this package doesn't ship. context-mode is neither bundled nor installed by this package — it's ELv2 and you install it yourself through `/plugin`.

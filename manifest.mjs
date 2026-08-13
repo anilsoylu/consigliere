@@ -17,6 +17,14 @@ export const AGENT_FILES = ['advisor.md'];
 export const MERGE_READINESS_SKILL = 'merge-readiness';
 export const MERGE_READINESS_FILES = ['SKILL.md', 'merge-readiness.js'];
 
+// The skills rules/workflow.md orders by name — polish the diff, open or refresh the PR,
+// unblock a stuck one. They share ralph-protocol's --with-workflow gate, because the rule
+// that names them is on that flag and a rule naming an absent skill is the same dangling
+// reference as a gate with no agent. Upstream is brooklyn-skills; see the attribution in
+// README.md. `cpr` is deliberately absent: the rule tells you never to run it.
+export const HANDOFF_SKILLS = ['clean', 'pr-update', 'pr-ready'];
+export const HANDOFF_FILES = ['SKILL.md'];
+
 // The deletion pass for rules/coding-discipline.md, which is already a default rule.
 // A prompt file with no runtime cost and no plugin dependency, so it ships by default
 // rather than behind a flag — inert until you run /yagni.
