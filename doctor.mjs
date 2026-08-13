@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand, hasRalphLoop, hasContextMode } from './manifest.mjs';
+import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand, hasRalphLoop, hasContextMode } from './manifest.mjs';
 
 const REPO = path.dirname(fileURLToPath(import.meta.url));
 const USAGE = `Usage: node doctor.mjs [--json]
@@ -205,21 +205,28 @@ export function runChecks(options = {}) {
     );
   }
 
-  // --with-workflow ships these two together; one without the other leaves a dangling reference
+  // --with-workflow ships the rule with every skill it names; one without the others
+  // leaves a dangling reference, so they are one check rather than five
   const workflowRule = path.join(rulesDir, WORKFLOW_RULE);
-  const ralphSkill = path.join(skillsDir, 'ralph-protocol', 'SKILL.md');
-  if (exists(workflowRule) || exists(ralphSkill)) {
+  const workflowSkills = ['ralph-protocol', ...HANDOFF_SKILLS];
+  const skillFile = (root, skill) => path.join(root, skill, 'SKILL.md');
+  if (exists(workflowRule) || workflowSkills.some((s) => exists(skillFile(skillsDir, s)))) {
+    const absent = [
+      ...(exists(workflowRule) ? [] : [WORKFLOW_RULE]),
+      ...workflowSkills.filter((s) => !exists(skillFile(skillsDir, s))).map((s) => `${s}/SKILL.md`),
+    ];
     const drifted = [
       ...compare([WORKFLOW_RULE], path.join(repo, 'rules'), rulesDir).modified,
-      ...(exists(ralphSkill) && !sameBytes(path.join(repo, 'skills', 'ralph-protocol', 'SKILL.md'), ralphSkill)
-        ? ['ralph-protocol/SKILL.md'] : []),
+      ...workflowSkills
+        .filter((s) => exists(skillFile(skillsDir, s)) && !sameBytes(skillFile(path.join(repo, 'skills'), s), skillFile(skillsDir, s)))
+        .map((s) => `${s}/SKILL.md`),
     ];
     checks.push(
-      !exists(workflowRule) || !exists(ralphSkill)
-        ? status('warn', 'workflow assets', 'workflow rule and ralph-protocol skill should be installed together')
+      absent.length
+        ? status('warn', 'workflow assets', `the workflow rule and the skills it names install together; missing: ${list(absent)} — rerun node install.mjs --with-workflow`)
         : drifted.length
           ? status('warn', 'workflow assets', `customized locally, no longer this repo's: ${list(drifted)}`)
-          : status('pass', 'workflow assets', 'workflow rule and ralph-protocol skill are installed and match this repo')
+          : status('pass', 'workflow assets', 'the workflow rule and every skill it names are installed and match this repo')
     );
     checks.push(
       hasRalphLoop(claudeDir)

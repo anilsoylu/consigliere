@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, SHADCN_FILES } from './manifest.mjs';
+import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, HANDOFF_FILES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, SHADCN_FILES } from './manifest.mjs';
 
 const HOME = os.homedir();
 const REPO = path.dirname(fileURLToPath(import.meta.url));
@@ -50,6 +50,7 @@ removeUntouched(AGENT_FILES, path.join(REPO, 'agents'), AGENTS);
 removeUntouched(ADVISOR, path.join(REPO, 'hooks'), HOOKS);
 removeUntouched(RULE_FILES, path.join(REPO, 'rules'), RULES);
 removeUntouched(['SKILL.md'], path.join(REPO, 'skills', 'ralph-protocol'), path.join(SKILLS, 'ralph-protocol'), { prune: true });
+for (const skill of HANDOFF_SKILLS) removeUntouched(HANDOFF_FILES, path.join(REPO, 'skills', skill), path.join(SKILLS, skill), { prune: true });
 removeUntouched(MERGE_READINESS_FILES, path.join(REPO, 'skills', MERGE_READINESS_SKILL), path.join(SKILLS, MERGE_READINESS_SKILL), { prune: true });
 removeUntouched(YAGNI_FILES, path.join(REPO, 'skills', YAGNI_SKILL), path.join(SKILLS, YAGNI_SKILL), { prune: true });
 removeUntouched(SHADCN_FILES, path.join(REPO, 'skills', SHADCN_SKILL), path.join(SKILLS, SHADCN_SKILL), { prune: true });

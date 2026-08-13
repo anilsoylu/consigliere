@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand, hasRalphLoop, hasContextMode } from './manifest.mjs';
+import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, HANDOFF_FILES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand, hasRalphLoop, hasContextMode } from './manifest.mjs';
 
 const HOME = os.homedir();
 const REPO = path.dirname(fileURLToPath(import.meta.url));
@@ -45,8 +45,8 @@ function copyAll(files, srcDir, destDir) {
 }
 
 // --- 1. Prerequisite check for the optional workflow rule ---
-// --with-workflow ships rules/workflow.md plus the ralph-protocol skill it defers to,
-// whose bounded execution loop runs on the ralph-loop plugin.
+// --with-workflow ships rules/workflow.md plus every skill it names, one of which is
+// ralph-protocol, whose bounded execution loop runs on the ralph-loop plugin.
 if (withWorkflow && !hasRalphLoop(CLAUDE)) {
   warn('ralph-loop plugin not found. rules/workflow.md drives its bounded execution loop through it.');
   warn('Install it in Claude Code:  /plugin install ralph-loop@claude-plugins-official');
@@ -68,8 +68,11 @@ log(`copied ${AGENT_FILES.length} agent → ~/.claude/agents, ${HOOK_FILES.lengt
 if (withWorkflow) {
   copyAll(['SKILL.md'], path.join(REPO, 'skills', 'ralph-protocol'), path.join(SKILLS, 'ralph-protocol'));
   log('copied skills/ralph-protocol → ~/.claude/skills (loaded on demand, not every session)');
+  // Same reason as ralph-protocol: workflow.md orders these three by name.
+  for (const skill of HANDOFF_SKILLS) copyAll(HANDOFF_FILES, path.join(REPO, 'skills', skill), path.join(SKILLS, skill));
+  log(`copied the handoff skills → ~/.claude/skills (${HANDOFF_SKILLS.map((s) => `/${s}`).join(', ')}; upstream brooklyn-skills, see README for attribution)`);
 } else {
-  log('skipped rules/workflow.md + the ralph-protocol skill — add them with:  node install.mjs --with-workflow');
+  log('skipped rules/workflow.md + the ralph-protocol and handoff skills — add them with:  node install.mjs --with-workflow');
 }
 
 // The skill invokes its Workflow script by path, so the two ship together or the
