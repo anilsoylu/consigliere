@@ -39,6 +39,12 @@ For multi-step implementation work, keep `tasks/todo.md` with checkable items an
 Update it in batches, not per checkbox. A tick is a full tool round-trip that re-reads the context to change one character, so a plan file rewritten after every item costs more than the tracking is worth. Write it once when a group of items lands, when the plan itself changes, or before you stop.
 
 ## Git & PR
+- Handoff order is `clean` → review → `pr-update`. Clean rewrites the diff, so a review
+  that ran before it judged code that no longer exists.
+- Never `cpr`: it fuses clean and pr-update with no gap for the review. Only a `none`
+  tier — no source changed — earns the single pass.
+- `pr-ready` is not part of that chain. It unblocks an already-open PR (stale base, red
+  CI, open threads).
 - One branch per task: `feat/ fix/ chore/ refactor/` + kebab-case summary. Never commit straight to `main`.
 - Conventional commit subjects: `feat: … / fix: … / refactor: … / test: … / chore: … / docs: …`.
 - Before `gh pr create`: tests green, lint clean, and `git diff origin/main` self-reviewed line by line.
