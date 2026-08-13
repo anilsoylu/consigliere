@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, hookCommand } from '../manifest.mjs';
+import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, HANDOFF_SKILLS, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, hookCommand } from '../manifest.mjs';
 
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const INSTALL = path.join(REPO, 'install.mjs');
@@ -20,15 +20,15 @@ test.after(() => {
   for (const dir of temps) fs.rmSync(dir, { recursive: true, force: true });
 });
 
-function run(script, home) {
-  execFileSync(process.execPath, [script], { env: { ...process.env, HOME: home }, stdio: 'pipe' });
+function run(script, home, flags = []) {
+  execFileSync(process.execPath, [script, ...flags], { env: { ...process.env, HOME: home }, stdio: 'pipe' });
 }
 
 // a real install, so the fixture is whatever the installer actually writes today
-function installed() {
+function installed(flags = []) {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'consigliere-uninstall-'));
   temps.push(home);
-  run(INSTALL, home);
+  run(INSTALL, home, flags);
   return home;
 }
 
@@ -61,6 +61,18 @@ test('prunes a skill directory down to nothing, subdirectories included', () => 
   run(UNINSTALL, home);
 
   assert.equal(fs.existsSync(skill), false, 'no empty directory tree should be left');
+});
+
+// Installed behind a flag, so nothing else in this file would notice them being left
+// behind after an uninstall.
+test('removes the handoff skills the workflow flag installed', () => {
+  const home = installed(['--with-workflow']);
+  const dirs = HANDOFF_SKILLS.map((s) => path.join(home, '.claude', 'skills', s));
+  for (const dir of dirs) assert.ok(fs.existsSync(dir), `fixture must have ${path.basename(dir)} installed`);
+
+  run(UNINSTALL, home);
+
+  for (const dir of dirs) assert.equal(fs.existsSync(dir), false, `${path.basename(dir)} should be gone`);
 });
 
 // A file you edited is yours. The installer backs drift up; the uninstaller must not

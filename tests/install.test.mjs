@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, hookCommand } from '../manifest.mjs';
+import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, hookCommand } from '../manifest.mjs';
 
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const INSTALL = path.join(REPO, 'install.mjs');
@@ -18,10 +18,10 @@ test.after(() => {
   for (const dir of temps) fs.rmSync(dir, { recursive: true, force: true });
 });
 
-function install(home = null) {
+function install(home = null, flags = []) {
   const dir = home ?? fs.mkdtempSync(path.join(os.tmpdir(), 'consigliere-install-'));
   if (!home) temps.push(dir);
-  execFileSync(process.execPath, [INSTALL], { env: { ...process.env, HOME: dir }, stdio: 'pipe' });
+  execFileSync(process.execPath, [INSTALL, ...flags], { env: { ...process.env, HOME: dir }, stdio: 'pipe' });
   return dir;
 }
 
@@ -87,6 +87,31 @@ test('copies a skill laid out in subdirectories, bytes intact', () => {
       fs.readFileSync(installed).equals(fs.readFileSync(path.join(REPO, 'skills', SHADCN_SKILL, f))),
       `skills/${SHADCN_SKILL}/${f} must match this repo byte for byte`
     );
+  }
+});
+
+// workflow.md orders these skills by name, so shipping the rule without them is the
+// same dangling reference as a gate installed without its agent.
+test('--with-workflow ships the rule together with every skill it names', () => {
+  const home = install(null, ['--with-workflow']);
+
+  assert.ok(fs.existsSync(rulePath(home, WORKFLOW_RULE)), 'the workflow rule should be installed');
+  for (const skill of HANDOFF_SKILLS) {
+    const installed = path.join(home, '.claude', 'skills', skill, 'SKILL.md');
+    assert.ok(fs.existsSync(installed), `skills/${skill}/SKILL.md should be installed`);
+    assert.ok(
+      fs.readFileSync(installed).equals(fs.readFileSync(path.join(REPO, 'skills', skill, 'SKILL.md'))),
+      `skills/${skill}/SKILL.md must match this repo byte for byte`
+    );
+  }
+});
+
+test('a default install ships neither the workflow rule nor the skills it names', () => {
+  const home = install();
+
+  assert.equal(fs.existsSync(rulePath(home, WORKFLOW_RULE)), false, 'the rule is behind the flag');
+  for (const skill of HANDOFF_SKILLS) {
+    assert.equal(fs.existsSync(path.join(home, '.claude', 'skills', skill)), false, `${skill} is behind the flag too`);
   }
 });
 

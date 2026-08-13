@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import { runChecks, summarize } from '../doctor.mjs';
-import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand } from '../manifest.mjs';
+import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand } from '../manifest.mjs';
 
 const DOCTOR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'doctor.mjs');
 const temps = [];
@@ -68,6 +68,14 @@ function installDefaultFiles(home) {
   writeFile(path.join(claude, 'settings.json'), settingsFor(home));
 }
 
+// what --with-workflow adds on both sides at once: the rule plus every skill it names
+function installWorkflowFiles(home, repo) {
+  for (const root of [repo, path.join(home, '.claude')]) {
+    writeFile(path.join(root, 'rules', WORKFLOW_RULE), WORKFLOW_RULE);
+    for (const skill of ['ralph-protocol', ...HANDOFF_SKILLS]) writeFile(path.join(root, 'skills', skill, 'SKILL.md'), skill);
+  }
+}
+
 function check(checks, name) {
   return checks.find((c) => c.name === name);
 }
@@ -85,6 +93,32 @@ test('passes for a complete default install', () => {
   assert.equal(summary.fail, 0);
   assert.equal(summary.warn, 0);
   assert.ok(summary.pass >= 7);
+});
+
+test('passes when the workflow rule ships with every skill it names', () => {
+  const home = temp('consigliere-doctor-');
+  const repo = makeRepoFixture();
+  installDefaultFiles(home);
+  installWorkflowFiles(home, repo);
+
+  const assets = check(run(home, repo), 'workflow assets');
+
+  assert.equal(assets.level, 'pass');
+});
+
+// The rule names the handoff skills, so a partial install leaves it pointing at
+// something that is not there — the failure the whole check exists to catch.
+test('warns when the workflow rule is installed without a skill it names', () => {
+  const home = temp('consigliere-doctor-');
+  const repo = makeRepoFixture();
+  installDefaultFiles(home);
+  installWorkflowFiles(home, repo);
+  fs.rmSync(path.join(home, '.claude', 'skills', HANDOFF_SKILLS[0]), { recursive: true });
+
+  const assets = check(run(home, repo), 'workflow assets');
+
+  assert.equal(assets.level, 'warn');
+  assert.match(assets.detail, new RegExp(`${HANDOFF_SKILLS[0]}/SKILL\\.md`));
 });
 
 test('warns when an installed hook no longer matches the repo copy', () => {
