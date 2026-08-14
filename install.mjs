@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, HANDOFF_FILES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand, hasRalphLoop, hasContextMode } from './manifest.mjs';
+import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, HANDOFF_FILES, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, OPTIMIZE_FILES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand, hasRalphLoop, hasContextMode } from './manifest.mjs';
 
 const HOME = os.homedir();
 const REPO = path.dirname(fileURLToPath(import.meta.url));
@@ -71,8 +71,12 @@ if (withWorkflow) {
   // Same reason as ralph-protocol: workflow.md orders these three by name.
   for (const skill of HANDOFF_SKILLS) copyAll(HANDOFF_FILES, path.join(REPO, 'skills', skill), path.join(SKILLS, skill));
   log(`copied the handoff skills → ~/.claude/skills (${HANDOFF_SKILLS.map((s) => `/${s}`).join(', ')}; upstream brooklyn-skills, see README for attribution)`);
+  // optimize and perf route to each other by name, and the rule's handoff order is what
+  // fires optimize unprompted — so the pair rides the rule's flag.
+  for (const skill of OPTIMIZE_SKILLS) copyAll(OPTIMIZE_FILES, path.join(REPO, 'skills', skill), path.join(SKILLS, skill));
+  log(`copied the optimize pair → ~/.claude/skills (${OPTIMIZE_SKILLS.map((s) => `/${s}`).join(', ')})`);
 } else {
-  log('skipped rules/workflow.md + the ralph-protocol and handoff skills — add them with:  node install.mjs --with-workflow');
+  log('skipped rules/workflow.md + the ralph-protocol, handoff and optimize skills — add them with:  node install.mjs --with-workflow');
 }
 
 // The skill invokes its Workflow script by path, so the two ship together or the
@@ -83,6 +87,11 @@ if (withMergeReadiness) {
 } else {
   log(`skipped the ${MERGE_READINESS_SKILL} review graph — add it with:  node install.mjs --with-${MERGE_READINESS_SKILL}`);
 }
+
+// No flag: advisor-executor.md (a default rule) and the advisor-inject banner both call
+// for grilling by name, and grill-me is only the slash wrapper that runs it.
+for (const skill of GRILLING_SKILLS) copyAll(GRILLING_FILES, path.join(REPO, 'skills', skill), path.join(SKILLS, skill));
+log(`copied the grilling pair → ~/.claude/skills (${GRILLING_SKILLS.map((s) => `/${s}`).join(', ')}; upstream mattpocock/skills, see README for attribution)`);
 
 // No flag: it is the enforcement pass for rules/coding-discipline.md, which is already a
 // default rule, and it costs nothing until you run /yagni.

@@ -25,6 +25,20 @@ export const MERGE_READINESS_FILES = ['SKILL.md', 'merge-readiness.js'];
 export const HANDOFF_SKILLS = ['clean', 'pr-update', 'pr-ready'];
 export const HANDOFF_FILES = ['SKILL.md'];
 
+// mattpocock's grilling interview, shipped as its upstream pair: `grilling` carries the
+// doctrine, `grill-me` is the user-only slash wrapper that runs it, so either alone is a
+// dangling reference. Default, not flagged: advisor-executor.md (a default rule) and the
+// advisor-inject.mjs banner both call for grilling by name. See README for attribution.
+export const GRILLING_SKILLS = ['grilling', 'grill-me'];
+export const GRILLING_FILES = ['SKILL.md'];
+
+// The exact-parity speed pass and the profile-driven perf loop route to each other by
+// name ("why is this slow" → perf; a named routine → optimize), so they ship as one
+// unit. On the workflow flag because rules/workflow.md's handoff order is what fires
+// optimize unprompted. perf's upstream is brooklyn-skills; see README for attribution.
+export const OPTIMIZE_SKILLS = ['optimize', 'perf'];
+export const OPTIMIZE_FILES = ['SKILL.md'];
+
 // The deletion pass for rules/coding-discipline.md, which is already a default rule.
 // A prompt file with no runtime cost and no plugin dependency, so it ships by default
 // rather than behind a flag — inert until you run /yagni.

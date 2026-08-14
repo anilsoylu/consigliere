@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand, hasRalphLoop, hasContextMode } from './manifest.mjs';
+import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand, hasRalphLoop, hasContextMode } from './manifest.mjs';
 
 const REPO = path.dirname(fileURLToPath(import.meta.url));
 const USAGE = `Usage: node doctor.mjs [--json]
@@ -139,6 +139,22 @@ export function runChecks(options = {}) {
         : status('pass', 'yagni skill', 'the yagni deletion pass is installed and matches this repo')
   );
 
+  // Default like yagni, but its absence also strands rule text: advisor-executor.md and
+  // the advisor-inject banner both call for grilling by name.
+  const grilling = { missing: [], modified: [] };
+  for (const skill of GRILLING_SKILLS) {
+    const r = compare(GRILLING_FILES, path.join(repo, 'skills', skill), path.join(skillsDir, skill));
+    grilling.missing.push(...r.missing.map((f) => `${skill}/${f}`));
+    grilling.modified.push(...r.modified.map((f) => `${skill}/${f}`));
+  }
+  checks.push(
+    grilling.missing.length
+      ? status('warn', 'grilling skills', `not installed (${list(grilling.missing)}); rerun node install.mjs to restore, or ignore this if you removed it on purpose`)
+      : grilling.modified.length
+        ? status('warn', 'grilling skills', `customized locally, no longer this repo's: ${list(grilling.modified)}`)
+        : status('pass', 'grilling skills', 'the grilling interview and its /grill-me wrapper are installed and match this repo')
+  );
+
   // Also a default skill, and model-invoked rather than a slash command, so a missing
   // one fails silently in use — Claude just writes shadcn code without the rules.
   const shadcn = compare(SHADCN_FILES, path.join(repo, 'skills', SHADCN_SKILL), path.join(skillsDir, SHADCN_SKILL));
@@ -208,7 +224,7 @@ export function runChecks(options = {}) {
   // --with-workflow ships the rule with every skill it names; one without the others
   // leaves a dangling reference, so they are one check rather than five
   const workflowRule = path.join(rulesDir, WORKFLOW_RULE);
-  const workflowSkills = ['ralph-protocol', ...HANDOFF_SKILLS];
+  const workflowSkills = ['ralph-protocol', ...HANDOFF_SKILLS, ...OPTIMIZE_SKILLS];
   const skillFile = (root, skill) => path.join(root, skill, 'SKILL.md');
   if (exists(workflowRule) || workflowSkills.some((s) => exists(skillFile(skillsDir, s)))) {
     const absent = [
