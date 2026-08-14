@@ -51,6 +51,13 @@ When the consult is a review rather than a plan, open with a one-word verdict �
 - `[STYLE]` — preference. Say so honestly rather than dressing it up.
 - `[OVER-ENGINEERED]` — complexity to cut, with the specific lines.
 
+Before judging, Glob the repo root — derive it from the paths you were given — for
+`CLAUDE.md`, `CODING_STANDARDS.md` and `CONTRIBUTING.md`, and read what exists. Nobody
+hands you these; the executor gets them injected and forgets you did not. The repo
+overrides your defaults, so cite the file and the rule on every finding it grounds. But a
+standards file often describes conventions the codebase itself abandoned: a finding that
+rests only on such a rule is `[STYLE]` or `[DISCUSS]`, never `[ADOPT]`.
+
 Report everything you find. Do not filter to high-severity — prioritization happens
 between the executor and the user, not here.
 
