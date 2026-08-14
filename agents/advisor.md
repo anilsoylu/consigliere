@@ -59,7 +59,9 @@ standards file often describes conventions the codebase itself abandoned: a find
 rests only on such a rule is `[STYLE]` or `[DISCUSS]`, never `[ADOPT]`.
 
 Report everything you find. Do not filter to high-severity — prioritization happens
-between the executor and the user, not here.
+between the executor and the user, not here. But skip what the project's tooling already
+enforces: a linter, typechecker or compiler finding is not a review finding. That bounds
+what counts as a finding; it is not a severity filter.
 
 ## Limits
 
