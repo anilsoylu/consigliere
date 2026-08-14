@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand, hasRalphLoop, hasContextMode } from './manifest.mjs';
+import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand, hasRalphLoop, hasContextMode } from './manifest.mjs';
 
 const REPO = path.dirname(fileURLToPath(import.meta.url));
 const USAGE = `Usage: node doctor.mjs [--json]
@@ -153,6 +153,17 @@ export function runChecks(options = {}) {
       : grilling.modified.length
         ? status('warn', 'grilling skills', `customized locally, no longer this repo's: ${list(grilling.modified)}`)
         : status('pass', 'grilling skills', 'the grilling interview and its /grill-me wrapper are installed and match this repo')
+  );
+
+  // Default like yagni. template.sh is the library every generated wizard runs on, so a
+  // modified one silently changes every wizard authored after it.
+  const wizard = compare(WIZARD_FILES, path.join(repo, 'skills', WIZARD_SKILL), path.join(skillsDir, WIZARD_SKILL));
+  checks.push(
+    wizard.missing.length
+      ? status('warn', 'wizard skill', `not installed (${list(wizard.missing)}); rerun node install.mjs to restore, or ignore this if you removed it on purpose`)
+      : wizard.modified.length
+        ? status('warn', 'wizard skill', `customized locally, no longer this repo's: ${list(wizard.modified)}`)
+        : status('pass', 'wizard skill', 'the wizard generator and its template are installed and match this repo')
   );
 
   // Also a default skill, and model-invoked rather than a slash command, so a missing

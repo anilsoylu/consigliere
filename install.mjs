@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, HANDOFF_FILES, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, OPTIMIZE_FILES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand, hasRalphLoop, hasContextMode } from './manifest.mjs';
+import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, HANDOFF_FILES, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, OPTIMIZE_FILES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand, hasRalphLoop, hasContextMode } from './manifest.mjs';
 
 const HOME = os.homedir();
 const REPO = path.dirname(fileURLToPath(import.meta.url));
@@ -97,6 +97,10 @@ log(`copied the grilling pair → ~/.claude/skills (${GRILLING_SKILLS.map((s) =>
 // default rule, and it costs nothing until you run /yagni.
 copyAll(YAGNI_FILES, path.join(REPO, 'skills', YAGNI_SKILL), path.join(SKILLS, YAGNI_SKILL));
 log(`copied skills/${YAGNI_SKILL} → ~/.claude/skills (run it with /${YAGNI_SKILL} once Claude Code restarts)`);
+
+// No flag: like yagni, it is inert until you run /wizard.
+copyAll(WIZARD_FILES, path.join(REPO, 'skills', WIZARD_SKILL), path.join(SKILLS, WIZARD_SKILL));
+log(`copied skills/${WIZARD_SKILL} → ~/.claude/skills (run it with /${WIZARD_SKILL}; upstream mattpocock/skills, see README for attribution)`);
 
 // shadcn/ui's skill, carrying this repo's edits to its rules. Model-invoked rather than
 // a slash command, so it costs nothing until Claude is actually working on shadcn code.
