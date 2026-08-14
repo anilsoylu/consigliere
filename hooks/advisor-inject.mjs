@@ -11,6 +11,14 @@ const sid = payload.session_id || 'default';
 const prompt = (payload.prompt || '').trim();
 const flag = `/tmp/advisor-gate-${sid}.flag`;
 
+// A background subagent finishing arrives here through the same event as real user input.
+// Every Agent call is asynchronous in this harness, so resetting on one would delete the flag
+// the advisor call itself just set — the gate could never be satisfied. Exiting 0 also
+// suppresses the directive, which was being reprinted once per notification.
+// Both patterns are anchored and the tag is matched with its <task-id> sibling: a user of this
+// package asking "why didn't <task-notification> reset the flag?" must still count as a task.
+if (/^\[SYSTEM NOTIFICATION - NOT USER INPUT\]/.test(prompt) || /^<task-notification>\s*<task-id>/.test(prompt)) process.exit(0);
+
 // Only a SHORT standalone ack counts as approval. "Okay, now fix this unrelated bug"
 // starts with an approval word but carries a new task — it must reset the flag.
 const isApproval =
@@ -41,8 +49,9 @@ process.stdout.write(
   'ADVISOR/EXECUTOR LOOP — this prompt carries a code/design signal.\n' +
   '0) GRILL first only if 2+ material decisions are open and the user is at the keyboard. Once per task;\n' +
   '   ralph/cron/unattended runs never grill — state assumptions and proceed.\n' +
-  '1) PLAN via the advisor subagent — spawn it with the Agent tool, synchronously:\n' +
-  '   Agent({ subagent_type: "advisor", prompt: "<consult>", run_in_background: false })\n' +
+  '1) PLAN via the advisor subagent — spawn it with the Agent tool:\n' +
+  '   Agent({ subagent_type: "advisor", prompt: "<consult>" })\n' +
+  '   It returns through a task notification, not inline. Wait for the verdict before writing code.\n' +
   '   The agent definition carries the advisor doctrine (verdict discipline, ~300 words) — do not retype it.\n' +
   '   Carry the five-part contract in the prompt: objective, files, evidence (actual diff/output, never a paraphrase), constraints, options considered.\n' +
   '2) RESEARCH each "RESEARCH NEEDED" yourself (the advisor has no web), then re-consult with the findings appended.\n' +
