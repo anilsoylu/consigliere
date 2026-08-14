@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand, hasRalphLoop, hasContextMode } from './manifest.mjs';
+import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand, hasRalphLoop, hasContextMode } from './manifest.mjs';
 
 const REPO = path.dirname(fileURLToPath(import.meta.url));
 const USAGE = `Usage: node doctor.mjs [--json]
@@ -153,6 +153,17 @@ export function runChecks(options = {}) {
       : grilling.modified.length
         ? status('warn', 'grilling skills', `customized locally, no longer this repo's: ${list(grilling.modified)}`)
         : status('pass', 'grilling skills', 'the grilling interview and its /grill-me wrapper are installed and match this repo')
+  );
+
+  // Default, and model-invoked like shadcn: a missing one fails silently in use, because
+  // Claude just debugs by guesswork instead of reporting the skill it could not load.
+  const debugging = compare(DEBUGGING_FILES, path.join(repo, 'skills', DEBUGGING_SKILL), path.join(skillsDir, DEBUGGING_SKILL));
+  checks.push(
+    debugging.missing.length
+      ? status('warn', 'systematic-debugging skill', `not installed (${list(debugging.missing)}); rerun node install.mjs to restore, or ignore this if you removed it on purpose`)
+      : debugging.modified.length
+        ? status('warn', 'systematic-debugging skill', `customized locally, no longer this repo's: ${list(debugging.modified)}`)
+        : status('pass', 'systematic-debugging skill', 'the debugging process and its techniques are installed and match this repo')
   );
 
   // Default like yagni. template.sh is the library every generated wizard runs on, so a

@@ -45,6 +45,15 @@ export const OPTIMIZE_FILES = ['SKILL.md'];
 export const YAGNI_SKILL = 'yagni';
 export const YAGNI_FILES = ['SKILL.md'];
 
+// obra/superpowers's debugging process, plus the three techniques SKILL.md points at by
+// filename and the two scripts they reference. Model-invoked on any bug, so it ships by
+// default — the executor cannot ask for it if it is not there. See README for attribution.
+export const DEBUGGING_SKILL = 'systematic-debugging';
+export const DEBUGGING_FILES = [
+  'SKILL.md', 'root-cause-tracing.md', 'defense-in-depth.md', 'condition-based-waiting.md',
+  'find-polluter.sh', 'condition-based-waiting-example.ts',
+];
+
 // mattpocock's wizard generator: SKILL.md authors the stages, template.sh is the library
 // they run on, so either alone is useless. Default like yagni — inert until you run
 // /wizard. See README for attribution.

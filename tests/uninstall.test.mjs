@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, HANDOFF_SKILLS, GRILLING_SKILLS, OPTIMIZE_SKILLS, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, SHADCN_SKILL, hookCommand } from '../manifest.mjs';
+import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, HANDOFF_SKILLS, GRILLING_SKILLS, OPTIMIZE_SKILLS, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, DEBUGGING_SKILL, SHADCN_SKILL, hookCommand } from '../manifest.mjs';
 
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const INSTALL = path.join(REPO, 'install.mjs');
@@ -51,6 +51,7 @@ test('removes the files it placed, and running it twice is not an error', () => 
   for (const f of YAGNI_FILES) assert.equal(fs.existsSync(yagniPath(home, f)), false, `yagni/${f} should be gone`);
   for (const skill of GRILLING_SKILLS) assert.equal(fs.existsSync(path.join(home, '.claude', 'skills', skill)), false, `${skill} should be gone`);
   assert.equal(fs.existsSync(path.join(home, '.claude', 'skills', WIZARD_SKILL)), false, `${WIZARD_SKILL} should be gone`);
+  assert.equal(fs.existsSync(path.join(home, '.claude', 'skills', DEBUGGING_SKILL)), false, `${DEBUGGING_SKILL} should be gone`);
 });
 
 // rmdir on the skill root alone leaves rules/, agents/, assets/ and evals/ behind as

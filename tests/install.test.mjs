@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, hookCommand } from '../manifest.mjs';
+import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, hookCommand } from '../manifest.mjs';
 
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const INSTALL = path.join(REPO, 'install.mjs');
@@ -143,6 +143,21 @@ test('a default install ships both halves of the wizard, bytes intact', () => {
     assert.ok(
       fs.readFileSync(installed).equals(fs.readFileSync(path.join(REPO, 'skills', WIZARD_SKILL, f))),
       `skills/${WIZARD_SKILL}/${f} must match this repo byte for byte`
+    );
+  }
+});
+
+// SKILL.md points at the three technique files by filename, and two of those name the
+// scripts — shipping the skill without any of the five leaves a reference to nothing.
+test('a default install ships the debugging skill with every file it references', () => {
+  const home = install();
+
+  for (const f of DEBUGGING_FILES) {
+    const installed = path.join(home, '.claude', 'skills', DEBUGGING_SKILL, f);
+    assert.ok(fs.existsSync(installed), `skills/${DEBUGGING_SKILL}/${f} should be installed`);
+    assert.ok(
+      fs.readFileSync(installed).equals(fs.readFileSync(path.join(REPO, 'skills', DEBUGGING_SKILL, f))),
+      `skills/${DEBUGGING_SKILL}/${f} must match this repo byte for byte`
     );
   }
 });
