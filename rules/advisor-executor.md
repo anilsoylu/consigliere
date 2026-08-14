@@ -36,6 +36,13 @@ Re-consult when the same error or verifier fails twice — stop before the third
 and consult with the actual failing output. The user can also ask for a consultation at
 any point ("consult the advisor" / "danış").
 
+Grilling: when a fresh user prompt leaves two or more material decisions open (the
+coding-discipline ask threshold, hit more than once in one task), run the grilling
+skill before the first consult; the settled tree becomes the consult's objective and
+options considered. A single open decision stays a one-line stated assumption. Grill
+at most once per task, and never in unattended runs (ralph, cron, background
+continuations): there, state the assumptions, proceed, and carry them into the consult.
+
 ## The consult contract
 
 The advisor shares none of your conversation context. Every consult carries five parts:
