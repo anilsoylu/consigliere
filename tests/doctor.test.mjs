@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import { runChecks, summarize } from '../doctor.mjs';
-import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand } from '../manifest.mjs';
+import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand } from '../manifest.mjs';
 
 const DOCTOR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'doctor.mjs');
 const temps = [];
@@ -35,6 +35,7 @@ function makeRepoFixture() {
   for (const rule of DEFAULT_RULES) writeFile(path.join(repo, 'rules', rule), rule);
   for (const file of YAGNI_FILES) writeFile(path.join(repo, 'skills', YAGNI_SKILL, file), file);
   for (const skill of GRILLING_SKILLS) for (const file of GRILLING_FILES) writeFile(path.join(repo, 'skills', skill, file), file);
+  for (const file of WIZARD_FILES) writeFile(path.join(repo, 'skills', WIZARD_SKILL, file), file);
   for (const file of SHADCN_FILES) writeFile(path.join(repo, 'skills', SHADCN_SKILL, file), file);
   writeFile(path.join(repo, 'install.mjs'));
   writeFile(path.join(repo, 'uninstall.mjs'));
@@ -66,6 +67,7 @@ function installDefaultFiles(home) {
   for (const rule of DEFAULT_RULES) writeFile(path.join(claude, 'rules', rule), rule);
   for (const file of YAGNI_FILES) writeFile(path.join(claude, 'skills', YAGNI_SKILL, file), file);
   for (const skill of GRILLING_SKILLS) for (const file of GRILLING_FILES) writeFile(path.join(claude, 'skills', skill, file), file);
+  for (const file of WIZARD_FILES) writeFile(path.join(claude, 'skills', WIZARD_SKILL, file), file);
   for (const file of SHADCN_FILES) writeFile(path.join(claude, 'skills', SHADCN_SKILL, file), file);
   writeFile(path.join(claude, 'settings.json'), settingsFor(home));
 }
@@ -336,6 +338,18 @@ test('warns about a locally customized yagni skill instead of certifying it', ()
 
   assert.equal(skill.level, 'warn');
   assert.match(skill.detail, /customized locally.*SKILL\.md/);
+});
+
+// the library, not SKILL.md, is what every generated wizard runs on
+test('warns about a locally customized wizard template instead of certifying it', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+  writeFile(path.join(home, '.claude', 'skills', WIZARD_SKILL, 'template.sh'), 'my own version');
+
+  const skill = check(run(home, makeRepoFixture()), 'wizard skill');
+
+  assert.equal(skill.level, 'warn');
+  assert.match(skill.detail, /customized locally.*template\.sh/);
 });
 
 // the pair is one feature, so losing either half is the same finding

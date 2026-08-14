@@ -45,6 +45,12 @@ export const OPTIMIZE_FILES = ['SKILL.md'];
 export const YAGNI_SKILL = 'yagni';
 export const YAGNI_FILES = ['SKILL.md'];
 
+// mattpocock's wizard generator: SKILL.md authors the stages, template.sh is the library
+// they run on, so either alone is useless. Default like yagni — inert until you run
+// /wizard. See README for attribution.
+export const WIZARD_SKILL = 'wizard';
+export const WIZARD_FILES = ['SKILL.md', 'template.sh'];
+
 // shadcn/ui's own skill, with this repo's edits to its rules/*.md. Upstream is
 // shadcn/ui; see the attribution in README.md. Nested paths, so copyAll() creates
 // each file's directory rather than assuming a flat skill folder.

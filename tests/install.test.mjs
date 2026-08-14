@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, hookCommand } from '../manifest.mjs';
+import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, hookCommand } from '../manifest.mjs';
 
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const INSTALL = path.join(REPO, 'install.mjs');
@@ -129,6 +129,21 @@ test('a default install ships the grilling pair, bytes intact', () => {
         `skills/${skill}/${f} must match this repo byte for byte`
       );
     }
+  }
+});
+
+// SKILL.md authors stages against template.sh; shipping one without the other leaves the
+// skill telling you to copy a file that is not there.
+test('a default install ships both halves of the wizard, bytes intact', () => {
+  const home = install();
+
+  for (const f of WIZARD_FILES) {
+    const installed = path.join(home, '.claude', 'skills', WIZARD_SKILL, f);
+    assert.ok(fs.existsSync(installed), `skills/${WIZARD_SKILL}/${f} should be installed`);
+    assert.ok(
+      fs.readFileSync(installed).equals(fs.readFileSync(path.join(REPO, 'skills', WIZARD_SKILL, f))),
+      `skills/${WIZARD_SKILL}/${f} must match this repo byte for byte`
+    );
   }
 });
 
