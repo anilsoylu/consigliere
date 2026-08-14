@@ -6,15 +6,16 @@
 ## Call
 
 ```
-Agent({ subagent_type: "advisor", prompt: "<consult>", run_in_background: false })
+Agent({ subagent_type: "advisor", prompt: "<consult>" })
 ```
 
 This is the only way to invoke the advisor. The agent definition
 (`~/.claude/agents/advisor.md`) carries the advisor doctrine — verdict-not-survey, no
 manufactured objections, ~300-word cap — so never retype it into the prompt.
 
-Run it synchronously (`run_in_background: false`). You need the verdict before you write
-code; a background consult defeats the point.
+Every Agent call in this harness is asynchronous — there is no `run_in_background` parameter
+to set. The consult returns as a task notification, so treat the notification as the barrier:
+do work that does not depend on the verdict while you wait, and write no code until it lands.
 
 Put the whole consult in the prompt, diffs included. There is no shell quoting to
 corrupt it and no temp file to manage. For a large diff, name the files and paste the
@@ -94,7 +95,14 @@ Relay all findings verbatim. Never silently drop one — the user decides what t
 
 A PreToolUse hook blocks Edit/Write on real source files (`.ts .tsx .js .py .go .rs …`)
 until the advisor was called this task. Never gated: `~/.claude`, `/tmp`, `~/Desktop`,
-and any non-code file. The flag resets on each new task prompt and survives
-approval messages. Trivial source change → ask the user, don't fake the flag.
+and any non-code file. The flag resets on each new task prompt, and survives both approval
+messages and the task notifications that background subagents deliver.
+
+Hitting the gate is not a failure and not a question for the user — it is the consult
+directive arriving late, because the prompt-time hook could only guess from wording where
+a task would end while the gate holds the actual path. Consult, do unrelated work while the
+verdict travels, then retry the same edit. Never fake the flag. A second deny on the same
+edit after a consult is the one exception: the hook is broken, not unsatisfied, so surface
+it to the user instead of consulting again.
 
 Advisor unreachable → continue alone. Only planning is lost.

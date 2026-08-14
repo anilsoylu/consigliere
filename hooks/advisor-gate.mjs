@@ -28,8 +28,15 @@ process.stdout.write(JSON.stringify({
   hookSpecificOutput: {
     hookEventName: 'PreToolUse',
     permissionDecision: 'deny',
+    // Phrased as the directive itself, not a complaint. advisor-inject.mjs guesses from the
+    // prompt's wording whether a task will end in code; this hook knows, because it holds the
+    // path. An unwarned deny is that directive arriving late, so it must say what to do next.
+    // It must NOT offer "ask the user" — that branch is what turned a deny into a stall.
     permissionDecisionReason:
-      'ADVISOR GATE: plan first — Agent({ subagent_type: "advisor", prompt: "<consult>" }), then relay the plan before writing code. See ~/.claude/rules/advisor-executor.md.\n' +
-      'Genuinely trivial? Stop and ask the user for an explicit go-ahead.',
+      'ADVISOR GATE: no consult has run for this task yet. Call Agent({ subagent_type: "advisor", prompt: "<consult>" }) '
+      + 'with the five-part contract — objective, files, evidence, constraints, options considered. '
+      + 'The verdict arrives as a task notification; do work that does not depend on it meanwhile, then retry this exact edit once it lands. '
+      + 'The consult is the unblock, so do not stop to ask for a go-ahead — unless this same edit is denied again after a consult, '
+      + 'which means the hook is broken rather than unsatisfied: say so and stop. See ~/.claude/rules/advisor-executor.md.',
   },
 }));
