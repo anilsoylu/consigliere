@@ -17,6 +17,13 @@ export const meta = {
 const base = (args && args.base) || 'origin/HEAD'
 const verifyCmd = (args && args.verify) || null
 
+// Prepended to every prompt whose agent runs git or resolves a file path. The judges
+// need it as much as the audit does: they read the surrounding code themselves, so a
+// wrong cwd refutes real findings instead of failing.
+const inDir = (args && args.cwd)
+  ? `Work in ${args.cwd}. Run every command and resolve every path from there.\n\n`
+  : ''
+
 const FINDINGS = {
   type: 'object',
   required: ['findings'],
@@ -61,7 +68,7 @@ const LENSES = [
 // unresolvable base has to abort the run rather than hand four lenses an empty diff.
 phase('Baseline')
 const baseline = await agent(
-  `Two jobs, both on the CURRENT working tree. Report raw results; fix nothing.
+  `${inDir}Two jobs, both on the CURRENT working tree. Report raw results; fix nothing.
 
 1. Resolve the diff base. Try \`git rev-parse --verify ${base}\`. If that fails, fall back in
 order: origin/main, origin/master, main, master, and finally the merge-base with whatever
@@ -111,7 +118,7 @@ phase('Audit')
 const audits = await parallel(
   LENSES.map((l) => () =>
     agent(
-      `Review the diff \`git diff ${range}\` through ONE lens only: ${l.key} — ${l.brief}.
+      `${inDir}Review the diff \`git diff ${range}\` through ONE lens only: ${l.key} — ${l.brief}.
 Ignore everything outside your lens; another reviewer owns it.
 Report every defect you find, no severity filter. For each one include the diff hunk it lives in as evidence.
 Do not propose fixes. Do not write code.`,
@@ -155,7 +162,7 @@ const judged = await pipeline(
   forVerify,
   (f) =>
     agent(
-      `A reviewer claims this is a defect. Try to REFUTE it.
+      `${inDir}A reviewer claims this is a defect. Try to REFUTE it.
 
 File: ${f.file}:${f.line}
 Claim: ${f.claim}
@@ -186,7 +193,7 @@ phase('Escalate')
 const settled = await parallel(
   escalate.map((f) => () =>
     agent(
-      `You are the last word on this finding. A previous judge already ruled; your job includes judging that ruling.
+      `${inDir}You are the last word on this finding. A previous judge already ruled; your job includes judging that ruling.
 
 File: ${f.file}:${f.line}
 Claim: ${f.claim}

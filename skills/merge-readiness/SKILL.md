@@ -22,15 +22,18 @@ Call the **Workflow** tool with the script bundled next to this file:
 ```
 Workflow({
   scriptPath: "<this skill's directory>/merge-readiness.js",
-  args: { verify: "npm test", base: "origin/main" }
+  args: { cwd: "/path/to/repo", verify: "npm test", base: "origin/main" }
 })
 ```
 
 Installed with `node install.mjs --with-merge-readiness`, that path is
 `~/.claude/skills/merge-readiness/merge-readiness.js`.
 
-Both args are optional:
+All three args are optional:
 
+- `cwd` — the repository to review. Omitted, every agent uses the session's own working
+  directory, which is wrong whenever the branch lives somewhere else — and a session
+  whose cwd is not a git repo aborts the run at the baseline node.
 - `verify` — the command that decides whether the tree is sound. Omitted, the first
   agent finds it from `package.json` scripts, a Makefile, or a justfile.
 - `base` — what to diff against. Defaults to `origin/HEAD`; when that does not resolve the
