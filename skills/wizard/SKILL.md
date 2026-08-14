@@ -4,7 +4,9 @@ description: Generate an interactive bash wizard that walks a human through step
 ---
 
 <!-- Vendored from https://github.com/mattpocock/skills (MIT), edited: one paragraph on
-     what may be handed to a human at all. template.sh is byte-identical. -->
+     what may be handed to a human at all, and step 1 reads key names rather than live
+     secrets. template.sh diverges too — write_env quotes what it writes, _existing
+     unquotes what it reads back. -->
 
 # Wizard
 
@@ -22,7 +24,7 @@ A wizard is ephemeral by default — built for one run, saved to a scratch or `s
 
 Work out every manual step the human must take and every value that gets captured along the way. Read the repo first — don't ask cold:
 
-- For setup: `.env`, `.env.example`, `.env.*`, `README`, `docker-compose*`, framework config, and `.github/workflows/*` (every `secrets.*` / `vars.*` reference is a value the wizard must produce).
+- For setup: `.env.example`, `README`, `docker-compose*`, framework config, and `.github/workflows/*` (every `secrets.*` / `vars.*` reference is a value the wizard must produce). From a live `.env` or `.env.*` read the key **names** only — `grep -oE '^[A-Za-z_][A-Za-z0-9_]*' .env` — never the values; you need to know which keys exist, and pulling real credentials into the transcript to learn that is a leak you cannot take back.
 - For a migration or transition: the current state, the target state, and the irreversible actions between them.
 
 Then show the user the ordered list of stages and the values each produces, and confirm — they may add, drop, or reorder.

@@ -91,8 +91,17 @@ confirm() {
 # _existing KEY — current value of KEY in ENV_FILE, if any.
 _existing() {
   [[ -f "$ENV_FILE" ]] || return 1
-  local line; line=$(grep -E "^${1}=" "$ENV_FILE" | tail -n1) || return 1
-  printf '%s' "${line#*=}"
+  local line value; line=$(grep -E "^${1}=" "$ENV_FILE" | tail -n1) || return 1
+  value=${line#*=}
+  # Strip the quotes write_env added, or a human wrote by hand — returning them would
+  # push literal quote characters into the next `gh secret set`.
+  if [[ ${value:0:1} == "'" && ${value: -1} == "'" ]]; then
+    value=${value:1:${#value}-2}
+    value=${value//\'\\\'\'/\'}
+  elif [[ ${value:0:1} == '"' && ${value: -1} == '"' ]]; then
+    value=${value:1:${#value}-2}
+  fi
+  printf '%s' "$value"
 }
 
 # ask KEY "Prompt" — read a value into $KEY. Offers the existing .env value as
@@ -128,11 +137,14 @@ ask_secret() {
 # write_env KEY VALUE — upsert KEY=VALUE into ENV_FILE (creates it; replaces
 # any existing line). Idempotent.
 write_env() {
-  local key="$1" value="$2" tmp
+  local key="$1" value="$2" tmp escaped
   touch "$ENV_FILE"
   tmp=$(mktemp)
   grep -vE "^${key}=" "$ENV_FILE" > "$tmp" || true
-  printf '%s=%s\n' "$key" "$value" >> "$tmp"
+  # Single-quote the value: a pasted secret containing $(...) or a backtick would
+  # otherwise run as a command the moment anything sources this file.
+  escaped=${value//\'/\'\\\'\'}
+  printf "%s='%s'\n" "$key" "$escaped" >> "$tmp"
   mv "$tmp" "$ENV_FILE"
   WRITTEN_ENV+=("$key")
   printf '  %s✓ wrote%s %s → %s\n' "$GREEN" "$RESET" "$key" "$ENV_FILE"
