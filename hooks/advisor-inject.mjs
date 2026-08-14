@@ -39,6 +39,8 @@ if (!onDemand && !CODE_SIGNAL.test(prompt)) process.exit(0);
 
 process.stdout.write(
   'ADVISOR/EXECUTOR LOOP — this prompt carries a code/design signal.\n' +
+  '0) GRILL first only if 2+ material decisions are open and the user is at the keyboard. Once per task;\n' +
+  '   ralph/cron/unattended runs never grill — state assumptions and proceed.\n' +
   '1) PLAN via the advisor subagent — spawn it with the Agent tool, synchronously:\n' +
   '   Agent({ subagent_type: "advisor", prompt: "<consult>", run_in_background: false })\n' +
   '   The agent definition carries the advisor doctrine (verdict discipline, ~300 words) — do not retype it.\n' +

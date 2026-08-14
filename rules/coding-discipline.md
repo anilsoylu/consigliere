@@ -15,5 +15,11 @@ Same rule for prose you write into the repo: a docstring restating the signature
 Turn the task into something you can check, then loop until it passes:
 "fix the bug" → write a failing test first, then make it pass. Never call it done without running the verifier.
 
+## UI copy
+Do not add subtitles, helper text, or descriptive copy beneath headings, labels, cards,
+or settings by default. Prefer one concise, self-explanatory heading or label. Add
+supporting copy only when the user explicitly asks for it or when it prevents
+misunderstanding or error, and never to restate the heading.
+
 ## When to ask
 One rule, everywhere: ask only when two readings would produce materially different work and you cannot pick with a stated assumption. Otherwise assume, say so in one line, and proceed. Bug reports never need hand-holding — reproduce, fix, verify.

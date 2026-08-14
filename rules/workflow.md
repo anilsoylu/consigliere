@@ -40,7 +40,10 @@ Update it in batches, not per checkbox. A tick is a full tool round-trip that re
 
 ## Git & PR
 - Handoff order is `clean` → review → `pr-update`. Clean rewrites the diff, so a review
-  that ran before it judged code that no longer exists.
+  that ran before it judged code that no longer exists. If clean's diff read shows the
+  diff adds or materially changes a compute-heavy routine (data loops, math kernels,
+  parsers, media processing), run `optimize` on it before the review; otherwise skip
+  silently.
 - Never `cpr`: it fuses clean and pr-update with no gap for the review. Only a `none`
   tier — no source changed — earns the single pass.
 - `pr-ready` is not part of that chain. It unblocks an already-open PR (stale base, red
