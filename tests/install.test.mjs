@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, hookCommand } from '../manifest.mjs';
+import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, hookCommand } from '../manifest.mjs';
 
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const INSTALL = path.join(REPO, 'install.mjs');
@@ -96,7 +96,7 @@ test('--with-workflow ships the rule together with every skill it names', () => 
   const home = install(null, ['--with-workflow']);
 
   assert.ok(fs.existsSync(rulePath(home, WORKFLOW_RULE)), 'the workflow rule should be installed');
-  for (const skill of HANDOFF_SKILLS) {
+  for (const skill of [...HANDOFF_SKILLS, ...OPTIMIZE_SKILLS]) {
     const installed = path.join(home, '.claude', 'skills', skill, 'SKILL.md');
     assert.ok(fs.existsSync(installed), `skills/${skill}/SKILL.md should be installed`);
     assert.ok(
@@ -110,8 +110,25 @@ test('a default install ships neither the workflow rule nor the skills it names'
   const home = install();
 
   assert.equal(fs.existsSync(rulePath(home, WORKFLOW_RULE)), false, 'the rule is behind the flag');
-  for (const skill of HANDOFF_SKILLS) {
+  for (const skill of [...HANDOFF_SKILLS, ...OPTIMIZE_SKILLS]) {
     assert.equal(fs.existsSync(path.join(home, '.claude', 'skills', skill)), false, `${skill} is behind the flag too`);
+  }
+});
+
+// The default rule and the inject banner call for grilling by name, so a default
+// install without the pair would carry dangling references.
+test('a default install ships the grilling pair, bytes intact', () => {
+  const home = install();
+
+  for (const skill of GRILLING_SKILLS) {
+    for (const f of GRILLING_FILES) {
+      const installed = path.join(home, '.claude', 'skills', skill, f);
+      assert.ok(fs.existsSync(installed), `skills/${skill}/${f} should be installed`);
+      assert.ok(
+        fs.readFileSync(installed).equals(fs.readFileSync(path.join(REPO, 'skills', skill, f))),
+        `skills/${skill}/${f} must match this repo byte for byte`
+      );
+    }
   }
 });
 

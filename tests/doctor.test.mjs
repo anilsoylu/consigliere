@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import { runChecks, summarize } from '../doctor.mjs';
-import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand } from '../manifest.mjs';
+import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand } from '../manifest.mjs';
 
 const DOCTOR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'doctor.mjs');
 const temps = [];
@@ -34,6 +34,7 @@ function makeRepoFixture() {
   for (const agent of AGENT_FILES) writeFile(path.join(repo, 'agents', agent), agent);
   for (const rule of DEFAULT_RULES) writeFile(path.join(repo, 'rules', rule), rule);
   for (const file of YAGNI_FILES) writeFile(path.join(repo, 'skills', YAGNI_SKILL, file), file);
+  for (const skill of GRILLING_SKILLS) for (const file of GRILLING_FILES) writeFile(path.join(repo, 'skills', skill, file), file);
   for (const file of SHADCN_FILES) writeFile(path.join(repo, 'skills', SHADCN_SKILL, file), file);
   writeFile(path.join(repo, 'install.mjs'));
   writeFile(path.join(repo, 'uninstall.mjs'));
@@ -64,6 +65,7 @@ function installDefaultFiles(home) {
   for (const agent of AGENT_FILES) writeFile(path.join(claude, 'agents', agent), agent);
   for (const rule of DEFAULT_RULES) writeFile(path.join(claude, 'rules', rule), rule);
   for (const file of YAGNI_FILES) writeFile(path.join(claude, 'skills', YAGNI_SKILL, file), file);
+  for (const skill of GRILLING_SKILLS) for (const file of GRILLING_FILES) writeFile(path.join(claude, 'skills', skill, file), file);
   for (const file of SHADCN_FILES) writeFile(path.join(claude, 'skills', SHADCN_SKILL, file), file);
   writeFile(path.join(claude, 'settings.json'), settingsFor(home));
 }
@@ -72,7 +74,7 @@ function installDefaultFiles(home) {
 function installWorkflowFiles(home, repo) {
   for (const root of [repo, path.join(home, '.claude')]) {
     writeFile(path.join(root, 'rules', WORKFLOW_RULE), WORKFLOW_RULE);
-    for (const skill of ['ralph-protocol', ...HANDOFF_SKILLS]) writeFile(path.join(root, 'skills', skill, 'SKILL.md'), skill);
+    for (const skill of ['ralph-protocol', ...HANDOFF_SKILLS, ...OPTIMIZE_SKILLS]) writeFile(path.join(root, 'skills', skill, 'SKILL.md'), skill);
   }
 }
 
@@ -334,6 +336,19 @@ test('warns about a locally customized yagni skill instead of certifying it', ()
 
   assert.equal(skill.level, 'warn');
   assert.match(skill.detail, /customized locally.*SKILL\.md/);
+});
+
+// the pair is one feature, so losing either half is the same finding
+test('warns when half of the grilling pair is missing', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+  fs.rmSync(path.join(home, '.claude', 'skills', GRILLING_SKILLS[1]), { recursive: true });
+
+  const skill = check(run(home, makeRepoFixture()), 'grilling skills');
+
+  assert.equal(skill.level, 'warn');
+  assert.match(skill.detail, new RegExp(`${GRILLING_SKILLS[1]}/SKILL\\.md`));
+  assert.match(skill.detail, /ignore this if you removed it on purpose/);
 });
 
 test('warns when the shadcn skill was never installed', () => {

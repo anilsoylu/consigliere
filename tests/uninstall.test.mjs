@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, HANDOFF_SKILLS, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, hookCommand } from '../manifest.mjs';
+import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, HANDOFF_SKILLS, GRILLING_SKILLS, OPTIMIZE_SKILLS, YAGNI_SKILL, YAGNI_FILES, SHADCN_SKILL, hookCommand } from '../manifest.mjs';
 
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const INSTALL = path.join(REPO, 'install.mjs');
@@ -49,6 +49,7 @@ test('removes the files it placed, and running it twice is not an error', () => 
   for (const f of AGENT_FILES) assert.equal(fs.existsSync(agentPath(home, f)), false, `agents/${f} should be gone`);
   for (const f of DEFAULT_RULES) assert.equal(fs.existsSync(rulePath(home, f)), false, `${f} should be gone`);
   for (const f of YAGNI_FILES) assert.equal(fs.existsSync(yagniPath(home, f)), false, `yagni/${f} should be gone`);
+  for (const skill of GRILLING_SKILLS) assert.equal(fs.existsSync(path.join(home, '.claude', 'skills', skill)), false, `${skill} should be gone`);
 });
 
 // rmdir on the skill root alone leaves rules/, agents/, assets/ and evals/ behind as
@@ -67,7 +68,7 @@ test('prunes a skill directory down to nothing, subdirectories included', () => 
 // behind after an uninstall.
 test('removes the handoff skills the workflow flag installed', () => {
   const home = installed(['--with-workflow']);
-  const dirs = HANDOFF_SKILLS.map((s) => path.join(home, '.claude', 'skills', s));
+  const dirs = [...HANDOFF_SKILLS, ...OPTIMIZE_SKILLS].map((s) => path.join(home, '.claude', 'skills', s));
   for (const dir of dirs) assert.ok(fs.existsSync(dir), `fixture must have ${path.basename(dir)} installed`);
 
   run(UNINSTALL, home);
