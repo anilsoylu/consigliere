@@ -161,6 +161,20 @@ The verdict on whether the tree is sound comes from your own verifier's exit cod
 
 It costs up to 13 agents a run, so `review-tier.sh` only routes `xhigh` here; routine diffs stay on the single advisor consult. Reach for it by hand on a `high` diff when it's big enough that one reviewer will miss something and you can say why.
 
+## Auto mode
+
+Consigliere ships no `autoMode` block, on purpose.
+
+Claude Code's auto-mode classifier reads the same instruction files Claude does, so the rules this package installs are already policy — it will block a call and cite one of them back to you as your own standing rule. Restating that doctrine under `autoMode` would be a second, drift-prone encoding of one policy, and `claude auto-mode critique` flags redundant rules on sight. Exact, mechanical rules belong in a hook anyway; the classifier is for judgment calls a pattern can't express.
+
+What the rules genuinely cannot express is your infrastructure, and that is yours to write. It goes in `~/.claude/settings.json` — the classifier does not read `autoMode` from project settings:
+
+- `environment` is where to start and usually the only field you need. It is also the only one that clears the `hard_deny` exfiltration rule, so a trusted bucket or domain belongs here and nowhere else.
+- Keep the literal `"$defaults"` in every list. Dropping it takes ownership of 60-odd built-in denies that you then maintain forever.
+- Reach for `allow` last. An entry there is a *mandatory* exception that overrides matching soft denies, so a vague one disables protections you never went looking for.
+
+`claude auto-mode defaults` prints the built-in rules, `config` prints what you actually get, and `critique` reads your own entries back and names the ambiguous ones.
+
 ## Uninstall
 
 ```bash
