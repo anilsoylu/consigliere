@@ -101,7 +101,9 @@ messages and the task notifications that background subagents deliver.
 Hitting the gate is not a failure and not a question for the user — it is the consult
 directive arriving late, because the prompt-time hook could only guess from wording where
 a task would end while the gate holds the actual path. Consult, do unrelated work while the
-verdict travels, then retry the same edit. Never fake the flag. A second deny on the same
+verdict travels, then retry the same edit. Never fake the flag — and writing source through
+Bash (`cat >`, `sed -i`) to sidestep the gate is the same thing, since the gate only matches
+Edit/Write/MultiEdit. A second deny on the same
 edit after a consult is the one exception: the hook is broken, not unsatisfied, so surface
 it to the user instead of consulting again.
 
