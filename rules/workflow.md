@@ -51,6 +51,8 @@ Update it in batches, not per checkbox. A tick is a full tool round-trip that re
 - One branch per task: `feat/ fix/ chore/ refactor/` + kebab-case summary. Never commit straight to `main`.
 - Conventional commit subjects: `feat: … / fix: … / refactor: … / test: … / chore: … / docs: …`.
 - Before `gh pr create`: tests green, lint clean, and `git diff origin/main` self-reviewed line by line.
+- A draft PR on a repo you own is routine, not outward-facing: open it without asking. A
+  PR against someone else's repo needs approval first.
 - Open as `--draft` while work continues, `gh pr ready` when it is reviewable.
 - Keep a PR under ~400 changed lines. Bigger work gets split into stacked PRs.
 - Sync with `git rebase origin/main`; push rewritten history only with `--force-with-lease`, never bare `--force`.
