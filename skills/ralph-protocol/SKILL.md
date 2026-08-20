@@ -53,6 +53,8 @@ Every terminal response: exactly one result line, then `<promise>RALPH_LOOP_STOP
 
 The promise is a transport-level stop signal, not proof of correctness. `/cancel-ralph` is the user's manual escape hatch, not something the running model can rely on.
 
+A loop that stops mid-run with no message usually means the session identity changed — a `/tui`, renderer, or `/update` restart. The stop hook sees a `session_id` mismatch and exits silently, leaving `.claude/ralph-loop.local.md` behind with `active: true`. That file is stale, not dangerous: every later session skips it and a fresh `/ralph-loop` overwrites it. Delete it and start again.
+
 ## tasks/todo.md shape
 
 ```markdown
@@ -77,6 +79,8 @@ The presence of `tasks/todo.md` never activates Ralph. Activation is explicit an
 ## Command template
 
 Replace `<actual plan path>` with the real path before presenting. Never show the placeholder.
+
+`/ralph-loop` carries `hide-from-slash-command-tool: "true"`, so only the user can type it. Presenting the filled template is the handoff itself, not a way around workflow.md's no-paste rule.
 
 ```text
 /ralph-loop "
