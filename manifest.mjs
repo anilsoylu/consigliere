@@ -6,7 +6,7 @@ import path from 'node:path';
 // Releases are `git tag v<VERSION>`; update-check.mjs and doctor.mjs both compare against
 // that tag list, so bumping this without tagging makes an installed copy look ahead of
 // upstream. Only vN.N.N sorts — the old `v1-sol` tag is deliberately unsortable.
-export const VERSION = '1.2.0';
+export const VERSION = '1.2.1';
 export const STATE_FILE = '.consigliere-state.json';
 
 export const HOOK_FILES = [
@@ -51,6 +51,12 @@ export const GRILLING_FILES = ['SKILL.md'];
 // optimize unprompted. perf's upstream is brooklyn-skills; see README for attribution.
 export const OPTIMIZE_SKILLS = ['optimize', 'perf'];
 export const OPTIMIZE_FILES = ['SKILL.md'];
+
+// The upgrade path update-check.mjs points at, as one command. Ships by default: an
+// upgrade tool behind a flag is one nobody has when the update notice arrives. Its
+// frontmatter carries disable-model-invocation, so only the user can start it.
+export const UPGRADE_SKILL = 'consig-upgrade';
+export const UPGRADE_FILES = ['SKILL.md'];
 
 // The deletion pass for rules/coding-discipline.md, which is already a default rule.
 // A prompt file with no runtime cost and no plugin dependency, so it ships by default

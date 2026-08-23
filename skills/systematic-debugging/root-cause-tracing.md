@@ -104,7 +104,8 @@ Use the bisection script `find-polluter.sh` in this directory:
 ./find-polluter.sh '.git' 'src/**/*.test.ts'
 ```
 
-Runs tests one-by-one, stops at first polluter. See script for usage.
+Runs tests one-by-one, stops at first polluter. See script for usage. It needs a POSIX
+shell — on Windows run it under Git Bash or WSL.
 
 ## Real Example: Empty projectDir
 

@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { VERSION, STATE_FILE, HOOK_FILES, OBSOLETE_HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, HANDOFF_FILES, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, OPTIMIZE_FILES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand, hasRalphLoop, hasContextMode } from './manifest.mjs';
+import { VERSION, STATE_FILE, HOOK_FILES, OBSOLETE_HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, HANDOFF_FILES, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, OPTIMIZE_FILES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand, hasRalphLoop, hasContextMode } from './manifest.mjs';
 
 const HOME = os.homedir();
 const REPO = path.dirname(fileURLToPath(import.meta.url));
@@ -17,11 +17,29 @@ const RULES = path.join(CLAUDE, 'rules');
 const AGENTS = path.join(CLAUDE, 'agents');
 const SKILLS = path.join(CLAUDE, 'skills');
 const SETTINGS = path.join(CLAUDE, 'settings.json');
-const withWorkflow = process.argv.slice(2).includes('--with-workflow');
-const withMergeReadiness = process.argv.slice(2).includes('--with-merge-readiness');
+const statePath = path.join(CLAUDE, STATE_FILE);
 
 const log = (...a) => console.log('[consigliere]', ...a);
 const warn = (...a) => console.warn('[consigliere] WARN:', ...a);
+
+let state = {};
+try { state = JSON.parse(fs.readFileSync(statePath, 'utf8')); } catch {
+  // Unreadable reads exactly like a first install, so the opt-ins below silently reset to
+  // whatever this one run passed. Say so, or the only trace is doctor reporting drift later.
+  if (fs.existsSync(statePath)) warn(`~/.claude/${STATE_FILE} does not parse; treating this as a fresh install`);
+}
+// Opting into an optional asset is a decision, not a per-run argument: a plain
+// `node install.mjs` on upgrade would otherwise skip what it installed last time and leave
+// it to drift out of date. Union, so the flags only ever add — uninstall.mjs takes away.
+const OPTIONAL_FLAGS = ['--with-workflow', '--with-merge-readiness'];
+const argv = process.argv.slice(2);
+const flags = OPTIONAL_FLAGS.filter((f) => (state.flags || []).includes(f) || argv.includes(f));
+const withWorkflow = flags.includes('--with-workflow');
+const withMergeReadiness = flags.includes('--with-merge-readiness');
+// A typo used to cost one run; now it also leaves you believing the opt-in was remembered.
+for (const a of argv.filter((a) => a.startsWith('--') && !OPTIONAL_FLAGS.includes(a))) {
+  warn(`unknown option ${a} — did you mean one of ${OPTIONAL_FLAGS.join(', ')}?`);
+}
 
 function backup(file) {
   const bak = `${file}.consigliere.bak`;
@@ -102,6 +120,11 @@ if (withMergeReadiness) {
 // for grilling by name, and grill-me is only the slash wrapper that runs it.
 for (const skill of GRILLING_SKILLS) copyAll(GRILLING_FILES, path.join(REPO, 'skills', skill), path.join(SKILLS, skill));
 log(`copied the grilling pair → ~/.claude/skills (${GRILLING_SKILLS.map((s) => `/${s}`).join(', ')}; upstream mattpocock/skills, see README for attribution)`);
+
+// No flag: an upgrade command you have to opt into is one you do not have when the
+// update notice arrives.
+copyAll(UPGRADE_FILES, path.join(REPO, 'skills', UPGRADE_SKILL), path.join(SKILLS, UPGRADE_SKILL));
+log(`copied skills/${UPGRADE_SKILL} → ~/.claude/skills (run it with /${UPGRADE_SKILL} when a new version lands)`);
 
 // No flag: it is the enforcement pass for rules/coding-discipline.md, which is already a
 // default rule, and it costs nothing until you run /yagni.
@@ -219,12 +242,9 @@ if (!hasContextMode(settings)) {
 // The installed side carries no manifest, so the hook has nothing to compare against
 // unless the installer leaves the version and the clone it came from behind. `latest` is
 // dropped on every install: it describes a comparison against a version now superseded.
-const statePath = path.join(CLAUDE, STATE_FILE);
-let state = {};
-try { state = JSON.parse(fs.readFileSync(statePath, 'utf8')); } catch {}
 // checkedAt goes back to 0 with it: a cache from before this install describes a
 // comparison against the version it just replaced, so the next session should re-check.
-fs.writeFileSync(statePath, JSON.stringify({ ...state, version: VERSION, repo: REPO, latest: null, checkedAt: 0 }, null, 2) + '\n');
+fs.writeFileSync(statePath, JSON.stringify({ ...state, version: VERSION, repo: REPO, flags, latest: null, checkedAt: 0 }, null, 2) + '\n');
 log(`recorded version ${VERSION} in ~/.claude/${STATE_FILE} — update-check.mjs compares it against this clone's tags once a day`);
 
 // --- 6. Leftovers from the Codex Sol era (tag v1-sol) ---

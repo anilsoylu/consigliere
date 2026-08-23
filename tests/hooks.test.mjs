@@ -131,7 +131,7 @@ test('gate ignores non-code and exempt paths', () => {
 const UPDATE = path.join(ROOT, 'hooks', 'update-check.mjs');
 
 // The hook reads one fixed path, so a HOME override is the only way to isolate it.
-function update(state, env = {}) {
+function update(state, env = {}, payload = { source: 'startup' }) {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'consigliere-update-'));
   homes.push(home);
   fs.mkdirSync(path.join(home, '.claude'), { recursive: true });
@@ -142,24 +142,43 @@ function update(state, env = {}) {
   delete base.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC;
   delete base.CONSIGLIERE_NO_UPDATE_CHECK;
   const out = execFileSync(process.execPath, [UPDATE], {
-    input: '{}', encoding: 'utf8', env: { ...base, ...env },
+    // a string payload goes to stdin verbatim, which is how the unparseable case is staged
+    input: typeof payload === 'string' ? payload : JSON.stringify(payload),
+    encoding: 'utf8', env: { ...base, ...env },
   });
   return { out, state: JSON.parse(fs.readFileSync(path.join(home, '.claude', '.consigliere-state.json'), 'utf8')) };
 }
 
 test('update check announces a newer tag and stays quiet otherwise', () => {
   const fresh = () => Date.now();
-  assert.match(update({ version: 'v1.0.0', latest: 'v1.2.0', repo: '/x', checkedAt: fresh() }).out, /v1\.2\.0 is out/);
+  assert.match(update({ version: 'v1.0.0', latest: 'v1.2.0', repo: '/x', checkedAt: fresh() }).out, /v1\.2\.0 is available/);
   assert.equal(update({ version: 'v1.2.0', latest: 'v1.2.0', repo: '/x', checkedAt: fresh() }).out, '');
   // A tag that predates the installed one must not read as an update.
   assert.equal(update({ version: 'v1.2.0', latest: 'v1.0.0', repo: '/x', checkedAt: fresh() }).out, '');
   // The repo carries a `v1-sol` tag from an older era; it is unsortable on purpose.
   assert.equal(update({ version: 'v1.0.0', latest: 'v1-sol', repo: '/x', checkedAt: fresh() }).out, '');
   // 10.0.0 beats 9.0.0 — the reason this compares numbers rather than strings.
-  assert.match(update({ version: 'v9.0.0', latest: 'v10.0.0', repo: '/x', checkedAt: fresh() }).out, /v10\.0\.0 is out/);
+  assert.match(update({ version: 'v9.0.0', latest: 'v10.0.0', repo: '/x', checkedAt: fresh() }).out, /v10\.0\.0 is available/);
   // install.mjs records VERSION without the `v` that the tags carry.
-  assert.match(update({ version: '1.0.0', latest: 'v1.1.0', repo: '/x', checkedAt: fresh() }).out, /v1\.1\.0 is out/);
+  assert.match(update({ version: '1.0.0', latest: 'v1.1.0', repo: '/x', checkedAt: fresh() }).out, /v1\.1\.0 is available/);
   assert.equal(update({ version: '1.1.0', latest: 'v1.1.0', repo: '/x', checkedAt: fresh() }).out, '');
+});
+
+// Only the user can run the command, so the notice has to reach the user directly rather
+// than through the model — and a user-visible line must not reappear inside a session it
+// has already interrupted once.
+test('update check speaks to the user, and only when the session is a new one', () => {
+  const newer = { version: 'v1.0.0', latest: 'v1.2.0', repo: '/x', checkedAt: Date.now() };
+
+  const out = JSON.parse(update(newer).out);
+  assert.match(out.systemMessage, /Run \/consig-upgrade\./);
+  assert.equal(out.hookSpecificOutput, undefined, 'nothing goes to the model any more');
+
+  assert.match(update(newer, {}, { source: 'clear' }).out, /consig-upgrade/, '/clear starts a fresh context');
+  assert.match(update(newer, {}, '').out, /consig-upgrade/, 'a payload it cannot read still shows the notice');
+  for (const source of ['resume', 'fork', 'compact']) {
+    assert.equal(update(newer, {}, { source }).out, '', `${source} continues a session that already saw it`);
+  }
 });
 
 test('update check stamps the clock itself, so a failing check still waits out the day', () => {

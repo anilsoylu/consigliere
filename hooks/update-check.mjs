@@ -62,14 +62,17 @@ if (Date.now() - (state.checkedAt || 0) > DAY) {
   spawn(process.execPath, [fileURLToPath(import.meta.url), '--child'], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
 }
 
-if (state.latest && cmp(state.latest, state.version) > 0) {
+// Only the user can run /consig-upgrade, so the notice goes straight to them as
+// systemMessage rather than through the model as additionalContext — a mention the model
+// has to choose to make is one it drops mid-task, and it would cost context every session.
+// A user-visible line has to earn each showing, though: on resume, fork and compact it
+// would reappear inside a session that has already seen it, carrying nothing new.
+// Unreadable stdin falls through to showing it — a missed update is worse than one repeat.
+let source = 'startup';
+try { source = JSON.parse(fs.readFileSync(0, 'utf8')).source ?? source; } catch {}
+
+if (state.latest && cmp(state.latest, state.version) > 0 && (source === 'startup' || source === 'clear')) {
   process.stdout.write(JSON.stringify({
-    hookSpecificOutput: {
-      hookEventName: 'SessionStart',
-      additionalContext:
-        `consigliere ${state.latest} is out; ${state.version} is installed. `
-        + `Update with: cd ${state.repo} && git pull && node install.mjs — `
-        + 'mention it once if the user has a moment, and do not interrupt the task for it.',
-    },
+    systemMessage: `consigliere ${state.latest} is available (${state.version} installed). Run /consig-upgrade.`,
   }));
 }
