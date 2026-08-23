@@ -12,11 +12,12 @@ const GATE = path.join(ROOT, 'hooks', 'advisor-gate.mjs');
 const LANG = path.join(ROOT, 'hooks', 'commit-language.mjs');
 const MARK = path.join(ROOT, 'hooks', 'advisor-mark.mjs');
 
-const flagPath = (sid) => `/tmp/advisor-gate-${sid}.flag`;
+const flagPath = (sid) => path.join(os.tmpdir(), `advisor-gate-${sid}.flag`);
+const rosterPath = (sid) => path.join(os.tmpdir(), `advisor-agents-${sid}.json`);
 const sids = [];
 const homes = [];
 
-// The flag path is hard-coded to /tmp, not HOME, so a fixture dir cannot isolate these.
+// The flag lives in the OS temp dir, not HOME, so a fixture dir cannot isolate these.
 // A per-test session id does, as long as every one is removed afterwards.
 function session(name) {
   const sid = `consigliere-test-${name}`;
@@ -27,7 +28,7 @@ function session(name) {
 test.after(() => {
   for (const sid of sids) {
     fs.rmSync(flagPath(sid), { force: true });
-    fs.rmSync(`/tmp/advisor-agents-${sid}.json`, { force: true });
+    fs.rmSync(rosterPath(sid), { force: true });
   }
   for (const home of homes) fs.rmSync(home, { recursive: true, force: true });
 });
@@ -102,10 +103,27 @@ test('gate allows the write once the flag is there', () => {
   assert.equal(hook(GATE, { session_id: sid, tool_input: { file_path: '/Users/x/proj/steps.ts' } }), '');
 });
 
+// The temp exemption is a prefix test, and on Linux the prefix is `/tmp` — without the
+// separator attached, every sibling directory that merely starts with it walks through.
+test('gate still denies a directory that only shares the temp prefix', () => {
+  const sid = session('gate-neighbour');
+  fs.rmSync(flagPath(sid), { force: true });
+  const file = `${os.tmpdir().replace(/[\\/]$/, '')}-neighbour/steps.ts`;
+  const out = JSON.parse(hook(GATE, { session_id: sid, tool_input: { file_path: file } }));
+  assert.equal(out.hookSpecificOutput.permissionDecision, 'deny');
+});
+
 test('gate ignores non-code and exempt paths', () => {
   const sid = session('gate-exempt');
   fs.rmSync(flagPath(sid), { force: true });
-  for (const file of ['/Users/x/proj/notes.md', '/Users/x/.claude/hooks/thing.mjs', '/tmp/scratch.ts']) {
+  const files = [
+    '/Users/x/proj/notes.md', '/Users/x/.claude/hooks/thing.mjs', '/tmp/scratch.ts',
+    // Windows sends backslashes and a temp dir that is nowhere near /tmp. Without the
+    // normalize-and-prefix pass, none of these three is exempt and every edit is denied.
+    'C:\\Users\\x\\.claude\\hooks\\thing.mjs', 'C:\\Users\\x\\Desktop\\scratch.ts',
+    path.join(os.tmpdir(), 'scratch.ts'),
+  ];
+  for (const file of files) {
     assert.equal(hook(GATE, { session_id: sid, tool_input: { file_path: file } }), '', file);
   }
 });
@@ -165,7 +183,7 @@ test('mark clears the gate on an advisor spawn and on a later SendMessage to it'
   // mark that only fired on Task would gate work that was in fact consulted.
   const sid = session('mark-roster');
   fs.rmSync(flagPath(sid), { force: true });
-  fs.rmSync(`/tmp/advisor-agents-${sid}.json`, { force: true });
+  fs.rmSync(rosterPath(sid), { force: true });
 
   hook(MARK, { session_id: sid, tool_input: { to: 'reviewer' } });
   assert.equal(marked(sid), false, 'an unknown recipient is not a consult');

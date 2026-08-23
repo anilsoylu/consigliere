@@ -8,11 +8,13 @@
 // The roster is keyed by session and outlives the per-prompt flag reset, because the
 // advisor it names is still alive across those prompts.
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 let payload = {};
 try { payload = JSON.parse(fs.readFileSync(0, 'utf8')); } catch {}
 const ti = payload.tool_input || {};
 const sid = payload.session_id || 'default';
-const roster = `/tmp/advisor-agents-${sid}.json`;
+const roster = path.join(os.tmpdir(), `advisor-agents-${sid}.json`);
 
 const names = (() => {
   try { return JSON.parse(fs.readFileSync(roster, 'utf8')); } catch { return []; }
@@ -30,5 +32,5 @@ if (/advisor/i.test(ti.subagent_type || '')) {
 }
 
 if (consulted) {
-  try { fs.writeFileSync(`/tmp/advisor-gate-${sid}.flag`, '1'); } catch {}
+  try { fs.writeFileSync(path.join(os.tmpdir(), `advisor-gate-${sid}.flag`), '1'); } catch {}
 }

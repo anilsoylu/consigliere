@@ -6,13 +6,17 @@ import path from 'node:path';
 // Releases are `git tag v<VERSION>`; update-check.mjs and doctor.mjs both compare against
 // that tag list, so bumping this without tagging makes an installed copy look ahead of
 // upstream. Only vN.N.N sorts — the old `v1-sol` tag is deliberately unsortable.
-export const VERSION = '1.1.0';
+export const VERSION = '1.2.0';
 export const STATE_FILE = '.consigliere-state.json';
 
 export const HOOK_FILES = [
   'advisor-inject.mjs', 'advisor-mark.mjs', 'advisor-gate.mjs', 'commit-language.mjs',
-  'update-check.mjs', 'review-tier.sh',
+  'update-check.mjs', 'review-tier.mjs',
 ];
+// Files an earlier version installed and this one does not. Dropping a name from
+// HOOK_FILES alone leaves an orphan nothing removes and doctor no longer looks at, so
+// install.mjs deletes these and uninstall.mjs sweeps them.
+export const OBSOLETE_HOOK_FILES = ['review-tier.sh'];
 export const DEFAULT_RULES = ['advisor-executor.md', 'coding-discipline.md'];
 export const WORKFLOW_RULE = 'workflow.md';
 

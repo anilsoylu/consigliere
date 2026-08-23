@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, hookCommand } from '../manifest.mjs';
+import { HOOK_FILES, OBSOLETE_HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, hookCommand } from '../manifest.mjs';
 
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const INSTALL = path.join(REPO, 'install.mjs');
@@ -21,7 +21,7 @@ test.after(() => {
 function install(home = null, flags = []) {
   const dir = home ?? fs.mkdtempSync(path.join(os.tmpdir(), 'consigliere-install-'));
   if (!home) temps.push(dir);
-  execFileSync(process.execPath, [INSTALL, ...flags], { env: { ...process.env, HOME: dir }, stdio: 'pipe' });
+  execFileSync(process.execPath, [INSTALL, ...flags], { env: { ...process.env, HOME: dir, USERPROFILE: dir }, stdio: 'pipe' });
   return dir;
 }
 
@@ -60,6 +60,19 @@ test('removes a stale entry it once wrote and keeps a hook of yours on the same 
   assert.equal(commands.length, 2, 'both of the user\'s entries must survive');
   const task = after.hooks.PreToolUse.find((b) => b.matcher === 'Task|SendMessage');
   assert.ok(task.hooks.some((h) => h.command === hookCommand(hooks, 'advisor-mark.mjs')), 'the listed entry must stay');
+});
+
+// A name dropped from HOOK_FILES leaves an orphan that nothing removes and doctor no
+// longer inspects, so the installer has to sweep it by name.
+test('deletes a hook an earlier version shipped, keeping a backup of it', () => {
+  const home = install();
+  const stale = hookPath(home, OBSOLETE_HOOK_FILES[0]);
+  fs.writeFileSync(stale, 'old release\n');
+
+  install(home);
+
+  assert.equal(fs.existsSync(stale), false, 'the obsolete hook must be gone');
+  assert.equal(read(`${stale}.consigliere.bak`), 'old release\n', 'and recoverable from the .bak');
 });
 
 test('leaves a block empty of our entries out of settings.json entirely', () => {

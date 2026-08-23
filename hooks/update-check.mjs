@@ -58,7 +58,8 @@ if (Date.now() - (state.checkedAt || 0) > DAY) {
   // is offline or has moved its clone would spawn a doomed child on every session forever.
   write({ ...state, checkedAt: Date.now() });
   // stdio: 'ignore' is load-bearing — an inherited pipe keeps this hook's parent waiting.
-  spawn(process.execPath, [fileURLToPath(import.meta.url), '--child'], { detached: true, stdio: 'ignore' }).unref();
+  // windowsHide keeps the detached child from flashing a console window on every session.
+  spawn(process.execPath, [fileURLToPath(import.meta.url), '--child'], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
 }
 
 if (state.latest && cmp(state.latest, state.version) > 0) {

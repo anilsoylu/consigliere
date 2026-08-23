@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, HANDOFF_SKILLS, GRILLING_SKILLS, OPTIMIZE_SKILLS, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, DEBUGGING_SKILL, SHADCN_SKILL, hookCommand } from '../manifest.mjs';
+import { HOOK_FILES, OBSOLETE_HOOK_FILES, AGENT_FILES, DEFAULT_RULES, HANDOFF_SKILLS, GRILLING_SKILLS, OPTIMIZE_SKILLS, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, DEBUGGING_SKILL, SHADCN_SKILL, hookCommand } from '../manifest.mjs';
 
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const INSTALL = path.join(REPO, 'install.mjs');
@@ -21,7 +21,7 @@ test.after(() => {
 });
 
 function run(script, home, flags = []) {
-  execFileSync(process.execPath, [script, ...flags], { env: { ...process.env, HOME: home }, stdio: 'pipe' });
+  execFileSync(process.execPath, [script, ...flags], { env: { ...process.env, HOME: home, USERPROFILE: home }, stdio: 'pipe' });
 }
 
 // a real install, so the fixture is whatever the installer actually writes today
@@ -52,6 +52,18 @@ test('removes the files it placed, and running it twice is not an error', () => 
   for (const skill of GRILLING_SKILLS) assert.equal(fs.existsSync(path.join(home, '.claude', 'skills', skill)), false, `${skill} should be gone`);
   assert.equal(fs.existsSync(path.join(home, '.claude', 'skills', WIZARD_SKILL)), false, `${WIZARD_SKILL} should be gone`);
   assert.equal(fs.existsSync(path.join(home, '.claude', 'skills', DEBUGGING_SKILL)), false, `${DEBUGGING_SKILL} should be gone`);
+});
+
+// Uninstalling from a HOME that was never upgraded has to clear the old names too, or
+// the leftover looks like consigliere is still partly installed.
+test('sweeps a hook shipped by an earlier version', () => {
+  const home = installed();
+  const stale = hookPath(home, OBSOLETE_HOOK_FILES[0]);
+  fs.writeFileSync(stale, 'old release\n');
+
+  run(UNINSTALL, home);
+
+  assert.equal(fs.existsSync(stale), false);
 });
 
 // rmdir on the skill root alone leaves rules/, agents/, assets/ and evals/ behind as
