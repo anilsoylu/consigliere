@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -13,6 +14,7 @@ const MARK = path.join(ROOT, 'hooks', 'advisor-mark.mjs');
 
 const flagPath = (sid) => `/tmp/advisor-gate-${sid}.flag`;
 const sids = [];
+const homes = [];
 
 // The flag path is hard-coded to /tmp, not HOME, so a fixture dir cannot isolate these.
 // A per-test session id does, as long as every one is removed afterwards.
@@ -27,6 +29,7 @@ test.after(() => {
     fs.rmSync(flagPath(sid), { force: true });
     fs.rmSync(`/tmp/advisor-agents-${sid}.json`, { force: true });
   }
+  for (const home of homes) fs.rmSync(home, { recursive: true, force: true });
 });
 
 function hook(script, payload) {
@@ -105,6 +108,54 @@ test('gate ignores non-code and exempt paths', () => {
   for (const file of ['/Users/x/proj/notes.md', '/Users/x/.claude/hooks/thing.mjs', '/tmp/scratch.ts']) {
     assert.equal(hook(GATE, { session_id: sid, tool_input: { file_path: file } }), '', file);
   }
+});
+
+const UPDATE = path.join(ROOT, 'hooks', 'update-check.mjs');
+
+// The hook reads one fixed path, so a HOME override is the only way to isolate it.
+function update(state, env = {}) {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'consigliere-update-'));
+  homes.push(home);
+  fs.mkdirSync(path.join(home, '.claude'), { recursive: true });
+  if (state) fs.writeFileSync(path.join(home, '.claude', '.consigliere-state.json'), JSON.stringify(state));
+  // The opt-outs are cleared from the inherited env, not merged into it: this suite runs
+  // on a machine whose own settings.json sets CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC.
+  const base = { ...process.env, HOME: home, USERPROFILE: home };
+  delete base.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC;
+  delete base.CONSIGLIERE_NO_UPDATE_CHECK;
+  const out = execFileSync(process.execPath, [UPDATE], {
+    input: '{}', encoding: 'utf8', env: { ...base, ...env },
+  });
+  return { out, state: JSON.parse(fs.readFileSync(path.join(home, '.claude', '.consigliere-state.json'), 'utf8')) };
+}
+
+test('update check announces a newer tag and stays quiet otherwise', () => {
+  const fresh = () => Date.now();
+  assert.match(update({ version: 'v1.0.0', latest: 'v1.2.0', repo: '/x', checkedAt: fresh() }).out, /v1\.2\.0 is out/);
+  assert.equal(update({ version: 'v1.2.0', latest: 'v1.2.0', repo: '/x', checkedAt: fresh() }).out, '');
+  // A tag that predates the installed one must not read as an update.
+  assert.equal(update({ version: 'v1.2.0', latest: 'v1.0.0', repo: '/x', checkedAt: fresh() }).out, '');
+  // The repo carries a `v1-sol` tag from an older era; it is unsortable on purpose.
+  assert.equal(update({ version: 'v1.0.0', latest: 'v1-sol', repo: '/x', checkedAt: fresh() }).out, '');
+  // 10.0.0 beats 9.0.0 — the reason this compares numbers rather than strings.
+  assert.match(update({ version: 'v9.0.0', latest: 'v10.0.0', repo: '/x', checkedAt: fresh() }).out, /v10\.0\.0 is out/);
+  // install.mjs records VERSION without the `v` that the tags carry.
+  assert.match(update({ version: '1.0.0', latest: 'v1.1.0', repo: '/x', checkedAt: fresh() }).out, /v1\.1\.0 is out/);
+  assert.equal(update({ version: '1.1.0', latest: 'v1.1.0', repo: '/x', checkedAt: fresh() }).out, '');
+});
+
+test('update check stamps the clock itself, so a failing check still waits out the day', () => {
+  // If only a successful fetch advanced checkedAt, an offline machine would spawn a
+  // doomed child on every single session.
+  const { state } = update({ version: 'v1.0.0', repo: '/nonexistent', checkedAt: 0 });
+  assert.ok(Date.now() - state.checkedAt < 60_000);
+});
+
+test('update check stands down when it is told to, or has nothing to compare', () => {
+  const stale = { version: 'v1.0.0', latest: 'v2.0.0', repo: '/x', checkedAt: 0 };
+  assert.equal(update(stale, { CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1' }).out, '');
+  assert.equal(update(stale, { CONSIGLIERE_NO_UPDATE_CHECK: '1' }).out, '');
+  assert.equal(update({ latest: 'v2.0.0', repo: '/x' }).out, '', 'no recorded version means nothing to compare');
 });
 
 const marked = (sid) => fs.existsSync(flagPath(sid));

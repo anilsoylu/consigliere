@@ -22,12 +22,13 @@ your prompt
 
 ```
 
-Thirteen pieces, all installed under `~/.claude`:
+Fourteen pieces, all installed under `~/.claude`:
 
 - **`agents/advisor.md`** — the advisor itself, a Claude Code subagent pinned to `model: fable` with `effort: high` and exactly three tools: `Read`, `Grep`, `Glob`. The doctrine lives here rather than in every consult — verdict-not-survey, no manufactured objections, prefer deleting, ~300-word cap — so the caller never retypes it. Called as `Agent({ subagent_type: "advisor", name: "advisor", prompt: "<consult>" })` once per task, then continued with `SendMessage` for every later consult in that task — a fresh spawn would rebuild a context that dies after a handful of turns, paying the setup again and wasting the prompt cache it just wrote. Every Agent call is asynchronous, so the verdict arrives as a task notification.
 - **`review-tier.sh`** — a deterministic classifier that reads the working-tree diff — or any base you pass as `review-tier.sh . <ref>`, which is what committed branch work needs — and prints the review effort tier: `medium` for routine CRUD/UI/config diffs; `high` for business logic, sizeable refactors, and the broad risky vocabulary — auth, session, checkout, middleware; `xhigh` reserved for unambiguous surfaces: payment providers, crypto primitives, migration and schema files, plus a narrow scan of added lines for signals like `STRIPE_SECRET_KEY` or `jwt.sign`. Repeated false alarms at the top tier would teach you to ignore it, so the expensive floor is deliberately precise. The review runs at that tier before any deliverable is reported done. A `.review-tiers` file in a repo root adds per-project floors; the model may escalate a tier with a stated reason, never downgrade one.
 - **`advisor-inject.mjs`** — a `UserPromptSubmit` hook that resets the gate on each new task and states the loop, but only when the prompt actually carries a code/design signal (a source filename, a design skill, an intent verb, or an outright "consult the advisor"). Everything else gets silence. A directive that fires on "how much does this cost" is one the model learns to skip, so the selectivity is what keeps it worth reading.
 - **`advisor-gate.mjs`** — a `PreToolUse` hook that blocks edits to real source-code files until the advisor has been consulted. Notes, configs, `~/.claude`, `/tmp`, and `~/Desktop` are exempt, so it never gets in the way of scratch work.
+- **`update-check.mjs`** — a `SessionStart` hook that says one line when a newer tag exists upstream, so an update surfaces by itself instead of you handing Claude the repo and asking. Cached, never in the foreground, silent offline, and off entirely under `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`. See [Updating](#updating).
 - **`advisor-mark.mjs`** — clears the gate once the advisor is actually consulted, whether that is a fresh `Agent` spawn or a `SendMessage` continuing one already spawned in this session. It records the names it spawns, because the rule is one advisor per task continued by message, and a mark that only fired on the spawn would gate work that was consulted. Like any `PreToolUse` hook it marks on the attempt, not on the reply.
 - **`commit-language.mjs`** — a `PreToolUse` hook that blocks a `git commit` or `gh pr create` whose message reads as Turkish. Speak whatever you like in the session; what lands in the repository is English, and this catches the leak while the text is still free to rewrite. Backticked and quoted spans are exempt, so a body can quote user-facing product copy in its own locale. A message it cannot read — `-F`, `--body-file` — passes: a block no rewrite can clear is how a hook earns being turned off, and a miss only leaves the status quo.
 - **`advisor-executor.md`** — the behavioral spec Claude reads every session.
@@ -175,6 +176,18 @@ What the rules genuinely cannot express is your infrastructure, and that is your
 - Reach for `allow` last. An entry there is a *mandatory* exception that overrides matching soft denies, so a vague one disables protections you never went looking for.
 
 `claude auto-mode defaults` prints the built-in rules, `config` prints what you actually get, and `critique` reads your own entries back and names the ambiguous ones.
+
+## Updating
+
+```bash
+cd consigliere && git pull && node install.mjs
+```
+
+Re-running the installer is the whole update. You don't have to notice on your own: releases are plain `git tag v<major>.<minor>.<patch>`, `install.mjs` records the version it wrote into `~/.claude/.consigliere-state.json`, and `update-check.mjs` compares the two.
+
+The check never blocks and never runs in the foreground. At session start the hook reads a cached answer and exits; at most once a day it hands the network work to a detached child that runs `git ls-remote --tags origin` in the clone you installed from and writes the result for the *next* session. Offline costs nothing, a fork checks its own origin rather than this one, and the clock advances whether or not the lookup succeeded — a failing check waits out the day like a successful one.
+
+That `git ls-remote` is the only thing this package ever sends anywhere: one tag listing, to the remote of a repo you already cloned. It stands down entirely under `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` or `CONSIGLIERE_NO_UPDATE_CHECK=1`. If you set either — and this repo's own recommended env sets the first — use `node doctor.mjs` instead, which makes the same comparison on demand and blocks while it does, because blocking in a CLI you ran on purpose is fine.
 
 ## Uninstall
 

@@ -3,8 +3,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+// Releases are `git tag v<VERSION>`; update-check.mjs and doctor.mjs both compare against
+// that tag list, so bumping this without tagging makes an installed copy look ahead of
+// upstream. Only vN.N.N sorts — the old `v1-sol` tag is deliberately unsortable.
+export const VERSION = '1.0.0';
+export const STATE_FILE = '.consigliere-state.json';
+
 export const HOOK_FILES = [
-  'advisor-inject.mjs', 'advisor-mark.mjs', 'advisor-gate.mjs', 'commit-language.mjs', 'review-tier.sh',
+  'advisor-inject.mjs', 'advisor-mark.mjs', 'advisor-gate.mjs', 'commit-language.mjs',
+  'update-check.mjs', 'review-tier.sh',
 ];
 export const DEFAULT_RULES = ['advisor-executor.md', 'coding-discipline.md'];
 export const WORKFLOW_RULE = 'workflow.md';
@@ -110,6 +117,7 @@ export const HOOK_ENTRIES = [
   ['PreToolUse', 'Edit|Write|MultiEdit', 'advisor-gate.mjs'],
   ['PreToolUse', 'Bash', 'commit-language.mjs'],
   ['UserPromptSubmit', null, 'advisor-inject.mjs'],
+  ['SessionStart', null, 'update-check.mjs'],
 ];
 
 // the exact command the installer writes into settings.json

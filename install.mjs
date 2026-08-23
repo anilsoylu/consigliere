@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, HANDOFF_FILES, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, OPTIMIZE_FILES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand, hasRalphLoop, hasContextMode } from './manifest.mjs';
+import { VERSION, STATE_FILE, HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, HANDOFF_FILES, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, OPTIMIZE_FILES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand, hasRalphLoop, hasContextMode } from './manifest.mjs';
 
 const HOME = os.homedir();
 const REPO = path.dirname(fileURLToPath(import.meta.url));
@@ -205,7 +205,19 @@ if (!hasContextMode(settings)) {
   log(`    "statusLine": ${JSON.stringify(CONTEXT_MODE.statusLine)}`);
 }
 
-// --- 5. Leftovers from the Codex Sol era (tag v1-sol) ---
+// --- 5. Version stamp for update-check.mjs ---
+// The installed side carries no manifest, so the hook has nothing to compare against
+// unless the installer leaves the version and the clone it came from behind. `latest` is
+// dropped on every install: it describes a comparison against a version now superseded.
+const statePath = path.join(CLAUDE, STATE_FILE);
+let state = {};
+try { state = JSON.parse(fs.readFileSync(statePath, 'utf8')); } catch {}
+// checkedAt goes back to 0 with it: a cache from before this install describes a
+// comparison against the version it just replaced, so the next session should re-check.
+fs.writeFileSync(statePath, JSON.stringify({ ...state, version: VERSION, repo: REPO, latest: null, checkedAt: 0 }, null, 2) + '\n');
+log(`recorded version ${VERSION} in ~/.claude/${STATE_FILE} — update-check.mjs compares it against this clone's tags once a day`);
+
+// --- 6. Leftovers from the Codex Sol era (tag v1-sol) ---
 const watchdog = path.join(HOOKS, 'advisor-watchdog.sh');
 if (fs.existsSync(watchdog)) {
   warn(`${watchdog} is left over from the Codex Sol advisor and nothing references it now.`);

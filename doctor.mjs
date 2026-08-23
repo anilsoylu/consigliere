@@ -4,7 +4,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand, hasRalphLoop, hasContextMode } from './manifest.mjs';
+import { execFileSync } from 'node:child_process';
+import { STATE_FILE, HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand, hasRalphLoop, hasContextMode } from './manifest.mjs';
 
 const REPO = path.dirname(fileURLToPath(import.meta.url));
 const USAGE = `Usage: node doctor.mjs [--json]
@@ -287,7 +288,42 @@ export function runChecks(options = {}) {
     );
   }
 
+  // The same comparison update-check.mjs makes, for anyone who does not want the hook — or
+  // cannot have it, since it stands down under CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC.
+  // Blocking is fine in a CLI, so this one asks upstream directly instead of a cache.
+  let installed = null;
+  try { installed = JSON.parse(fs.readFileSync(path.join(claudeDir, STATE_FILE), 'utf8')).version; } catch {}
+  const latest = installed ? latestTag(repo) : null;
+  checks.push(
+    !installed
+      ? status('warn', 'version', `no version recorded in ~/.claude/${STATE_FILE}; rerun node install.mjs`)
+      : !latest
+        ? status('pass', 'version', `${installed} installed; this clone's origin was unreachable, so nothing to compare`)
+        : compareTags(latest, installed) > 0
+          ? status('warn', 'version', `${latest} is out, ${installed} installed — cd ${repo} && git pull && node install.mjs`)
+          : status('pass', 'version', `${installed} installed, up to date with ${repo}`)
+  );
+
   return checks;
+}
+
+// Only N.N.N sorts: the repo carries a `v1-sol` tag from an older era that must not win.
+// The `v` is optional because tags carry it and the recorded VERSION does not.
+const parseTag = (tag) => /^v?(\d+)\.(\d+)\.(\d+)$/.exec(tag)?.slice(1).map(Number);
+export function compareTags(a, b) {
+  const [x, y] = [parseTag(a), parseTag(b)];
+  if (!x || !y) return 0;
+  return x[0] - y[0] || x[1] - y[1] || x[2] - y[2];
+}
+
+function latestTag(repo) {
+  try {
+    const out = execFileSync('git', ['ls-remote', '--tags', 'origin'], {
+      cwd: repo, encoding: 'utf8', timeout: 20_000, stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    const tags = out.split('\n').map((l) => l.split('refs/tags/')[1]).filter((t) => t && parseTag(t)).sort(compareTags);
+    return tags.at(-1) || null;
+  } catch { return null; }
 }
 
 export function summarize(checks) {
