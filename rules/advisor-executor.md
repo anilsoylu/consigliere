@@ -6,8 +6,17 @@
 ## Call
 
 ```
-Agent({ subagent_type: "advisor", prompt: "<consult>" })
+Agent({ subagent_type: "advisor", name: "advisor", prompt: "<consult>" })
 ```
+
+Spawn once per task, and name it so it stays addressable. Every later consult in the
+same task goes to that live advisor with `SendMessage({ to: "advisor", … })`, which keeps
+its context and its warm cache; a fresh `Agent` call rebuilds both from nothing and pays
+the setup twice. Spawn again only when the task itself changes.
+
+The final review is the exception — it always spawns fresh. An advisor that followed your
+task has already seen your reasoning, and a judge that has read the justification anchors
+to it.
 
 This is the only way to invoke the advisor. The agent definition
 (`~/.claude/agents/advisor.md`) carries the advisor doctrine — verdict-not-survey, no
