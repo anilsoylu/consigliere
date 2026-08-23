@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { HOOK_FILES, OBSOLETE_HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, hookCommand } from '../manifest.mjs';
+import { STATE_FILE, HOOK_FILES, OBSOLETE_HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, hookCommand } from '../manifest.mjs';
 
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const INSTALL = path.join(REPO, 'install.mjs');
@@ -120,6 +120,18 @@ test('--with-workflow ships the rule together with every skill it names', () => 
   }
 });
 
+// Upgrading is `git pull && node install.mjs` with no flags, so a flag that only lived in
+// argv would drop the optional assets on the first upgrade and leave them to go stale.
+test('remembers the optional assets you opted into and reinstalls them without the flag', () => {
+  const home = install(null, ['--with-workflow']);
+
+  install(home);
+
+  const state = JSON.parse(read(path.join(home, '.claude', STATE_FILE)));
+  assert.deepEqual(state.flags, ['--with-workflow']);
+  assert.ok(fs.existsSync(rulePath(home, WORKFLOW_RULE)), 'the workflow rule must survive a plain reinstall');
+});
+
 test('a default install ships neither the workflow rule nor the skills it names', () => {
   const home = install();
 
@@ -143,6 +155,21 @@ test('a default install ships the grilling pair, bytes intact', () => {
         `skills/${skill}/${f} must match this repo byte for byte`
       );
     }
+  }
+});
+
+// Behind a flag it would be absent on exactly the machines that need it: the ones old
+// enough for the update notice to fire.
+test('a default install ships the upgrade command, bytes intact', () => {
+  const home = install();
+
+  for (const f of UPGRADE_FILES) {
+    const installed = path.join(home, '.claude', 'skills', UPGRADE_SKILL, f);
+    assert.ok(fs.existsSync(installed), `skills/${UPGRADE_SKILL}/${f} should be installed`);
+    assert.ok(
+      fs.readFileSync(installed).equals(fs.readFileSync(path.join(REPO, 'skills', UPGRADE_SKILL, f))),
+      `skills/${UPGRADE_SKILL}/${f} must match this repo byte for byte`
+    );
   }
 });
 

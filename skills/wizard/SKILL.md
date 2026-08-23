@@ -12,6 +12,9 @@ description: Generate an interactive bash wizard that walks a human through step
 
 A **wizard** is a bash script that walks a human, step by step, through a manual procedure that's tedious to do by hand and tedious to re-explain to an AI every time. It opens each URL, says exactly what to click and copy, captures the values, writes them where they belong (`.env`, GitHub secrets), confirms at every stage, and shows how many stages are left. It might configure third-party services, run a one-off migration, or move the project from one state to another.
 
+The generated script and the `template.sh` it is built on need a POSIX shell — on Windows,
+generate and run wizards under Git Bash or WSL.
+
 Hand over only what genuinely needs the human's terminal — interactive logins, 2FA, physical keys, dashboards only a human can click. A wizard is that handover done properly, not a command dumped for pasting.
 
 The delightful UX is already solved by [template.sh](template.sh) — stage-by-stage progress, confirmation gates, cross-platform URL opening (including WSL), hidden secret entry, idempotent `.env` upserts, `gh secret`/`gh variable` writes, and a closing summary. **Your job is only to scope the procedure and author its stages.** The library above the `STAGES` marker is identical in every wizard; that consistency is the point — never hand-edit it.

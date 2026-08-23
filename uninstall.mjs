@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { STATE_FILE, HOOK_FILES, OBSOLETE_HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, HANDOFF_FILES, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, OPTIMIZE_FILES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES } from './manifest.mjs';
+import { STATE_FILE, HOOK_FILES, OBSOLETE_HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, HANDOFF_FILES, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, OPTIMIZE_FILES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES } from './manifest.mjs';
 
 const HOME = os.homedir();
 const REPO = path.dirname(fileURLToPath(import.meta.url));
@@ -54,6 +54,7 @@ for (const skill of HANDOFF_SKILLS) removeUntouched(HANDOFF_FILES, path.join(REP
 for (const skill of OPTIMIZE_SKILLS) removeUntouched(OPTIMIZE_FILES, path.join(REPO, 'skills', skill), path.join(SKILLS, skill), { prune: true });
 for (const skill of GRILLING_SKILLS) removeUntouched(GRILLING_FILES, path.join(REPO, 'skills', skill), path.join(SKILLS, skill), { prune: true });
 removeUntouched(MERGE_READINESS_FILES, path.join(REPO, 'skills', MERGE_READINESS_SKILL), path.join(SKILLS, MERGE_READINESS_SKILL), { prune: true });
+removeUntouched(UPGRADE_FILES, path.join(REPO, 'skills', UPGRADE_SKILL), path.join(SKILLS, UPGRADE_SKILL), { prune: true });
 removeUntouched(YAGNI_FILES, path.join(REPO, 'skills', YAGNI_SKILL), path.join(SKILLS, YAGNI_SKILL), { prune: true });
 removeUntouched(WIZARD_FILES, path.join(REPO, 'skills', WIZARD_SKILL), path.join(SKILLS, WIZARD_SKILL), { prune: true });
 removeUntouched(DEBUGGING_FILES, path.join(REPO, 'skills', DEBUGGING_SKILL), path.join(SKILLS, DEBUGGING_SKILL), { prune: true });

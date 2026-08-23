@@ -5,7 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { STATE_FILE, HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand, hasRalphLoop, hasContextMode } from './manifest.mjs';
+import { STATE_FILE, HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand, hasRalphLoop, hasContextMode } from './manifest.mjs';
 
 const REPO = path.dirname(fileURLToPath(import.meta.url));
 const USAGE = `Usage: node doctor.mjs [--json]
@@ -130,6 +130,15 @@ export function runChecks(options = {}) {
       : rules.modified.length
         ? status('warn', 'installed rules', `customized locally, no longer this repo's: ${list(rules.modified)}`)
         : status('pass', 'installed rules', 'default advisor rules are installed and match this repo')
+  );
+
+  const upgrade = compare(UPGRADE_FILES, path.join(repo, 'skills', UPGRADE_SKILL), path.join(skillsDir, UPGRADE_SKILL));
+  checks.push(
+    upgrade.missing.length
+      ? status('warn', 'upgrade skill', `not installed (${list(upgrade.missing)}); rerun node install.mjs to restore, or ignore this if you removed it on purpose`)
+      : upgrade.modified.length
+        ? status('warn', 'upgrade skill', `customized locally, no longer this repo's: ${list(upgrade.modified)}`)
+        : status('pass', 'upgrade skill', `the /${UPGRADE_SKILL} command is installed and matches this repo`)
   );
 
   // Default skill, so unlike merge-readiness its absence is a finding, not a skip.
