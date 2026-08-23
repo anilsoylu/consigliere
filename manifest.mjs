@@ -106,7 +106,7 @@ export const CONTEXT_MODE = {
 
 // [event, matcher, script] — matcher null means the block carries no matcher
 export const HOOK_ENTRIES = [
-  ['PreToolUse', 'Task', 'advisor-mark.mjs'],
+  ['PreToolUse', 'Task|SendMessage', 'advisor-mark.mjs'],
   ['PreToolUse', 'Edit|Write|MultiEdit', 'advisor-gate.mjs'],
   ['PreToolUse', 'Bash', 'commit-language.mjs'],
   ['UserPromptSubmit', null, 'advisor-inject.mjs'],

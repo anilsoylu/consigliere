@@ -58,7 +58,7 @@ test('removes a stale entry it once wrote and keeps a hook of yours on the same 
   const commands = block.hooks.map((h) => h.command);
   assert.equal(commands.includes(hookCommand(hooks, 'advisor-mark.mjs')), false, 'the stale entry must be gone');
   assert.equal(commands.length, 2, 'both of the user\'s entries must survive');
-  const task = after.hooks.PreToolUse.find((b) => b.matcher === 'Task');
+  const task = after.hooks.PreToolUse.find((b) => b.matcher === 'Task|SendMessage');
   assert.ok(task.hooks.some((h) => h.command === hookCommand(hooks, 'advisor-mark.mjs')), 'the listed entry must stay');
 });
 

@@ -159,7 +159,7 @@ test('warns when a hook entry does not carry the command the installer writes', 
   const entries = check(run(home, makeRepoFixture()), 'settings hooks');
 
   assert.equal(entries.level, 'warn');
-  assert.match(entries.detail, /PreToolUse\/Task:advisor-mark\.mjs/);
+  assert.match(entries.detail, /PreToolUse\/Task\|SendMessage:advisor-mark\.mjs/);
 });
 
 test('warns when the installer command is registered twice for one entry', () => {
@@ -174,7 +174,7 @@ test('warns when the installer command is registered twice for one entry', () =>
   const entries = check(run(home, makeRepoFixture()), 'settings hooks');
 
   assert.equal(entries.level, 'warn');
-  assert.match(entries.detail, /exactly once.*PreToolUse\/Task:advisor-mark\.mjs/);
+  assert.match(entries.detail, /exactly once.*PreToolUse\/Task\|SendMessage:advisor-mark\.mjs/);
 });
 
 test('reports missing and wrongly registered entries together', () => {
@@ -190,7 +190,7 @@ test('reports missing and wrongly registered entries together', () => {
 
   assert.equal(entries.level, 'warn');
   assert.match(entries.detail, /missing: UserPromptSubmit:advisor-inject\.mjs/);
-  assert.match(entries.detail, /exactly once.*PreToolUse\/Task:advisor-mark\.mjs/);
+  assert.match(entries.detail, /exactly once.*PreToolUse\/Task\|SendMessage:advisor-mark\.mjs/);
 });
 
 test('reports invalid settings JSON as a failure without echoing its contents', () => {
