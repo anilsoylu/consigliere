@@ -3,7 +3,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-export const HOOK_FILES = ['advisor-inject.mjs', 'advisor-mark.mjs', 'advisor-gate.mjs', 'review-tier.sh'];
+export const HOOK_FILES = [
+  'advisor-inject.mjs', 'advisor-mark.mjs', 'advisor-gate.mjs', 'commit-language.mjs', 'review-tier.sh',
+];
 export const DEFAULT_RULES = ['advisor-executor.md', 'coding-discipline.md'];
 export const WORKFLOW_RULE = 'workflow.md';
 
@@ -106,6 +108,7 @@ export const CONTEXT_MODE = {
 export const HOOK_ENTRIES = [
   ['PreToolUse', 'Task', 'advisor-mark.mjs'],
   ['PreToolUse', 'Edit|Write|MultiEdit', 'advisor-gate.mjs'],
+  ['PreToolUse', 'Bash', 'commit-language.mjs'],
   ['UserPromptSubmit', null, 'advisor-inject.mjs'],
 ];
 

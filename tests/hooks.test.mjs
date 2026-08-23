@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const INJECT = path.join(ROOT, 'hooks', 'advisor-inject.mjs');
 const GATE = path.join(ROOT, 'hooks', 'advisor-gate.mjs');
+const LANG = path.join(ROOT, 'hooks', 'commit-language.mjs');
 
 const flagPath = (sid) => `/tmp/advisor-gate-${sid}.flag`;
 const sids = [];
@@ -100,4 +101,76 @@ test('gate ignores non-code and exempt paths', () => {
   for (const file of ['/Users/x/proj/notes.md', '/Users/x/.claude/hooks/thing.mjs', '/tmp/scratch.ts']) {
     assert.equal(hook(GATE, { session_id: sid, tool_input: { file_path: file } }), '', file);
   }
+});
+
+const lang = (command) => hook(LANG, { tool_name: 'Bash', tool_input: { command } });
+const blocked = (command) => lang(command) !== '';
+
+test('language gate blocks real Turkish commit subjects', () => {
+  // Taken verbatim from this user's own history — the leak the hook exists for.
+  const subjects = [
+    "fix(api): market change_percent taşması fiyat batch'ini düşürmesin",
+    'revert: next 16.3.0 denemesi ve docker tanı adımları geri alındı',
+    "chore: yedekleme betikleri ve geri yukleme runbook'u",
+  ];
+  for (const s of subjects) assert.ok(blocked(`git commit -m "${s}"`), s);
+});
+
+test('language gate misses diacritic-free Turkish, and that is the accepted trade', () => {
+  // `devir isleri ekrani` carries no ğ/ş/ı and no scored suffix. Catching it would need
+  // signals that also fire on English, and a false positive is the failure mode that
+  // gets a hook disabled.
+  assert.equal(lang('git commit -m "feat(web): devir isleri ekrani"'), '');
+});
+
+test('language gate leaves English alone', () => {
+  const subjects = [
+    'feat(api): add retry budget to the pricing batch',
+    'fix: guard against a missing session id in the gate hook',
+    'refactor(web): split the settings form into smaller components',
+    'chore: bump node to 24 and regenerate the lockfile',
+  ];
+  for (const s of subjects) assert.equal(lang(`git commit -m "${s}"`), '', s);
+});
+
+test('language gate scores every -m, not just the subject', () => {
+  const out = lang('git commit -m "feat: add the export button" -m "bu ekran icin gerekli bir degisiklik"');
+  assert.equal(JSON.parse(out).hookSpecificOutput.permissionDecision, 'deny');
+});
+
+test('language gate reads a heredoc body', () => {
+  assert.ok(blocked(`gh pr create --title "feat: export" --body "$(cat <<'EOF'
+Rapor sayfası artık toplamları doğru hesaplıyor ve dışa aktarım çalışıyor.
+EOF
+)"`));
+});
+
+test('language gate exempts quoted product copy', () => {
+  // rules/communication.md keeps user-facing strings in the product's locale, so an
+  // English body may legitimately quote Turkish UI text.
+  assert.equal(lang(`git commit -m "feat(web): add the export toast" -m "The button now shows 'Rapor indiriliyor, lütfen bekleyin' while the file is built."`), '');
+});
+
+test('language gate fails open on text it cannot read', () => {
+  // -F/--body-file point at a file the hook never opens. Passing beats guessing.
+  assert.equal(lang('git commit -F /tmp/message.txt'), '');
+  assert.equal(lang('gh pr create --body-file /tmp/body.md'), '');
+});
+
+test('language gate does not read all-caps acronyms as Turkish stopwords', () => {
+  // Turkish lowercasing maps I to ı, so `MI` and `BU` land straight in the stopword set.
+  assert.equal(lang('git commit -m "docs: add the MI runbook" -m "BU and MI dashboards are linked"'), '');
+});
+
+test('language gate extracts a quoted heredoc once, not twice', () => {
+  // `--body "$(cat <<EOF …)"` matches both passes; scoring it twice halves the threshold.
+  assert.equal(lang(`gh pr create --title "feat: export" --body "$(cat <<'EOF'
+Adds the export button ve nothing else changes here.
+EOF
+)"`), '');
+});
+
+test('language gate ignores commands that are not a commit or a PR', () => {
+  assert.equal(lang('git log --oneline -m 5'), '');
+  assert.equal(lang('echo "bu bir türkçe cümledir ve engellenmemeli"'), '');
 });
