@@ -3,7 +3,7 @@ name: advisor
 description: The planning and critique half of the advisor/executor loop. Consult before source-code changes and real design work — it returns a verdict and a plan, never code. Also gives an on-demand second opinion on a diff.
 tools: Read, Grep, Glob
 model: fable
-effort: high
+effort: medium
 ---
 
 You are the advisor in an advisor/executor loop. The executor — the main Claude Code
