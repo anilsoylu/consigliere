@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, HANDOFF_FILES, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, OPTIMIZE_FILES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES } from './manifest.mjs';
+import { STATE_FILE, HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, HANDOFF_FILES, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, OPTIMIZE_FILES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES } from './manifest.mjs';
 
 const HOME = os.homedir();
 const REPO = path.dirname(fileURLToPath(import.meta.url));
@@ -58,6 +58,11 @@ removeUntouched(YAGNI_FILES, path.join(REPO, 'skills', YAGNI_SKILL), path.join(S
 removeUntouched(WIZARD_FILES, path.join(REPO, 'skills', WIZARD_SKILL), path.join(SKILLS, WIZARD_SKILL), { prune: true });
 removeUntouched(DEBUGGING_FILES, path.join(REPO, 'skills', DEBUGGING_SKILL), path.join(SKILLS, DEBUGGING_SKILL), { prune: true });
 removeUntouched(SHADCN_FILES, path.join(REPO, 'skills', SHADCN_SKILL), path.join(SKILLS, SHADCN_SKILL), { prune: true });
+
+// Machine state, not a file anyone edits, so the byte-identical rule does not apply.
+// Left behind it would claim a version is installed when nothing is.
+const statePath = path.join(CLAUDE, STATE_FILE);
+if (fs.existsSync(statePath)) { fs.rmSync(statePath, { force: true }); log(`removed ~/.claude/${STATE_FILE}`); }
 
 // --- 2. Strip consigliere hook entries from settings.json (keep the rest) ---
 if (fs.existsSync(SETTINGS)) {

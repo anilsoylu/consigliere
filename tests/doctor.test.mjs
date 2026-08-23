@@ -6,8 +6,8 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { runChecks, summarize } from '../doctor.mjs';
-import { HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand } from '../manifest.mjs';
+import { runChecks, summarize, compareTags } from '../doctor.mjs';
+import { VERSION, STATE_FILE, HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand } from '../manifest.mjs';
 
 const DOCTOR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'doctor.mjs');
 const temps = [];
@@ -72,6 +72,9 @@ function installDefaultFiles(home) {
   for (const file of DEBUGGING_FILES) writeFile(path.join(claude, 'skills', DEBUGGING_SKILL, file), file);
   for (const file of SHADCN_FILES) writeFile(path.join(claude, 'skills', SHADCN_SKILL, file), file);
   writeFile(path.join(claude, 'settings.json'), settingsFor(home));
+  // The repo fixture is not a git clone, so `git ls-remote` fails and the check reports
+  // the installed version without a comparison — which is the offline path, exercised free.
+  writeFile(path.join(claude, STATE_FILE), JSON.stringify({ version: VERSION, repo: path.join(home, 'repo') }));
 }
 
 // what --with-workflow adds on both sides at once: the rule plus every skill it names
@@ -81,6 +84,17 @@ function installWorkflowFiles(home, repo) {
     for (const skill of ['ralph-protocol', ...HANDOFF_SKILLS, ...OPTIMIZE_SKILLS]) writeFile(path.join(root, 'skills', skill, 'SKILL.md'), skill);
   }
 }
+
+// The doctor fixture is never a git clone, so runChecks only ever exercises the offline
+// path. The comparison itself is tested directly, and the bare form is what install.mjs
+// records against tags that carry the `v`.
+test('compares a recorded version against a tag, in either form', () => {
+  assert.ok(compareTags('v1.1.0', '1.0.0') > 0);
+  assert.equal(compareTags('v1.0.0', '1.0.0'), 0);
+  assert.ok(compareTags('v1.0.0', '1.1.0') < 0);
+  assert.ok(compareTags('v10.0.0', '9.0.0') > 0);
+  assert.equal(compareTags('v1-sol', '1.0.0'), 0, 'an unsortable tag never wins');
+});
 
 function check(checks, name) {
   return checks.find((c) => c.name === name);
