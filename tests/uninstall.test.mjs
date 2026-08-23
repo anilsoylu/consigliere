@@ -102,7 +102,7 @@ test('strips only its own hook entries and leaves an unrelated hook in the same 
   const settings = readSettings(home);
   // a third-party hook sharing consigliere's PreToolUse/Task block, plus an event
   // consigliere owns outright — the first must survive, the second must vanish entirely
-  const mine = settings.hooks.PreToolUse.find((b) => b.matcher === 'Task');
+  const mine = settings.hooks.PreToolUse.find((b) => b.matcher === 'Task|SendMessage');
   mine.hooks.push({ type: 'command', command: 'node /somewhere/else/my-own-hook.mjs' });
   fs.writeFileSync(settingsPath(home), JSON.stringify(settings, null, 2));
 

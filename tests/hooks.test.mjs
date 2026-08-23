@@ -9,6 +9,7 @@ const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const INJECT = path.join(ROOT, 'hooks', 'advisor-inject.mjs');
 const GATE = path.join(ROOT, 'hooks', 'advisor-gate.mjs');
 const LANG = path.join(ROOT, 'hooks', 'commit-language.mjs');
+const MARK = path.join(ROOT, 'hooks', 'advisor-mark.mjs');
 
 const flagPath = (sid) => `/tmp/advisor-gate-${sid}.flag`;
 const sids = [];
@@ -22,7 +23,10 @@ function session(name) {
 }
 
 test.after(() => {
-  for (const sid of sids) fs.rmSync(flagPath(sid), { force: true });
+  for (const sid of sids) {
+    fs.rmSync(flagPath(sid), { force: true });
+    fs.rmSync(`/tmp/advisor-agents-${sid}.json`, { force: true });
+  }
 });
 
 function hook(script, payload) {
@@ -103,6 +107,38 @@ test('gate ignores non-code and exempt paths', () => {
   }
 });
 
+const marked = (sid) => fs.existsSync(flagPath(sid));
+
+test('mark clears the gate on an advisor spawn and on a later SendMessage to it', () => {
+  // The rule spawns one named advisor per task and continues it with SendMessage, so a
+  // mark that only fired on Task would gate work that was in fact consulted.
+  const sid = session('mark-roster');
+  fs.rmSync(flagPath(sid), { force: true });
+  fs.rmSync(`/tmp/advisor-agents-${sid}.json`, { force: true });
+
+  hook(MARK, { session_id: sid, tool_input: { to: 'reviewer' } });
+  assert.equal(marked(sid), false, 'an unknown recipient is not a consult');
+
+  hook(MARK, { session_id: sid, tool_input: { subagent_type: 'advisor', name: 'reviewer' } });
+  assert.equal(marked(sid), true);
+
+  // The roster outlives the flag, which advisor-inject.mjs deletes on every new task prompt.
+  fs.rmSync(flagPath(sid), { force: true });
+  hook(MARK, { session_id: sid, tool_input: { to: 'reviewer' } });
+  assert.equal(marked(sid), true, 'a continuation of that advisor is a consult');
+
+  fs.rmSync(flagPath(sid), { force: true });
+  hook(MARK, { session_id: sid, tool_input: { to: 'some-other-agent' } });
+  assert.equal(marked(sid), false, 'talking to anyone else is not');
+});
+
+test('mark ignores a non-advisor subagent', () => {
+  const sid = session('mark-other-agent');
+  fs.rmSync(flagPath(sid), { force: true });
+  hook(MARK, { session_id: sid, tool_input: { subagent_type: 'general-purpose', name: 'helper' } });
+  assert.equal(marked(sid), false);
+});
+
 const lang = (command) => hook(LANG, { tool_name: 'Bash', tool_input: { command } });
 const blocked = (command) => lang(command) !== '';
 
@@ -168,6 +204,15 @@ test('language gate extracts a quoted heredoc once, not twice', () => {
 Adds the export button ve nothing else changes here.
 EOF
 )"`), '');
+});
+
+test('language gate covers the other ways a message reaches the repo', () => {
+  // `git -C` is routine in an agent session, where cwd resets between calls.
+  assert.ok(blocked('git -C /Users/x/proj commit -m "fix: rapor sayfası artık doğru toplamı gösteriyor"'));
+  assert.ok(blocked('gh pr edit 12 --body "bu değişiklik raporlama ekranını düzeltiyor"'));
+  assert.ok(blocked('git tag -a v1.2.0 -m "sürüm notları ve düzeltmeler burada"'));
+  // A tag command with nothing to score exits before the language pass.
+  assert.equal(lang('git tag v1.2.0'), '');
 });
 
 test('language gate ignores commands that are not a commit or a PR', () => {
