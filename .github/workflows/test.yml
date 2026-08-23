@@ -1,0 +1,23 @@
+name: test
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # `shell: bash` on the Windows runner too: `node --test tests/` (the directory form)
+      # does not collect these files, and cmd/PowerShell never expand the glob themselves.
+      - run: node --test tests/*.test.mjs
+        shell: bash

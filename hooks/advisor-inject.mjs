@@ -5,11 +5,16 @@
 // turn — including "how much does X cost" — trains the loop to tune it out, so
 // silence on unrelated prompts is what gives the directive its weight.
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 let payload = {};
 try { payload = JSON.parse(fs.readFileSync(0, 'utf8')); } catch {}
 const sid = payload.session_id || 'default';
 const prompt = (payload.prompt || '').trim();
-const flag = `/tmp/advisor-gate-${sid}.flag`;
+// Three hooks write and read this path; they must agree on it or the gate never opens.
+// os.tmpdir() rather than /tmp because Windows has no /tmp — advisor-mark.mjs writes the
+// flag inside a catch, so it would fail there in silence and deny every source edit forever.
+const flag = path.join(os.tmpdir(), `advisor-gate-${sid}.flag`);
 
 // A background subagent finishing arrives here through the same event as real user input.
 // Every Agent call is asynchronous in this harness, so resetting on one would delete the flag
@@ -59,9 +64,9 @@ process.stdout.write(
   '4) RE-CONSULT when the same error or verifier fails twice — stop before the third attempt and consult with the actual output.\n' +
   '5) FINAL REVIEW, mandatory before reporting done. The built-in /review skill is user-invocable\n' +
   '   only (disable-model-invocation): never call it, and never hand-roll a stand-in for it.\n' +
-  '   bash ~/.claude/hooks/review-tier.sh  → none|medium|high|xhigh (none = no source changes, skip).\n' +
+  '   node ~/.claude/hooks/review-tier.mjs  → none|medium|high|xhigh (none = no source changes, skip).\n' +
   '   Already committed on a branch? The tree is clean and it prints none — pass the branch point:\n' +
-  '   review-tier.sh . "$(git merge-base origin/main HEAD)". Otherwise the gate silently skips.\n' +
+  '   node ~/.claude/hooks/review-tier.mjs . "$(git merge-base origin/main HEAD)". Otherwise the gate silently skips.\n' +
   '   medium|high → a FRESH advisor consult carrying the actual diff, asking for a review verdict.\n' +
   '   State what the change does, not why you think it is right; a judge given your rationale anchors to it.\n' +
   '   Fix every finding the reviewer stands behind, then re-run the verifier on the fixed diff.\n' +

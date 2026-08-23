@@ -1,7 +1,7 @@
 export const meta = {
   name: 'merge-readiness',
   description: 'Review a diff across four lenses, then judge every finding with a stronger model than found it',
-  whenToUse: 'Large or risky diffs where a single review pass is not enough. Run above the review-tier.sh tiers, not instead of them.',
+  whenToUse: 'Large or risky diffs where a single review pass is not enough. Run above the review-tier.mjs tiers, not instead of them.',
   phases: [
     { title: 'Baseline', detail: 'run the verifier before reviewing anything' },
     { title: 'Audit', detail: 'four lenses read the diff in parallel' },

@@ -2,7 +2,7 @@
 // PreToolUse(Edit|Write|MultiEdit): block SOURCE-CODE writes until the advisor subagent
 // was called for this task. Exempt so meta-work and notes never get locked:
 //   - the harness config dir (~/.claude)
-//   - scratch dirs (/tmp, ~/Desktop)
+//   - scratch dirs (the OS temp dir, ~/Desktop)
 //   - any non-code file (md/txt/json/toml/yaml/notes/etc.)
 // The decision goes out as JSON rather than exit 2 — same block, no red hook error in
 // the transcript. Exit 0 with no output = no decision.
@@ -12,18 +12,28 @@
 // outside and prompted on every one, which overrides auto mode and strands unattended
 // runs. Removed on purpose — the boundary lives in rules/workflow.md as a rule instead.
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 let payload = {};
 try { payload = JSON.parse(fs.readFileSync(0, 'utf8')); } catch {}
-const path = payload.tool_input?.file_path || '';
+// Windows hands over `C:\Users\x\file.ts`. Every path test below is written with forward
+// slashes, so normalizing once here is what keeps the exemptions working off macOS.
+const file = (payload.tool_input?.file_path || '').replace(/\\/g, '/');
 const sid = payload.session_id || 'default';
 
-// Exempt paths: harness/config + scratch → advisor never required here.
-if (/\/\.claude\/|(^|\/)tmp\/|\/Desktop\//.test(path)) process.exit(0);
+// Exempt paths: harness/config + scratch → advisor never required here. The literal `tmp/`
+// covers POSIX; the prefix test covers the platforms whose temp dir is somewhere else
+// entirely (`%LOCALAPPDATA%\Temp`, `/var/folders/...`). Compared case-insensitively because
+// Windows hands back the same directory with inconsistent casing.
+// The separator is part of the prefix on purpose: a bare one would exempt `/tmpfoo/x.ts`
+// on Linux, where the temp dir is `/tmp` — a whole sibling tree through the gate.
+const scratch = `${os.tmpdir().replace(/\\/g, '/').replace(/\/$/, '').toLowerCase()}/`;
+if (file.toLowerCase().startsWith(scratch) || /\/\.claude\/|(^|\/)tmp\/|\/Desktop\//.test(file)) process.exit(0);
 // Only real source code triggers the gate; md/txt/json/toml/yaml and everything else is free.
-const isCode = /\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|rb|php|java|kt|swift|c|h|cpp|hpp|cc|vue|svelte|sql|sh)$/i.test(path);
+const isCode = /\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|rb|php|java|kt|swift|c|h|cpp|hpp|cc|vue|svelte|sql|sh)$/i.test(file);
 if (!isCode) process.exit(0);
 
-if (fs.existsSync(`/tmp/advisor-gate-${sid}.flag`)) process.exit(0);
+if (fs.existsSync(path.join(os.tmpdir(), `advisor-gate-${sid}.flag`))) process.exit(0);
 process.stdout.write(JSON.stringify({
   hookSpecificOutput: {
     hookEventName: 'PreToolUse',

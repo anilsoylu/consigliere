@@ -10,7 +10,7 @@ wrote the finding. This runs the review as a graph instead: four lenses read the
 in parallel, then every finding is handed to a judge that did not write it, running at
 a stronger configuration than the reviewer that did, and told to refute it.
 
-This sits **above** `hooks/review-tier.sh`, not instead of it. Routine diffs stay on the
+This sits **above** `hooks/review-tier.mjs`, not instead of it. Routine diffs stay on the
 single advisor consult that `medium` and `high` route to. Reach for this when the tier
 comes back `xhigh`, or when a `high` diff is large enough that one reviewer will miss
 something and you can say why.

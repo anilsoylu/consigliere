@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { VERSION, STATE_FILE, HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, HANDOFF_FILES, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, OPTIMIZE_FILES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand, hasRalphLoop, hasContextMode } from './manifest.mjs';
+import { VERSION, STATE_FILE, HOOK_FILES, OBSOLETE_HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, HANDOFF_FILES, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, OPTIMIZE_FILES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand, hasRalphLoop, hasContextMode } from './manifest.mjs';
 
 const HOME = os.homedir();
 const REPO = path.dirname(fileURLToPath(import.meta.url));
@@ -62,6 +62,16 @@ const RULE_FILES = [...DEFAULT_RULES];
 if (withWorkflow) RULE_FILES.push(WORKFLOW_RULE);
 copyAll(RULE_FILES, path.join(REPO, 'rules'), RULES);
 log(`copied ${AGENT_FILES.length} agent → ~/.claude/agents, ${HOOK_FILES.length} hooks → ~/.claude/hooks and ${RULE_FILES.length} rules → ~/.claude/rules`);
+
+// Always backed up before removal, not only when it differs: this version ships no copy
+// to compare against, so "did you edit it?" is a question that can no longer be answered.
+for (const f of OBSOLETE_HOOK_FILES) {
+  const stale = path.join(HOOKS, f);
+  if (!fs.existsSync(stale)) continue;
+  backup(stale);
+  fs.rmSync(stale);
+  log(`removed ~/.claude/hooks/${f} — this version no longer ships it`);
+}
 
 // workflow.md keeps the Ralph details out of the always-loaded context by pointing at
 // this skill, so the two must ship together or that reference dangles.

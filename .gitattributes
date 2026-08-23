@@ -1,0 +1,4 @@
+# doctor.mjs byte-compares the installed files against this repo, and the tier classifier
+# is asserted on exact output. A CRLF checkout on Windows would fail both.
+* text=auto eol=lf
+*.png binary
