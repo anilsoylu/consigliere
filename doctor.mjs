@@ -91,7 +91,9 @@ export function runChecks(options = {}) {
   checks.push(
     missingRepoAssets.length === 0
       ? status('pass', 'repo assets', 'required agent, hook, rule, install, and uninstall files are present')
-      : status('fail', 'repo assets', `missing: ${list(missingRepoAssets.map((f) => path.relative(repo, f)))}`)
+      // Forward slashes even on Windows: this names a file in the repo, which is how the
+      // README, the rules and every other message here spell it.
+      : status('fail', 'repo assets', `missing: ${list(missingRepoAssets.map((f) => path.relative(repo, f).replace(/\\/g, '/')))}`)
   );
 
   checks.push(
