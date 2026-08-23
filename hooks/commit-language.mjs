@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// PreToolUse(Bash): block `git commit` / `gh pr create` whose message text is Turkish.
+// PreToolUse(Bash): block `git commit`, `git tag` or `gh pr create/edit` whose message
+// text is Turkish.
 // rules/communication.md already requires English for everything that lands in a repo.
 // The rule alone did not hold, so this enforces it at the one moment the text is still
 // cheap to change — before the commit exists.
@@ -20,9 +21,9 @@ try { payload = JSON.parse(fs.readFileSync(0, 'utf8')); } catch { process.exit(0
 
 const cmd = (payload.tool_name === 'Bash' && payload.tool_input?.command) || '';
 // `git -C <dir>` is routine here because the harness resets cwd between calls. Exactly one
-// flag is allowed before `commit`: `(?:-\S+\s+)*` would start matching `git log -p commit..`.
-// So `git -c user.name=x commit` still fails open, like everything else this cannot read.
-if (!cmd || !/\bgit\s+(?:-C\s+\S+\s+)?commit|\bgit\s+tag|\bgh\s+pr\s+(?:create|edit)/.test(cmd)) process.exit(0);
+// flag is allowed before the subcommand: `(?:-\S+\s+)*` would start matching `git log -p
+// commit..`. So `git -c user.name=x commit` still fails open, like everything this cannot read.
+if (!cmd || !/\bgit\s+(?:-C\s+\S+\s+)?(?:commit|tag)\b|\bgh\s+pr\s+(?:create|edit)/.test(cmd)) process.exit(0);
 
 const parts = [];
 // Heredocs come out first and are cut from the string the flag passes see. The common

@@ -262,6 +262,7 @@ test('language gate covers the other ways a message reaches the repo', () => {
   assert.ok(blocked('git -C /Users/x/proj commit -m "fix: rapor sayfası artık doğru toplamı gösteriyor"'));
   assert.ok(blocked('gh pr edit 12 --body "bu değişiklik raporlama ekranını düzeltiyor"'));
   assert.ok(blocked('git tag -a v1.2.0 -m "sürüm notları ve düzeltmeler burada"'));
+  assert.ok(blocked('git -C /Users/x/proj tag -a v1.2.0 -m "sürüm notları ve düzeltmeler burada"'));
   // A tag command with nothing to score exits before the language pass.
   assert.equal(lang('git tag v1.2.0'), '');
 });
