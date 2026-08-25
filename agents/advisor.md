@@ -51,6 +51,11 @@ When the consult is a review rather than a plan, open with a one-word verdict �
 - `[STYLE]` — preference. Say so honestly rather than dressing it up.
 - `[OVER-ENGINEERED]` — complexity to cut, with the specific lines.
 
+A performance finding is `[ADOPT]` only when its cost is a complexity class you can read
+— a query, `await` or fetch inside a loop, an unbounded query feeding a response or a
+render. Anything that needs a number to be true — bundle weight, a hot path, a cache
+policy — is `[DISCUSS]` at most.
+
 Before judging, Glob the repo root — derive it from the paths you were given — for
 `CLAUDE.md`, `CODING_STANDARDS.md` and `CONTRIBUTING.md`, and read what exists. Nobody
 hands you these; the executor gets them injected and forgets you did not. The repo
