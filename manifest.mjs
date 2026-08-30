@@ -6,12 +6,12 @@ import path from 'node:path';
 // Releases are `git tag v<VERSION>`; update-check.mjs and doctor.mjs both compare against
 // that tag list, so bumping this without tagging makes an installed copy look ahead of
 // upstream. Only vN.N.N sorts — the old `v1-sol` tag is deliberately unsortable.
-export const VERSION = '1.2.2';
+export const VERSION = '1.3.0';
 export const STATE_FILE = '.consigliere-state.json';
 
 export const HOOK_FILES = [
   'advisor-inject.mjs', 'advisor-mark.mjs', 'advisor-gate.mjs', 'commit-language.mjs',
-  'update-check.mjs', 'review-tier.mjs',
+  'update-check.mjs', 'review-tier.mjs', 'git-discipline.mjs', 'comment-ratio.mjs',
 ];
 // Files an earlier version installed and this one does not. Dropping a name from
 // HOOK_FILES alone leaves an orphan nothing removes and doctor no longer looks at, so
@@ -119,14 +119,28 @@ export const CONTEXT_MODE = {
   commands: ['/plugin marketplace add mksglu/context-mode', '/plugin install context-mode@context-mode'],
   verify: '/context-mode:ctx-doctor',
   statusLine: { type: 'command', command: 'context-mode statusline' },
+  // Filled only when the plugin is enabled: quiets its per-command routing nudges on
+  // short Bash calls and thins the external-MCP reminder, without touching the
+  // curl/wget flood interception that is the plugin's actual saving.
+  env: {
+    CONTEXT_MODE_BASH_NUDGE_MIN_COMMAND_BYTES: '200',
+    CONTEXT_MODE_EXTERNAL_MCP_NUDGE_EVERY: '50',
+  },
 };
 
-// [event, matcher, script] — matcher null means the block carries no matcher
+// [event, matcher, script] — matcher null means the block carries no matcher.
+// git-discipline and comment-ratio register unconditionally but self-gate at runtime on
+// the rule file they enforce (workflow.md / coding-discipline.md), so a default install
+// carries them inert rather than the installer growing per-flag entry bookkeeping.
 export const HOOK_ENTRIES = [
   ['PreToolUse', 'Task|SendMessage', 'advisor-mark.mjs'],
   ['PreToolUse', 'Edit|Write|MultiEdit', 'advisor-gate.mjs'],
   ['PreToolUse', 'Bash', 'commit-language.mjs'],
+  ['PreToolUse', 'Bash', 'git-discipline.mjs'],
+  ['PreToolUse', 'Skill', 'git-discipline.mjs'],
   ['UserPromptSubmit', null, 'advisor-inject.mjs'],
+  ['UserPromptSubmit', null, 'git-discipline.mjs'],
+  ['PostToolUse', 'Edit|Write|MultiEdit', 'comment-ratio.mjs'],
   ['SessionStart', null, 'update-check.mjs'],
 ];
 

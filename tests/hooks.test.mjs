@@ -14,6 +14,7 @@ const MARK = path.join(ROOT, 'hooks', 'advisor-mark.mjs');
 
 const flagPath = (sid) => path.join(os.tmpdir(), `advisor-gate-${sid}.flag`);
 const rosterPath = (sid) => path.join(os.tmpdir(), `advisor-agents-${sid}.json`);
+const handoffPath = (sid) => path.join(os.tmpdir(), `handoff-${sid}.flag`);
 const sids = [];
 const homes = [];
 
@@ -29,6 +30,7 @@ test.after(() => {
   for (const sid of sids) {
     fs.rmSync(flagPath(sid), { force: true });
     fs.rmSync(rosterPath(sid), { force: true });
+    fs.rmSync(handoffPath(sid), { force: true });
   }
   for (const home of homes) fs.rmSync(home, { recursive: true, force: true });
 });
@@ -307,4 +309,164 @@ test('language gate covers the other ways a message reaches the repo', () => {
 test('language gate ignores commands that are not a commit or a PR', () => {
   assert.equal(lang('git log --oneline -m 5'), '');
   assert.equal(lang('echo "bu bir türkçe cümledir ve engellenmemeli"'), '');
+});
+
+const DISCIPLINE = path.join(ROOT, 'hooks', 'git-discipline.mjs');
+const RATIO = path.join(ROOT, 'hooks', 'comment-ratio.mjs');
+
+// Both hooks self-gate on the rule file they enforce, so every case points
+// CLAUDE_CONFIG_DIR at a fixture carrying exactly the files it needs.
+function cfgFixture({ workflow = true, discipline = true, clean = true } = {}) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'consigliere-cfg-'));
+  homes.push(dir);
+  fs.mkdirSync(path.join(dir, 'rules'), { recursive: true });
+  if (workflow) fs.writeFileSync(path.join(dir, 'rules', 'workflow.md'), '');
+  if (discipline) fs.writeFileSync(path.join(dir, 'rules', 'coding-discipline.md'), '');
+  if (clean) {
+    fs.mkdirSync(path.join(dir, 'skills', 'clean'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'skills', 'clean', 'SKILL.md'), '');
+  }
+  return dir;
+}
+
+function repo(branch) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'consigliere-repo-'));
+  homes.push(dir);
+  execFileSync('git', ['init', '-q', '-b', branch, dir]);
+  return dir;
+}
+
+function envHook(script, payload, cfg) {
+  return execFileSync(process.execPath, [script], {
+    input: JSON.stringify(payload), encoding: 'utf8',
+    env: { ...process.env, CLAUDE_CONFIG_DIR: cfg },
+  });
+}
+
+const denyReason = (out) => JSON.parse(out).hookSpecificOutput.permissionDecisionReason;
+const bash = (sid, cwd, command) => ({ tool_name: 'Bash', session_id: sid, cwd, tool_input: { command } });
+
+test('discipline gate blocks a commit on the default branch, allows one on a task branch', () => {
+  const cfg = cfgFixture();
+  const main = repo('main');
+  const out = envHook(DISCIPLINE, bash(session('br-main'), main, 'git commit -m "feat: add x"'), cfg);
+  assert.match(denyReason(out), /BRANCH GATE/);
+  const feat = repo('feat/thing');
+  assert.equal(envHook(DISCIPLINE, bash(session('br-feat'), feat, 'git commit -m "feat: add the thing"'), cfg), '');
+});
+
+test('discipline gate follows -C and a cd chain to the repo the commit actually hits', () => {
+  const cfg = cfgFixture();
+  const master = repo('master');
+  const elsewhere = repo('feat/safe');
+  const cSid = session('br-dash-c');
+  assert.match(denyReason(envHook(DISCIPLINE, bash(cSid, elsewhere, `git -C ${master} commit -m "feat: x"`), cfg)), /BRANCH GATE/);
+  const cdSid = session('br-cd');
+  assert.match(denyReason(envHook(DISCIPLINE, bash(cdSid, elsewhere, `cd ${master} && git commit -m "feat: x"`), cfg)), /BRANCH GATE/);
+});
+
+test('discipline gate blocks a non-conventional subject and passes the conventional set', () => {
+  const cfg = cfgFixture();
+  const feat = repo('feat/x');
+  const run = (n, msg) => envHook(DISCIPLINE, bash(session(`subject-${n}`), feat, `git commit -m "${msg}"`), cfg);
+  assert.match(denyReason(run('bad', 'added the export button')), /SUBJECT GATE/);
+  const ok = [
+    'feat: add the export button', 'fix(api)!: guard the missing id',
+    'Merge branch feat/x', 'Revert feat: add the export button', 'fixup! feat: add x',
+  ];
+  ok.forEach((s, i) => assert.equal(run(`ok-${i}`, s), '', s));
+});
+
+test('discipline gate fails open on what it cannot read', () => {
+  const cfg = cfgFixture();
+  const main = repo('main');
+  const feat = repo('feat/x');
+  // detached/no-repo, interactive commit, a subject the shell still expands
+  assert.equal(envHook(DISCIPLINE, bash(session('open-norepo'), os.tmpdir(), 'git commit -m "feat: x"'), cfg), '');
+  assert.match(denyReason(envHook(DISCIPLINE, bash(session('open-branch'), main, 'git commit'), cfg)), /BRANCH GATE/);
+  assert.equal(envHook(DISCIPLINE, bash(session('open-interactive'), feat, 'git commit'), cfg), '');
+  assert.equal(envHook(DISCIPLINE, bash(session('open-expand'), feat, 'git commit -m "$(generate-subject)"'), cfg), '');
+});
+
+test('discipline gate ignores commands that merely mention git in prose', () => {
+  // The bug this covers: a PR body whose heredoc prose says `git commit` matched the
+  // unanchored regex, and the heredoc's first line was read as the commit subject.
+  const cfg = cfgFixture();
+  const sid = session('prose');
+  fs.writeFileSync(handoffPath(sid), '');
+  const body = `gh pr edit 1 --body "$(cat <<'EOF'\n## Summary\ndenies a git commit aimed at main and a gh pr create before the chain ran\nEOF\n)"`;
+  assert.equal(envHook(DISCIPLINE, bash(sid, repo('main'), body), cfg), '');
+  assert.equal(envHook(DISCIPLINE, bash(session('prose-log'), repo('main'), 'git log --grep "git commit"'), cfg), '');
+});
+
+test('discipline gate reads only the message of the commit itself, not an earlier command', () => {
+  const cfg = cfgFixture();
+  const feat = repo('feat/x');
+  assert.equal(envHook(DISCIPLINE, bash(session('prior-quote'), feat, 'echo "not a subject" && git commit -m "feat: add x"'), cfg), '');
+});
+
+test('discipline gate stands down without rules/workflow.md', () => {
+  const cfg = cfgFixture({ workflow: false });
+  const main = repo('main');
+  assert.equal(envHook(DISCIPLINE, bash(session('nogate'), main, 'git commit -m "whatever"'), cfg), '');
+});
+
+test('handoff gate denies a PR until a chain skill has run', () => {
+  const cfg = cfgFixture();
+  const sid = session('handoff-skill');
+  const pr = bash(sid, repo('feat/x'), 'gh pr create --draft --title "feat: x" --body "body"');
+  assert.match(denyReason(envHook(DISCIPLINE, pr, cfg)), /HANDOFF GATE/);
+  // A pre-chain skill must not open the gate a step early.
+  envHook(DISCIPLINE, { tool_name: 'Skill', session_id: sid, tool_input: { skill: 'optimize' } }, cfg);
+  assert.match(denyReason(envHook(DISCIPLINE, pr, cfg)), /HANDOFF GATE/);
+  // The payload shape a model-invoked skill actually carries, per live transcripts.
+  envHook(DISCIPLINE, { tool_name: 'Skill', session_id: sid, tool_input: { skill: 'clean' } }, cfg);
+  assert.equal(envHook(DISCIPLINE, pr, cfg), '');
+});
+
+test('a user-typed slash command opens the handoff gate too', () => {
+  const cfg = cfgFixture();
+  const sid = session('handoff-typed');
+  const pr = bash(sid, repo('feat/x'), 'gh pr create --fill');
+  assert.match(denyReason(envHook(DISCIPLINE, pr, cfg)), /HANDOFF GATE/);
+  // A typed slash reaches hooks only as a UserPromptSubmit prompt, never as a Skill call.
+  envHook(DISCIPLINE, { session_id: sid, prompt: '<command-name>/pr-update</command-name>\n<command-args></command-args>' }, cfg);
+  assert.equal(envHook(DISCIPLINE, pr, cfg), '');
+});
+
+test('a prompt that merely mentions /clean does not open the handoff gate', () => {
+  const cfg = cfgFixture();
+  const sid = session('handoff-mention');
+  envHook(DISCIPLINE, { session_id: sid, prompt: '/clean' }, cfg);
+  assert.equal(fs.existsSync(handoffPath(sid)), true, 'a bare leading slash command does mark');
+  const sid2 = session('handoff-mid');
+  envHook(DISCIPLINE, { session_id: sid2, prompt: 'why did /clean not run earlier?' }, cfg);
+  assert.equal(fs.existsSync(handoffPath(sid2)), false, 'a mid-sentence mention is not a command');
+});
+
+test('handoff gate stands down when the clean skill is not installed', () => {
+  const cfg = cfgFixture({ clean: false });
+  assert.equal(envHook(DISCIPLINE, bash(session('handoff-noskill'), repo('feat/x'), 'gh pr create --fill'), cfg), '');
+});
+
+const ratio = (cfg, file, tool_input) => envHook(RATIO, { tool_input: { file_path: file, ...tool_input } }, cfg);
+const HEAVY = '// what this does\n// and how\n// and when\nconst x = 1;\nconst y = 2;\n';
+
+test('comment ratio nudges a comment-heavy edit', () => {
+  const cfg = cfgFixture();
+  const out = JSON.parse(ratio(cfg, '/x/proj/a.ts', { content: HEAVY }));
+  assert.match(out.hookSpecificOutput.additionalContext, /COMMENT BUDGET: this edit landed 3 comment lines against 2/);
+  // Edit and MultiEdit carry the text under different keys.
+  assert.match(ratio(cfg, '/x/proj/a.ts', { new_string: HEAVY }), /COMMENT BUDGET/);
+  assert.match(ratio(cfg, '/x/proj/a.py', { edits: [{ new_string: '# a\n# b\n# c\nx = 1\ny = 2\n' }] }), /COMMENT BUDGET/);
+});
+
+test('comment ratio stays silent below the bar', () => {
+  const cfg = cfgFixture();
+  assert.equal(ratio(cfg, '/x/proj/a.ts', { content: 'const a = 1;\nconst b = 2;\n// why: guards the id\nconst c = 3;\nconst d = 4;\n' }), '', 'code-heavy');
+  assert.equal(ratio(cfg, '/x/proj/a.ts', { content: '// a\n// b\n// c\n' }), '', 'a deliberate comment insert is below the size floor');
+  assert.equal(ratio(cfg, '/x/proj/notes.md', { content: HEAVY }), '', 'not a code file');
+  assert.equal(ratio(cfg, '/x/proj/a.py', { content: '#!/usr/bin/env python\nx = 1\n' }), '', 'a shebang is not a comment');
+  assert.equal(ratio(cfg, '/x/proj/a.c', { content: 'int f() {\n*p = x;\n*q = y;\n*r = z;\nreturn 0;\n}\n' }), '', 'C dereferences are not comments');
+  assert.equal(ratio(cfgFixture({ discipline: false }), '/x/proj/a.ts', { content: HEAVY }), '', 'no rule file, no nudge');
 });
