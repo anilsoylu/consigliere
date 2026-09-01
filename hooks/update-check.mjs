@@ -15,11 +15,31 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn, execFileSync } from 'node:child_process';
 
-const STATE = path.join(os.homedir(), '.claude', '.consigliere-state.json');
+// Inlined rather than imported: hooks run from <config>/hooks with no manifest beside them.
+function cfgDir() {
+  const e = process.env.CLAUDE_CONFIG_DIR;
+  if (e && e.trim() !== '') {
+    return e.startsWith('~') ? path.resolve(os.homedir(), e.replace(/^~[/\\]?/, '')) : path.resolve(e);
+  }
+  return path.join(os.homedir(), '.claude');
+}
+
+const STATE = path.join(cfgDir(), '.consigliere-state.json');
 const DAY = 24 * 60 * 60 * 1000;
 
-const read = () => { try { return JSON.parse(fs.readFileSync(STATE, 'utf8')); } catch { return null; } };
-const write = (state) => { try { fs.writeFileSync(STATE, JSON.stringify(state, null, 2) + '\n'); } catch {} };
+// No state file means not installed through install.mjs, which is not a fault. Anything
+// else is, and swallowing it makes a corrupt file look exactly like a missing one.
+const read = () => {
+  try { return JSON.parse(fs.readFileSync(STATE, 'utf8')); }
+  catch (error) {
+    if (error.code !== 'ENOENT') console.error(`[consigliere] update-check: cannot read ${STATE}: ${error.message}`);
+    return null;
+  }
+};
+const write = (state) => {
+  try { fs.writeFileSync(STATE, JSON.stringify(state, null, 2) + '\n'); }
+  catch (error) { console.error(`[consigliere] update-check: cannot write ${STATE}: ${error.message}`); }
+};
 
 // Only N.N.N sorts. The repo carries a `v1-sol` tag from an older era that must not win.
 // The `v` is optional because tags carry it and the recorded VERSION does not.

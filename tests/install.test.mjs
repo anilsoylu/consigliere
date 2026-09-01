@@ -18,10 +18,15 @@ test.after(() => {
   for (const dir of temps) fs.rmSync(dir, { recursive: true, force: true });
 });
 
-function install(home = null, flags = []) {
+// CLAUDE_CONFIG_DIR is blanked, not inherited: the installer honors it now, so a machine
+// that sets it would have every case below writing into the author's real install.
+function install(home = null, flags = [], env = {}) {
   const dir = home ?? fs.mkdtempSync(path.join(os.tmpdir(), 'consigliere-install-'));
   if (!home) temps.push(dir);
-  execFileSync(process.execPath, [INSTALL, ...flags], { env: { ...process.env, HOME: dir, USERPROFILE: dir }, stdio: 'pipe' });
+  execFileSync(process.execPath, [INSTALL, ...flags], {
+    env: { ...process.env, HOME: dir, USERPROFILE: dir, CLAUDE_CONFIG_DIR: '', ...env },
+    stdio: 'pipe',
+  });
   return dir;
 }
 
@@ -30,6 +35,26 @@ const hookPath = (home, f) => path.join(home, '.claude', 'hooks', f);
 const agentPath = (home, f) => path.join(home, '.claude', 'agents', f);
 const rulePath = (home, f) => path.join(home, '.claude', 'rules', f);
 const yagniPath = (home, f) => path.join(home, '.claude', 'skills', YAGNI_SKILL, f);
+
+// Honoring it in only some places is worse than ignoring it: files land where Claude Code
+// never looks while the doctor, reading the same wrong path, reports a healthy install.
+test('installs into CLAUDE_CONFIG_DIR and leaves ~/.claude untouched', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'consigliere-install-'));
+  const configured = fs.mkdtempSync(path.join(os.tmpdir(), 'consigliere-config-'));
+  temps.push(home, configured);
+
+  install(home, [], { CLAUDE_CONFIG_DIR: configured });
+
+  assert.ok(fs.existsSync(path.join(configured, 'hooks', HOOK_FILES[0])), 'hooks go to the configured dir');
+  assert.ok(fs.existsSync(path.join(configured, 'agents', AGENT_FILES[0])), 'so does the agent');
+  assert.equal(fs.existsSync(path.join(home, '.claude')), false, 'and nothing is written to ~/.claude');
+
+  const settings = JSON.parse(read(path.join(configured, 'settings.json')));
+  const registered = settings.hooks.UserPromptSubmit
+    .some((b) => b.hooks.some((h) => h.command === hookCommand(path.join(configured, 'hooks'), 'advisor-inject.mjs')));
+  assert.ok(registered, 'the registered command must point at the configured hooks dir');
+  assert.ok(fs.existsSync(path.join(configured, STATE_FILE)), 'and the state file goes with them');
+});
 
 // Upgrading is the only way to end up with an entry the manifest no longer lists, and
 // upgrading runs this installer — so the installer is where it has to be healed.

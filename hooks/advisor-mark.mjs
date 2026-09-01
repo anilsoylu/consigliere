@@ -24,13 +24,17 @@ let consulted = false;
 if (/advisor/i.test(ti.subagent_type || '')) {
   consulted = true;
   // Named spawns are addressable later; an unnamed one can only ever be a Task consult.
+  // A lost roster write surfaces later as the gate denying an already-consulted edit.
   if (ti.name && !names.includes(ti.name)) {
-    try { fs.writeFileSync(roster, JSON.stringify([...names, ti.name])); } catch {}
+    try { fs.writeFileSync(roster, JSON.stringify([...names, ti.name])); }
+    catch (error) { console.error(`[consigliere] advisor-mark: cannot write ${roster}: ${error.message}`); }
   }
 } else if (ti.to && (names.includes(ti.to) || /advisor/i.test(ti.to))) {
   consulted = true;
 }
 
 if (consulted) {
-  try { fs.writeFileSync(path.join(os.tmpdir(), `advisor-gate-${sid}.flag`), '1'); } catch {}
+  const flag = path.join(os.tmpdir(), `advisor-gate-${sid}.flag`);
+  try { fs.writeFileSync(flag, '1'); }
+  catch (error) { console.error(`[consigliere] advisor-mark: cannot write ${flag}: ${error.message}`); }
 }

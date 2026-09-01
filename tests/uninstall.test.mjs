@@ -20,8 +20,13 @@ test.after(() => {
   for (const dir of temps) fs.rmSync(dir, { recursive: true, force: true });
 });
 
+// CLAUDE_CONFIG_DIR is blanked, not inherited: both scripts honor it now, so a machine
+// that sets it would have the uninstaller deleting the author's real install.
 function run(script, home, flags = []) {
-  execFileSync(process.execPath, [script, ...flags], { env: { ...process.env, HOME: home, USERPROFILE: home }, stdio: 'pipe' });
+  execFileSync(process.execPath, [script, ...flags], {
+    env: { ...process.env, HOME: home, USERPROFILE: home, CLAUDE_CONFIG_DIR: '' },
+    stdio: 'pipe',
+  });
 }
 
 // a real install, so the fixture is whatever the installer actually writes today
@@ -137,6 +142,21 @@ test('leaves an invalid settings.json byte-identical and still exits clean', () 
   run(UNINSTALL, home);
 
   assert.equal(fs.readFileSync(settingsPath(home), 'utf8'), broken);
+});
+
+// The destructive half of the same bug: an uninstaller reading ~/.claude while the files
+// live elsewhere reports success and removes nothing.
+test('uninstalls from CLAUDE_CONFIG_DIR', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'consigliere-uninstall-'));
+  const configured = fs.mkdtempSync(path.join(os.tmpdir(), 'consigliere-config-'));
+  temps.push(home, configured);
+  const env = { ...process.env, HOME: home, USERPROFILE: home, CLAUDE_CONFIG_DIR: configured };
+  execFileSync(process.execPath, [INSTALL], { env, stdio: 'pipe' });
+  assert.ok(fs.existsSync(path.join(configured, 'hooks', HOOK_FILES[0])), 'fixture must be installed there');
+
+  execFileSync(process.execPath, [UNINSTALL], { env, stdio: 'pipe' });
+
+  for (const f of HOOK_FILES) assert.equal(fs.existsSync(path.join(configured, 'hooks', f)), false, `${f} should be gone`);
 });
 
 test('installs cleanly again after an uninstall', () => {

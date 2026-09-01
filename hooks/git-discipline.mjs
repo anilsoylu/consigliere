@@ -36,7 +36,12 @@ const flag = path.join(os.tmpdir(), `handoff-${sid}.flag`);
 // Only the chain skills open the gate: optimize/perf run before it, and the rule still
 // requires /clean after them, so marking on those would open the gate a step early.
 const CHAIN = ['clean', 'pr-update', 'pr-ready'];
-const mark = () => { try { fs.writeFileSync(flag, ''); } catch {} };
+// Reported, not swallowed: a failed write shows up later as the gate blocking a handoff
+// whose /clean already ran, with nothing in the transcript to explain it.
+const mark = () => {
+  try { fs.writeFileSync(flag, ''); }
+  catch (error) { console.error(`[consigliere] git-discipline: cannot write ${flag}: ${error.message}`); }
+};
 
 if (payload.tool_name === 'Skill') {
   const raw = payload.tool_input?.skill ?? payload.tool_input?.name ?? payload.tool_input?.command ?? '';

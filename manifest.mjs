@@ -1,6 +1,7 @@
 // What Consigliere installs and where it looks for its dependencies.
 // install.mjs, uninstall.mjs, and doctor.mjs all read this, so the three cannot drift.
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 // Releases are `git tag v<VERSION>`; update-check.mjs and doctor.mjs both compare against
@@ -143,6 +144,18 @@ export const HOOK_ENTRIES = [
   ['PostToolUse', 'Edit|Write|MultiEdit', 'comment-ratio.mjs'],
   ['SessionStart', null, 'update-check.mjs'],
 ];
+
+// Where Claude Code keeps its config. Honoring CLAUDE_CONFIG_DIR in only some places is
+// worse than ignoring it everywhere: the installer writes where the harness never looks
+// while the doctor, reading the same wrong path, reports a healthy install. The hooks
+// carry their own copy of this — they run from <config>/hooks with no manifest beside them.
+export function claudeDir(home = os.homedir()) {
+  const configured = process.env.CLAUDE_CONFIG_DIR;
+  if (!configured || configured.trim() === '') return path.join(home, '.claude');
+  return configured.startsWith('~')
+    ? path.resolve(home, configured.replace(/^~[/\\]?/, ''))
+    : path.resolve(configured);
+}
 
 // the exact command the installer writes into settings.json
 export function hookCommand(hooksDir, script) {

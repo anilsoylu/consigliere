@@ -117,6 +117,31 @@ test('passes for a complete default install', () => {
   assert.ok(summary.pass >= 7);
 });
 
+// Without this the doctor reads ~/.claude while the installer wrote somewhere else, and
+// reports a healthy install by inspecting files nothing is using.
+test('reads the config dir the environment names when no home is given', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+  process.env.CLAUDE_CONFIG_DIR = path.join(home, '.claude');
+  try {
+    const checks = runChecks({ repo: makeRepoFixture() });
+    assert.equal(check(checks, 'installed hooks').level, 'pass');
+    assert.equal(check(checks, 'advisor agent').level, 'pass');
+  } finally {
+    delete process.env.CLAUDE_CONFIG_DIR;
+  }
+});
+
+test('warns when an earlier install is still sitting in ~/.claude', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+
+  const stale = check(runChecks({ home, repo: makeRepoFixture(), claudeDir: temp('consigliere-moved-') }), 'stale install');
+
+  assert.equal(stale.level, 'warn');
+  assert.match(stale.detail, /Claude Code no longer reads it/);
+});
+
 test('passes when the workflow rule ships with every skill it names', () => {
   const home = temp('consigliere-doctor-');
   const repo = makeRepoFixture();

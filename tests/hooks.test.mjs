@@ -130,6 +130,20 @@ test('gate ignores non-code and exempt paths', () => {
   }
 });
 
+// Exempting only the `/.claude/` literal locks meta-work for anyone who moved their
+// config dir; exempting only the configured one locks a project's own .claude/.
+test('gate exempts the configured dir and a project-level .claude alike', () => {
+  const sid = session('gate-cfgdir');
+  fs.rmSync(flagPath(sid), { force: true });
+  const cfg = cfgFixture();
+  const payload = (file) => ({ session_id: sid, tool_input: { file_path: file } });
+  assert.equal(envHook(GATE, payload(path.join(cfg, 'hooks', 'thing.mjs')), cfg), '');
+  assert.equal(envHook(GATE, payload('/Users/x/proj/.claude/hooks/thing.mjs'), cfg), '');
+  const denied = JSON.parse(envHook(GATE, payload('/Users/x/proj/src/app.ts'), cfg));
+  assert.equal(denied.hookSpecificOutput.permissionDecision, 'deny');
+  assert.match(denied.hookSpecificOutput.permissionDecisionReason, new RegExp(path.join(cfg, 'rules', 'advisor-executor.md').replace(/[\\.]/g, '\\$&')));
+});
+
 const UPDATE = path.join(ROOT, 'hooks', 'update-check.mjs');
 
 // The hook reads one fixed path, so a HOME override is the only way to isolate it.
@@ -143,6 +157,9 @@ function update(state, env = {}, payload = { source: 'startup' }) {
   const base = { ...process.env, HOME: home, USERPROFILE: home };
   delete base.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC;
   delete base.CONSIGLIERE_NO_UPDATE_CHECK;
+  // The hook resolves its state file through CLAUDE_CONFIG_DIR now, so an inherited one
+  // would send it to the author's real install instead of this fixture.
+  delete base.CLAUDE_CONFIG_DIR;
   const out = execFileSync(process.execPath, [UPDATE], {
     // a string payload goes to stdin verbatim, which is how the unparseable case is staged
     input: typeof payload === 'string' ? payload : JSON.stringify(payload),
@@ -229,8 +246,17 @@ test('mark ignores a non-advisor subagent', () => {
   assert.equal(marked(sid), false);
 });
 
-const lang = (command) => hook(LANG, { tool_name: 'Bash', tool_input: { command } });
+// Self-gated on rules/communication.md like the other two, so the cases below have to
+// supply it — inheriting the author's own config dir would pass here and fail in CI.
+let LANG_CFG;
+const lang = (command) => envHook(LANG, { tool_name: 'Bash', tool_input: { command } }, (LANG_CFG ??= cfgFixture()));
 const blocked = (command) => lang(command) !== '';
+
+test('language gate stands down without rules/communication.md', () => {
+  const cfg = cfgFixture({ communication: false });
+  const turkish = 'git commit -m "fix: rapor sayfası artık doğru toplamı gösteriyor"';
+  assert.equal(envHook(LANG, { tool_name: 'Bash', tool_input: { command: turkish } }, cfg), '');
+});
 
 test('language gate blocks real Turkish commit subjects', () => {
   // Taken verbatim from this user's own history — the leak the hook exists for.
@@ -316,12 +342,13 @@ const RATIO = path.join(ROOT, 'hooks', 'comment-ratio.mjs');
 
 // Both hooks self-gate on the rule file they enforce, so every case points
 // CLAUDE_CONFIG_DIR at a fixture carrying exactly the files it needs.
-function cfgFixture({ workflow = true, discipline = true, clean = true } = {}) {
+function cfgFixture({ workflow = true, discipline = true, clean = true, communication = true } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'consigliere-cfg-'));
   homes.push(dir);
   fs.mkdirSync(path.join(dir, 'rules'), { recursive: true });
   if (workflow) fs.writeFileSync(path.join(dir, 'rules', 'workflow.md'), '');
   if (discipline) fs.writeFileSync(path.join(dir, 'rules', 'coding-discipline.md'), '');
+  if (communication) fs.writeFileSync(path.join(dir, 'rules', 'communication.md'), '');
   if (clean) {
     fs.mkdirSync(path.join(dir, 'skills', 'clean'), { recursive: true });
     fs.writeFileSync(path.join(dir, 'skills', 'clean', 'SKILL.md'), '');

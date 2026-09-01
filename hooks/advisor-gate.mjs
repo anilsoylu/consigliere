@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // PreToolUse(Edit|Write|MultiEdit): block SOURCE-CODE writes until the advisor subagent
 // was called for this task. Exempt so meta-work and notes never get locked:
-//   - the harness config dir (~/.claude)
+//   - the harness config dir ($CLAUDE_CONFIG_DIR, or ~/.claude) and any project .claude/
 //   - scratch dirs (the OS temp dir, ~/Desktop)
 //   - any non-code file (md/txt/json/toml/yaml/notes/etc.)
 // The decision goes out as JSON rather than exit 2 — same block, no red hook error in
@@ -14,6 +14,17 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+
+// Inlined rather than imported: hooks run from <config>/hooks with no manifest beside them.
+function cfgDir() {
+  const e = process.env.CLAUDE_CONFIG_DIR;
+  if (e && e.trim() !== '') {
+    return e.startsWith('~') ? path.resolve(os.homedir(), e.replace(/^~[/\\]?/, '')) : path.resolve(e);
+  }
+  return path.join(os.homedir(), '.claude');
+}
+const CFG = cfgDir();
+
 let payload = {};
 try { payload = JSON.parse(fs.readFileSync(0, 'utf8')); } catch {}
 // Windows hands over `C:\Users\x\file.ts`. Every path test below is written with forward
@@ -28,7 +39,10 @@ const sid = payload.session_id || 'default';
 // The separator is part of the prefix on purpose: a bare one would exempt `/tmpfoo/x.ts`
 // on Linux, where the temp dir is `/tmp` — a whole sibling tree through the gate.
 const scratch = `${os.tmpdir().replace(/\\/g, '/').replace(/\/$/, '').toLowerCase()}/`;
-if (file.toLowerCase().startsWith(scratch) || /\/\.claude\/|(^|\/)tmp\/|\/Desktop\//.test(file)) process.exit(0);
+// The configured dir is checked in ADDITION to the `/.claude/` literal, not instead of it:
+// the literal also matches a project's own .claude/, which is meta-work either way.
+const config = `${CFG.replace(/\\/g, '/').replace(/\/$/, '').toLowerCase()}/`;
+if (file.toLowerCase().startsWith(scratch) || file.toLowerCase().startsWith(config) || /\/\.claude\/|(^|\/)tmp\/|\/Desktop\//.test(file)) process.exit(0);
 // Only real source code triggers the gate; md/txt/json/toml/yaml and everything else is free.
 const isCode = /\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|rb|php|java|kt|swift|c|h|cpp|hpp|cc|vue|svelte|sql|sh)$/i.test(file);
 if (!isCode) process.exit(0);
@@ -47,6 +61,6 @@ process.stdout.write(JSON.stringify({
       + 'with the five-part contract — objective, files, evidence, constraints, options considered. '
       + 'The verdict arrives as a task notification; do work that does not depend on it meanwhile, then retry this exact edit once it lands. '
       + 'The consult is the unblock, so do not stop to ask for a go-ahead — unless this same edit is denied again after a consult, '
-      + 'which means the hook is broken rather than unsatisfied: say so and stop. See ~/.claude/rules/advisor-executor.md.',
+      + `which means the hook is broken rather than unsatisfied: say so and stop. See ${path.join(CFG, 'rules', 'advisor-executor.md')}.`,
   },
 }));

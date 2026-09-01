@@ -6,13 +6,11 @@
 // you wrote or edited yourself is never silently removed.
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { STATE_FILE, HOOK_FILES, OBSOLETE_HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, HANDOFF_FILES, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, OPTIMIZE_FILES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES } from './manifest.mjs';
+import { STATE_FILE, HOOK_FILES, OBSOLETE_HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, HANDOFF_FILES, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, OPTIMIZE_FILES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, claudeDir } from './manifest.mjs';
 
-const HOME = os.homedir();
 const REPO = path.dirname(fileURLToPath(import.meta.url));
-const CLAUDE = path.join(HOME, '.claude');
+const CLAUDE = claudeDir();
 const HOOKS = path.join(CLAUDE, 'hooks');
 const RULES = path.join(CLAUDE, 'rules');
 const AGENTS = path.join(CLAUDE, 'agents');
@@ -70,7 +68,7 @@ for (const f of OBSOLETE_HOOK_FILES) {
 // Machine state, not a file anyone edits, so the byte-identical rule does not apply.
 // Left behind it would claim a version is installed when nothing is.
 const statePath = path.join(CLAUDE, STATE_FILE);
-if (fs.existsSync(statePath)) { fs.rmSync(statePath, { force: true }); log(`removed ~/.claude/${STATE_FILE}`); }
+if (fs.existsSync(statePath)) { fs.rmSync(statePath, { force: true }); log(`removed ${statePath}`); }
 
 // --- 2. Strip consigliere hook entries from settings.json (keep the rest) ---
 if (fs.existsSync(SETTINGS)) {

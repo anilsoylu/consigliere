@@ -15,6 +15,23 @@
 // a false positive blocks a commit no rewrite can unblock, which is how a hook earns
 // being disabled. A false negative only leaves the status quo.
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+
+// Inlined rather than imported: hooks run from <config>/hooks with no manifest beside them.
+function cfgDir() {
+  const e = process.env.CLAUDE_CONFIG_DIR;
+  if (e && e.trim() !== '') {
+    return e.startsWith('~') ? path.resolve(os.homedir(), e.replace(/^~[/\\]?/, '')) : path.resolve(e);
+  }
+  return path.join(os.homedir(), '.claude');
+}
+
+// Self-gated like git-discipline.mjs: this package does not ship communication.md, so
+// without it the hook would block Turkish text in the name of a rule you never agreed to,
+// and point at a file that is not there.
+const RULE = path.join(cfgDir(), 'rules', 'communication.md');
+if (!fs.existsSync(RULE)) process.exit(0);
 
 let payload = {};
 try { payload = JSON.parse(fs.readFileSync(0, 'utf8')); } catch { process.exit(0); }
@@ -80,6 +97,6 @@ process.stdout.write(JSON.stringify({
       // No mention of the quoted-span exemption: naming it here reads as instructions for
       // getting the same Turkish text through by wrapping it in quotes.
       + 'Everything that lands in a repository is English — commit subjects and bodies, PR titles and bodies. '
-      + 'Rewrite the message in English and run the same command again. See ~/.claude/rules/communication.md.',
+      + `Rewrite the message in English and run the same command again. See ${RULE}.`,
   },
 }));
