@@ -29,6 +29,10 @@ Never re-read a file already read this session; it is still in the context above
 Never mark a task complete without proving it works: run the tests, check the logs, diff the behavior. Report failures with their actual output; report skipped checks as skipped.
 Run the narrowest test that can fail: the touched file's suite first, then its package. The full suite at most once per task, at the end, in the background; never re-run anything without an intervening change. A plan step is not self-justifying: if a prescribed check cannot change what you do next, skip it and say why.
 
+Never pipe a verifier through `tail`, `head`, or `grep`. The pipeline's exit status becomes the filter's, so a red run reads as green and `$?` lies; the lines a filter drops are usually the failure itself. Redirect instead — `<verifier> > /tmp/<name>.log 2>&1; echo "exit=$?"` — then grep the file.
+One verifier per Bash call. Never chain `A && B`: with a filter anywhere in A the guard does not hold, B runs against a tree A already condemned, and the two outputs interleave into a log where neither result is legible. Run A, read its exit code, then run B.
+A backgrounded verifier is not finished until you have read its exit code. If a turn ends without one, re-read the output file before anything else — never infer a pass from a notification that did not arrive.
+
 ## Elegance check
 For non-trivial changes, pause once: is there a more elegant way? If a fix feels hacky, redo it properly now that you understand the problem. Skip this for obvious fixes.
 
