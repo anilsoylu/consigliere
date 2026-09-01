@@ -122,13 +122,15 @@ test('passes for a complete default install', () => {
 test('reads the config dir the environment names when no home is given', () => {
   const home = temp('consigliere-doctor-');
   installDefaultFiles(home);
+  const previous = process.env.CLAUDE_CONFIG_DIR;
   process.env.CLAUDE_CONFIG_DIR = path.join(home, '.claude');
   try {
     const checks = runChecks({ repo: makeRepoFixture() });
     assert.equal(check(checks, 'installed hooks').level, 'pass');
     assert.equal(check(checks, 'advisor agent').level, 'pass');
   } finally {
-    delete process.env.CLAUDE_CONFIG_DIR;
+    if (previous === undefined) delete process.env.CLAUDE_CONFIG_DIR;
+    else process.env.CLAUDE_CONFIG_DIR = previous;
   }
 });
 

@@ -10,10 +10,11 @@ export const VERSION = '1.3.1';
 export const STATE_FILE = '.consigliere-state.json';
 
 export const HOOK_FILES = [
+  // First, and with no HOOK_ENTRIES line of its own: a module the hooks import rather than
+  // a hook, and copying it after them leaves an upgrade window where an import throws.
+  'config-dir.mjs',
   'advisor-inject.mjs', 'advisor-mark.mjs', 'advisor-gate.mjs', 'commit-language.mjs',
   'update-check.mjs', 'review-tier.mjs', 'git-discipline.mjs', 'comment-ratio.mjs',
-  // no HOOK_ENTRIES line of its own: a module the hooks beside it import, not a hook
-  'config-dir.mjs',
 ];
 // Files an earlier version installed and this one does not. Dropping a name from
 // HOOK_FILES alone leaves an orphan nothing removes and doctor no longer looks at, so

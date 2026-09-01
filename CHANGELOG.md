@@ -16,8 +16,11 @@ reconstructed from the tag history.
   package never installs, so every user but the author got a Turkish-only block
   pointing at a file they did not have.
 - Hooks report failures they used to swallow. The catches that were a deliberate
-  fail-open are unchanged; the ones that hid a failed flag or state write now print to
-  stderr, which `claude --debug` surfaces.
+  fail-open are unchanged, and so is `update-check.mjs`'s detached child, which runs
+  under `stdio: 'ignore'`; the foreground catches that hid a failed flag or state write
+  now print to stderr, which `claude --debug` surfaces.
+- The `/consig-upgrade` skill reads its state file from the config dir instead of a
+  hardcoded `~/.claude`.
 
 ### Added
 - A release guard in CI: pushing a `v*` tag fails when it disagrees with

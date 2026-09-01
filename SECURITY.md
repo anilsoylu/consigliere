@@ -11,9 +11,11 @@ are the only bytes that land anywhere else.
 
 ## Network
 
-One call, ever: `git ls-remote --tags origin` in the clone you installed from, at most
-once a day, to compare tags. It stands down under `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`
-or `CONSIGLIERE_NO_UPDATE_CHECK=1`. No telemetry, no analytics, no other endpoint.
+One command, ever: `git ls-remote --tags origin` in the clone you installed from, to
+compare tags. `update-check.mjs` runs it at most once a day and stands down under
+`CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` or `CONSIGLIERE_NO_UPDATE_CHECK=1`;
+`node doctor.mjs` runs it on every invocation with no opt-out, which is the point of the
+doctor for anyone who turned the hook off. No telemetry, no analytics, no other endpoint.
 
 ## Reporting
 

@@ -80,7 +80,7 @@ if (withWorkflow) RULE_FILES.push(WORKFLOW_RULE);
 copyAll(RULE_FILES, path.join(REPO, 'rules'), RULES);
 // Named with the real directory rather than a literal ~/.claude: under CLAUDE_CONFIG_DIR
 // the two differ, and this line is the run's only confirmation of where the files landed.
-log(`copied ${AGENT_FILES.length} agent, ${HOOK_FILES.length} hooks and ${RULE_FILES.length} rules into ${CLAUDE}`);
+log(`copied ${AGENT_FILES.length} agent, ${HOOK_FILES.length} hook files and ${RULE_FILES.length} rules into ${CLAUDE}`);
 
 // Always backed up before removal, not only when it differs: this version ships no copy
 // to compare against, so "did you edit it?" is a question that can no longer be answered.
