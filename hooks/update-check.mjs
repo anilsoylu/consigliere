@@ -10,19 +10,10 @@
 // release mechanism (plain tags, no Releases), needs no rate-limit thinking, and a fork
 // checks its own origin instead of silently checking upstream.
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn, execFileSync } from 'node:child_process';
-
-// Inlined rather than imported: hooks run from <config>/hooks with no manifest beside them.
-function cfgDir() {
-  const e = process.env.CLAUDE_CONFIG_DIR;
-  if (e && e.trim() !== '') {
-    return e.startsWith('~') ? path.resolve(os.homedir(), e.replace(/^~[/\\]?/, '')) : path.resolve(e);
-  }
-  return path.join(os.homedir(), '.claude');
-}
+import { cfgDir } from './config-dir.mjs';
 
 const STATE = path.join(cfgDir(), '.consigliere-state.json');
 const DAY = 24 * 60 * 60 * 1000;

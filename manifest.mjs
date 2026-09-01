@@ -1,7 +1,6 @@
 // What Consigliere installs and where it looks for its dependencies.
 // install.mjs, uninstall.mjs, and doctor.mjs all read this, so the three cannot drift.
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 
 // Releases are `git tag v<VERSION>`; update-check.mjs and doctor.mjs both compare against
@@ -13,6 +12,8 @@ export const STATE_FILE = '.consigliere-state.json';
 export const HOOK_FILES = [
   'advisor-inject.mjs', 'advisor-mark.mjs', 'advisor-gate.mjs', 'commit-language.mjs',
   'update-check.mjs', 'review-tier.mjs', 'git-discipline.mjs', 'comment-ratio.mjs',
+  // no HOOK_ENTRIES line of its own: a module the hooks beside it import, not a hook
+  'config-dir.mjs',
 ];
 // Files an earlier version installed and this one does not. Dropping a name from
 // HOOK_FILES alone leaves an orphan nothing removes and doctor no longer looks at, so
@@ -145,17 +146,7 @@ export const HOOK_ENTRIES = [
   ['SessionStart', null, 'update-check.mjs'],
 ];
 
-// Where Claude Code keeps its config. Honoring CLAUDE_CONFIG_DIR in only some places is
-// worse than ignoring it everywhere: the installer writes where the harness never looks
-// while the doctor, reading the same wrong path, reports a healthy install. The hooks
-// carry their own copy of this — they run from <config>/hooks with no manifest beside them.
-export function claudeDir(home = os.homedir()) {
-  const configured = process.env.CLAUDE_CONFIG_DIR;
-  if (!configured || configured.trim() === '') return path.join(home, '.claude');
-  return configured.startsWith('~')
-    ? path.resolve(home, configured.replace(/^~[/\\]?/, ''))
-    : path.resolve(configured);
-}
+export { cfgDir as claudeDir } from './hooks/config-dir.mjs';
 
 // the exact command the installer writes into settings.json
 export function hookCommand(hooksDir, script) {

@@ -15,17 +15,8 @@
 // a false positive blocks a commit no rewrite can unblock, which is how a hook earns
 // being disabled. A false negative only leaves the status quo.
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
-
-// Inlined rather than imported: hooks run from <config>/hooks with no manifest beside them.
-function cfgDir() {
-  const e = process.env.CLAUDE_CONFIG_DIR;
-  if (e && e.trim() !== '') {
-    return e.startsWith('~') ? path.resolve(os.homedir(), e.replace(/^~[/\\]?/, '')) : path.resolve(e);
-  }
-  return path.join(os.homedir(), '.claude');
-}
+import { cfgDir } from './config-dir.mjs';
 
 // Self-gated like git-discipline.mjs: this package does not ship communication.md, so
 // without it the hook would block Turkish text in the name of a rule you never agreed to,

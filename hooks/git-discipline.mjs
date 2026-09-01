@@ -15,14 +15,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-
-function cfgDir() {
-  const e = process.env.CLAUDE_CONFIG_DIR;
-  if (e && e.trim() !== '') {
-    return e.startsWith('~') ? path.resolve(os.homedir(), e.replace(/^~[/\\]?/, '')) : path.resolve(e);
-  }
-  return path.join(os.homedir(), '.claude');
-}
+import { cfgDir } from './config-dir.mjs';
 
 let payload = {};
 try { payload = JSON.parse(fs.readFileSync(0, 'utf8')); } catch { process.exit(0); }
