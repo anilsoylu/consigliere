@@ -84,6 +84,13 @@ test('a short approval keeps the flag so execution can continue', () => {
   assert.equal(r.stdout, '');
 });
 
+// Pinned so it does not get "fixed" by widening the cap.
+test('a long mid-task reply resets the flag; the gate re-consults, not the prompt heuristic', () => {
+  const r = inject(session('mid-task-reply'), 'Şu an yok. Beklemekten başka bir şey gerekmiyor.\n\nSıra sana kod bitip PR açıldıktan sonra gelecek — R2 hesabı, age anahtarı ve Coolify değişkenleri.');
+  assert.equal(r.flagKept, false);
+  assert.equal(r.stdout, '', 'no code signal, so no directive either');
+});
+
 test('an approval word carrying a new task still resets the flag', () => {
   const r = inject(session('ack-task'), 'tamam, şimdi src/api.ts içindeki hatayı düzelt');
   assert.equal(r.flagKept, false);
@@ -96,6 +103,10 @@ test('gate denies a source write when no consult has run', () => {
   assert.equal(out.hookSpecificOutput.permissionDecision, 'deny');
   const reason = out.hookSpecificOutput.permissionDecisionReason;
   assert.match(reason, /retry this exact edit once it lands/);
+  // "this task" was false whenever a consult had run before the last user message, and it
+  // pushed the executor to the hook-is-broken branch when the answer was to re-consult.
+  assert.match(reason, /since the last user prompt/);
+  assert.doesNotMatch(reason, /for this task yet/);
   // The removed branch: offering "ask the user" turned every deny into a stall.
   assert.doesNotMatch(reason, /ask the user/i);
   // ...but a deny that repeats after a consult is a malfunction and needs a way out.

@@ -29,8 +29,8 @@ const flag = path.join(os.tmpdir(), `advisor-gate-${sid}.flag`);
 if (/^\[SYSTEM NOTIFICATION - NOT USER INPUT\]/.test(prompt) || /^<task-notification>\s*<task-id>/.test(prompt)
   || /^<agent-message [^>]*from="/.test(prompt)) process.exit(0);
 
-// Only a SHORT standalone ack counts as approval. "Okay, now fix this unrelated bug"
-// starts with an approval word but carries a new task — it must reset the flag.
+// The cap stays tight because the two errors are not symmetric: a wrong reset costs one
+// re-consult, a wrong keep lets unconsulted code through and says nothing.
 const isApproval =
   prompt.length <= 24 &&
   /^(onayl|onay|evet|devam|tamam|olur|approve|ok\b|okay\b|go\b|yes\b|proceed)/i.test(prompt);
