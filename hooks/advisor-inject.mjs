@@ -23,9 +23,11 @@ const flag = path.join(os.tmpdir(), `advisor-gate-${sid}.flag`);
 // Every Agent call is asynchronous in this harness, so resetting on one would delete the flag
 // the advisor call itself just set — the gate could never be satisfied. Exiting 0 also
 // suppresses the directive, which was being reprinted once per notification.
-// Both patterns are anchored and the tag is matched with its <task-id> sibling: a user of this
-// package asking "why didn't <task-notification> reset the flag?" must still count as a task.
-if (/^\[SYSTEM NOTIFICATION - NOT USER INPUT\]/.test(prompt) || /^<task-notification>\s*<task-id>/.test(prompt)) process.exit(0);
+// A NAMED subagent returns as <agent-message>, and the doctrine names the advisor.
+// Each tag is paired with a sibling token so a user quoting one while debugging still counts
+// as a task; `from` ignores attribute order, since an unmatched shape is how this broke.
+if (/^\[SYSTEM NOTIFICATION - NOT USER INPUT\]/.test(prompt) || /^<task-notification>\s*<task-id>/.test(prompt)
+  || /^<agent-message [^>]*from="/.test(prompt)) process.exit(0);
 
 // Only a SHORT standalone ack counts as approval. "Okay, now fix this unrelated bug"
 // starts with an approval word but carries a new task — it must reset the flag.
