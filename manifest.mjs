@@ -6,7 +6,7 @@ import path from 'node:path';
 // Releases are `git tag v<VERSION>`; update-check.mjs and doctor.mjs both compare against
 // that tag list, so bumping this without tagging makes an installed copy look ahead of
 // upstream. Only vN.N.N sorts — the old `v1-sol` tag is deliberately unsortable.
-export const VERSION = '1.4.1';
+export const VERSION = '1.4.2';
 export const STATE_FILE = '.consigliere-state.json';
 
 export const HOOK_FILES = [
@@ -29,7 +29,7 @@ export const WORKFLOW_RULE = 'workflow.md';
 export const AGENT_FILES = ['advisor.md'];
 
 // The merge-readiness skill and the Workflow script it invokes are one feature: the
-// skill points at the script by path, so either one alone is a dangling reference.
+// skill reads the script from beside it, so either one alone is a dangling reference.
 export const MERGE_READINESS_SKILL = 'merge-readiness';
 export const MERGE_READINESS_FILES = ['SKILL.md', 'merge-readiness.js'];
 

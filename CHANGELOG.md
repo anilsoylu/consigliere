@@ -4,6 +4,14 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
+## v1.4.2 — 2026-09-02
+
+### Fixed
+- `/merge-readiness` can run. It told the model to invoke its bundled script through
+  `scriptPath`, which the Workflow tool rejects for any file outside a working directory
+  — and a skill directory never is one, so the top tier of the review ladder failed for
+  every user. It now reads the script and passes the contents as `script`.
+
 ## v1.4.1 — 2026-09-01
 
 ### Fixed

@@ -109,7 +109,7 @@ if (withWorkflow) {
   log('skipped rules/workflow.md + the ralph-protocol, handoff and optimize skills — add them with:  node install.mjs --with-workflow');
 }
 
-// The skill invokes its Workflow script by path, so the two ship together or the
+// The skill invokes its Workflow script from beside it, so the two ship together or the
 // reference dangles. Opt-in on its own flag: a run costs up to 13 premium agents.
 if (withMergeReadiness) {
   copyAll(MERGE_READINESS_FILES, path.join(REPO, 'skills', MERGE_READINESS_SKILL), path.join(SKILLS, MERGE_READINESS_SKILL));
