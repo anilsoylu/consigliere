@@ -1,6 +1,6 @@
 # Consigliere
 
-A second brain for Claude Code: **Fable 5 plans, Claude Opus builds.**
+A second brain for Claude Code: **Fable 5.1 plans, Claude Opus builds.**
 
 The advisor thinks through *how* to do the work — architecture, edge cases, second opinions — but never touches your files. Opus, the main Claude Code loop, writes the code. A gate stops Claude from writing source until the advisor has weighed in.
 
@@ -56,7 +56,7 @@ The advisor has no web access. When it needs a current fact it writes `RESEARCH 
 - **macOS, Linux, or Windows.** Every hook is Node and every installed hook command is `node "<absolute path>"`, so nothing here needs bash — Claude Code on Windows runs PowerShell or CMD just as often. The test suite runs on all three in CI.
 - *Optional, only for `--with-workflow`:* the **ralph-loop plugin** — `/plugin install ralph-loop@claude-plugins-official`.
 
-The advisor pins `model: fable`. If your account can't reach Fable 5, Claude Code falls back to the inherited model rather than failing the request — the loop still works, just with the same model on both sides of it, which costs you the independent perspective. Change the `model:` line in `~/.claude/agents/advisor.md` to something your plan reaches and the fallback stops being silent.
+The advisor pins `model: fable`. If your account can't reach Fable, Claude Code falls back to the inherited model rather than failing the request — the loop still works, just with the same model on both sides of it, which costs you the independent perspective. Change the `model:` line in `~/.claude/agents/advisor.md` to something your plan reaches and the fallback stops being silent.
 
 ## Install
 
@@ -84,15 +84,15 @@ Besides its hook entries, the installer fills in the settings this loop is tuned
     "CLAUDE_CODE_NO_FLICKER": "1",
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
-    "ANTHROPIC_CUSTOM_MODEL_OPTION": "claude-fable-5",
-    "ANTHROPIC_CUSTOM_MODEL_OPTION_NAME": "Fable 5"
+    "ANTHROPIC_CUSTOM_MODEL_OPTION": "claude-fable-5-1",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION_NAME": "Fable 5.1"
   },
   "includeCoAuthoredBy": false,
   "alwaysThinkingEnabled": true
 }
 ```
 
-The two that matter most to the loop: effort stays pinned high with adaptive thinking off, so the advisor's model doesn't quietly drop to a shallower pass on a consult that looks routine, and the thinking budget is fixed rather than inferred. `ANTHROPIC_CUSTOM_MODEL_OPTION` puts Fable 5 in the `/model` picker; it is not what makes the advisor work — `model: fable` in the subagent definition is a built-in alias and resolves without it. The 1M context window is off on purpose: a bigger window is a worse loop, not a better one, when the whole design is to keep the advisor's input small and deliberate. Every value takes effect on the next `claude` start, and `settings.json` is backed up before the installer touches it.
+The two that matter most to the loop: effort stays pinned high with adaptive thinking off, so the advisor's model doesn't quietly drop to a shallower pass on a consult that looks routine, and the thinking budget is fixed rather than inferred. `ANTHROPIC_CUSTOM_MODEL_OPTION` puts Fable 5.1 in the `/model` picker; it is not what makes the advisor work — `model: fable` in the subagent definition is a built-in alias and resolves without it. The 1M context window is off on purpose: a bigger window is a worse loop, not a better one, when the whole design is to keep the advisor's input small and deliberate. Every value takes effect on the next `claude` start, and `settings.json` is backed up before the installer touches it.
 
 Run `node doctor.mjs` and it reports which of these have no value set. Delete any you disagree with and re-running the installer puts them back — that's a gap, not a preference; set the key to your own value if you want it to stick.
 
@@ -219,10 +219,10 @@ Upgrading in place leaves one orphan: `~/.claude/hooks/advisor-watchdog.sh` is n
 
 ## Limits
 
-- **Fable availability:** the advisor pins `model: fable`. On a plan that can't reach it, Claude Code silently falls back to the inherited model — the loop keeps working, but planner and builder become the same model and you lose the independent read. See [Requirements](#requirements).
+- **Fable availability:** the advisor pins `model: fable`. On a plan that can't reach it, Claude Code silently falls back to the inherited model — the loop keeps working, but planner and builder become the same model and you lose the independent read. See [Requirements](#requirements). `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` overrides `model:` in every agent definition, including this one. Unless `CLAUDE_CODE_SUBAGENT_MODEL` names a planner model, it collapses the loop the same way, so leave it unset.
 - Consigliere assumes Opus as the executor. If you want a different main model, that's a `/model` choice, not a config change here.
 - **Two skills still need a POSIX shell:** `wizard` generates bash scripts around `template.sh`, and `systematic-debugging` bisects test pollution with `find-polluter.sh`. Nothing in the hook chain does — on Windows, run those two under Git Bash or WSL.
-- **`--with-merge-readiness`:** the skill drives Claude Code's Workflow tool, so nothing fires automatically — you run `/merge-readiness` and Claude asks before spawning the graph. Its tier-2 judge pins Fable 5 for the same reason the advisor does, with the same fallback.
+- **`--with-merge-readiness`:** the skill drives Claude Code's Workflow tool, so nothing fires automatically — you run `/merge-readiness` and Claude asks before spawning the graph. Its tier-2 judge pins Fable for the same reason the advisor does, with the same fallback.
 
 ## License
 
