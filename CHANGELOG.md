@@ -24,7 +24,9 @@ reconstructed from the tag history.
 - The installer refreshes a `.consigliere.bak` instead of keeping the first one. A backup
   written by an early install stayed put, so a later install found one already there,
   wrote nothing, and overwrote your edit — the protection switched itself off after a
-  single use. `settings.json` is backed up only when the merge actually changes it.
+  single use. `settings.json` is now written once per run, backed up only when the merge
+  actually changes it — the context-mode env tuning used to write a second time with no
+  backup at all.
 
 ### Added
 - A release guard in CI: pushing a `v*` tag fails when it disagrees with

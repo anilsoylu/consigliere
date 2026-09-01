@@ -264,6 +264,25 @@ test('survives an env that is not an object, and leaves it as you wrote it', () 
   assert.ok(after.hooks.PreToolUse.length, 'the rest of the merge must still have happened');
 });
 
+test('backs up settings.json when the merge changes it, and not when it does not', () => {
+  const home = install();
+  const settingsPath = path.join(home, '.claude', 'settings.json');
+  const bak = `${settingsPath}.consigliere.bak`;
+  fs.rmSync(bak, { force: true });
+
+  install(home);
+  assert.equal(fs.existsSync(bak), false, 'a merge that changes nothing must not touch the backup');
+
+  const settings = JSON.parse(read(settingsPath));
+  settings.hooks.PreToolUse = [];
+  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
+  const before = read(settingsPath);
+
+  install(home);
+
+  assert.equal(read(bak), before, 'the backup must hold what the merge replaced');
+});
+
 // The regression: install.mjs used to copy hooks with no backup at all, so a customized
 // hook was destroyed on the next install while a customized rule was carefully preserved.
 for (const [label, live, repoFile, file] of [
