@@ -17,17 +17,16 @@ something and you can say why.
 
 ## Run it
 
-Call the **Workflow** tool with the script bundled next to this file:
+Read `merge-readiness.js` beside this file and pass its contents unchanged as `script`.
+`scriptPath` is rejected here: the tool only accepts paths inside a working directory,
+and the skill directory is never one.
 
 ```
 Workflow({
-  scriptPath: "<this skill's directory>/merge-readiness.js",
+  script: <contents of merge-readiness.js>,
   args: { cwd: "/path/to/repo", verify: "npm test", base: "origin/main" }
 })
 ```
-
-Installed with `node install.mjs --with-merge-readiness`, that path is
-`~/.claude/skills/merge-readiness/merge-readiness.js`.
 
 All three args are optional:
 
