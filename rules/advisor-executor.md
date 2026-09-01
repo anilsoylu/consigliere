@@ -103,9 +103,10 @@ Relay all findings verbatim. Never silently drop one — the user decides what t
 ## Gate
 
 A PreToolUse hook blocks Edit/Write on real source files (`.ts .tsx .js .py .go .rs …`)
-until the advisor was called this task. Never gated: `~/.claude`, `/tmp`, `~/Desktop`,
-and any non-code file. The flag resets on each new task prompt, and survives both approval
-messages and the task notifications that background subagents deliver.
+until the advisor was called since the last user prompt. Never gated: `~/.claude`, `/tmp`,
+`~/Desktop`, and any non-code file. The flag resets on every user message except a short
+approval — an informational reply mid-task resets it too — and survives the task
+notifications and agent messages that background subagents deliver.
 
 Hitting the gate is not a failure and not a question for the user — it is the consult
 directive arriving late, because the prompt-time hook could only guess from wording where

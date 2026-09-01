@@ -4,6 +4,18 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
+## v1.4.3 — 2026-09-02
+
+### Changed
+- The gate's denial says "no consult has run since the last user prompt" instead of
+  "for this task yet". Any user message that is not a short ack resets the flag, so the
+  old wording was false whenever a consult had run earlier in the same task — and it
+  pushed the executor toward the "the hook is broken, stop" branch when the answer was
+  to re-consult. The reset itself is unchanged and deliberate: a wrong reset costs one
+  re-consult, a wrong keep ships code nobody reviewed. `rules/advisor-executor.md` said
+  the same false thing and now matches the hook, which matters more: the rule is loaded
+  into every session, so it outranked the deny string whenever the two disagreed.
+
 ## v1.4.2 — 2026-09-02
 
 ### Fixed
