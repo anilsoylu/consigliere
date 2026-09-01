@@ -40,12 +40,15 @@ for (const a of argv.filter((a) => a.startsWith('--') && !OPTIONAL_FLAGS.include
   warn(`unknown option ${a} — did you mean one of ${OPTIONAL_FLAGS.join(', ')}?`);
 }
 
+// Overwrites an older .bak rather than keeping it: a backup from the first install is
+// still sitting there on the third, so the edit *this* run is about to replace would get
+// no copy at all — the protection turns itself off after one use. What the stale .bak
+// held is the release we shipped, which git already has.
 function backup(file) {
   const bak = `${file}.consigliere.bak`;
-  if (fs.existsSync(file) && !fs.existsSync(bak)) {
-    fs.copyFileSync(file, bak);
-    log(`backed up ${path.basename(file)} → ${path.basename(bak)}`);
-  }
+  if (!fs.existsSync(file)) return;
+  fs.copyFileSync(file, bak);
+  log(`backed up ${path.basename(file)} → ${path.basename(bak)}`);
 }
 
 // a file you customized is a file you meant to customize — keep a copy before overwriting.
@@ -148,7 +151,6 @@ log(`copied skills/${SHADCN_SKILL} → ${SKILLS} (upstream shadcn/ui; see README
 // --- 3. Idempotent settings.json merge (never clobbers existing hooks) ---
 let settings = {};
 if (fs.existsSync(SETTINGS)) {
-  backup(SETTINGS);
   try { settings = JSON.parse(fs.readFileSync(SETTINGS, 'utf8')); }
   catch { warn('settings.json is not valid JSON; aborting merge. Fix it and re-run.'); process.exit(1); }
 }
@@ -214,7 +216,12 @@ const filled = [
   ...(usableEnv ? fillDefaults(settings.env, RECOMMENDED_ENV, 'env.') : []),
   ...fillDefaults(settings, RECOMMENDED_SETTINGS, ''),
 ];
-fs.writeFileSync(SETTINGS, JSON.stringify(settings, null, 2) + '\n');
+const merged = JSON.stringify(settings, null, 2) + '\n';
+// Backed up here rather than before the parse, and only on a real change: now that a .bak
+// is refreshed every time, an install that merges nothing would otherwise replace your
+// pre-install settings with a copy of themselves.
+if (fs.existsSync(SETTINGS) && fs.readFileSync(SETTINGS, 'utf8') !== merged) backup(SETTINGS);
+fs.writeFileSync(SETTINGS, merged);
 log(added ? `merged ${added} hook entr${added === 1 ? 'y' : 'ies'} into settings.json` : 'settings.json already had all hook entries (no change)');
 if (stale.length) log(`removed ${stale.length} stale hook entr${stale.length === 1 ? 'y' : 'ies'} this installer no longer registers (${stale.join(', ')})`);
 if (filled.length) {

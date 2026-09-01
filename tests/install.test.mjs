@@ -283,7 +283,7 @@ for (const [label, live, repoFile, file] of [
     assert.equal(read(target), read(repoFile(file)), 'the live file must be back to this repo bytes');
   });
 
-  test(`keeps the first backup of a ${label} when you reinstall again`, () => {
+  test(`backs up the ${label} edit the newest install replaced, not the oldest`, () => {
     const home = install();
     const target = live(home, file);
     fs.writeFileSync(target, 'first edit\n');
@@ -292,8 +292,7 @@ for (const [label, live, repoFile, file] of [
 
     install(home);
 
-    // backup() writes only when no .bak exists, so the earliest customization survives
-    assert.equal(read(`${target}.consigliere.bak`), 'first edit\n');
+    assert.equal(read(`${target}.consigliere.bak`), 'second edit\n');
   });
 
   test(`writes no ${label} backup when nothing drifted`, () => {
