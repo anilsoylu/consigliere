@@ -49,11 +49,12 @@ function inject(sid, prompt, { flagged = true } = {}) {
 // The bug this file exists for: a finishing background subagent arrives as a
 // UserPromptSubmit event, and resetting on one deletes the flag the advisor call
 // itself just set — leaving the gate impossible to satisfy for the rest of the task.
-// Both literals are the shapes the harness actually emits, taken from live transcripts.
+// All three literals are shapes the harness actually emits, taken from live transcripts.
 test('a task notification leaves the flag alone and prints nothing', () => {
   for (const prompt of [
     '[SYSTEM NOTIFICATION - NOT USER INPUT]\nThis is an automated background-task event.',
     '<task-notification>\n<task-id>bubvqt1pj</task-id>\n<status>completed</status>\n</task-notification>',
+    '<agent-message from="advisor">\nSHIP. No [ADOPT] findings.\n</agent-message>',
   ]) {
     const r = inject(session(`notif-${prompt.length}`), prompt);
     assert.ok(r.flagKept, `flag should survive: ${prompt.slice(0, 40)}`);
@@ -63,10 +64,12 @@ test('a task notification leaves the flag alone and prints nothing', () => {
 
 // This package's own audience quotes these tags while debugging their hooks, so an
 // unanchored match would hand the next task a stale flag and no directive.
-test('a prompt that merely quotes the notification tag is still a task', () => {
-  const r = inject(session('quoted-tag'), 'why did <task-notification> not reset the flag in hooks/advisor-inject.mjs?');
-  assert.equal(r.flagKept, false);
-  assert.match(r.stdout, /ADVISOR\/EXECUTOR LOOP/);
+test('a prompt that merely quotes an envelope tag is still a task', () => {
+  for (const tag of ['<task-notification>', '<agent-message>']) {
+    const r = inject(session(`quoted-${tag.length}`), `why did ${tag} not reset the flag in hooks/advisor-inject.mjs?`);
+    assert.equal(r.flagKept, false, tag);
+    assert.match(r.stdout, /ADVISOR\/EXECUTOR LOOP/);
+  }
 });
 
 test('a new code prompt resets the flag and prints the directive', () => {

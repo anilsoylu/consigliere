@@ -4,6 +4,16 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
+## v1.4.1 — 2026-09-01
+
+### Fixed
+- The advisor's own verdict no longer closes the gate. A subagent spawned with a name
+  returns through a third envelope, `<agent-message from="...">`, which
+  `advisor-inject.mjs` did not recognize as machine input — so it cleared the flag the
+  consult had just set. Since `rules/advisor-executor.md` tells the executor to name the
+  advisor, following the doctrine denied every source edit for the rest of the task, with
+  no way back short of a fresh consult.
+
 ## v1.4.0 — 2026-09-01
 
 ### Fixed
