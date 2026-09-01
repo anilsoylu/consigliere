@@ -40,12 +40,13 @@ for (const a of argv.filter((a) => a.startsWith('--') && !OPTIONAL_FLAGS.include
   warn(`unknown option ${a} — did you mean one of ${OPTIONAL_FLAGS.join(', ')}?`);
 }
 
+// Refreshed, not kept: a .bak left by an earlier install blocks the backup of the edit
+// this run is about to overwrite, so the protection turns itself off after one use.
 function backup(file) {
   const bak = `${file}.consigliere.bak`;
-  if (fs.existsSync(file) && !fs.existsSync(bak)) {
-    fs.copyFileSync(file, bak);
-    log(`backed up ${path.basename(file)} → ${path.basename(bak)}`);
-  }
+  if (!fs.existsSync(file)) return;
+  fs.copyFileSync(file, bak);
+  log(`backed up ${path.basename(file)} → ${path.basename(bak)}`);
 }
 
 // a file you customized is a file you meant to customize — keep a copy before overwriting.
@@ -148,7 +149,6 @@ log(`copied skills/${SHADCN_SKILL} → ${SKILLS} (upstream shadcn/ui; see README
 // --- 3. Idempotent settings.json merge (never clobbers existing hooks) ---
 let settings = {};
 if (fs.existsSync(SETTINGS)) {
-  backup(SETTINGS);
   try { settings = JSON.parse(fs.readFileSync(SETTINGS, 'utf8')); }
   catch { warn('settings.json is not valid JSON; aborting merge. Fix it and re-run.'); process.exit(1); }
 }
@@ -169,7 +169,7 @@ function ensureHook(event, matcher, script) {
 // An entry an older version of this installer wrote, under an (event, matcher) the
 // manifest no longer lists, would otherwise run forever — nothing else ever removes one.
 // Matched by the exact command this installer writes, so a wrapper of yours around the
-// same script survives; settings.json was backed up above, so this is recoverable.
+// same script survives; settings.json is backed up before the write, so this is recoverable.
 function pruneStale() {
   const wanted = HOOK_ENTRIES.map(([e, m, s]) => `${e}\0${m || ''}\0${hookCommand(HOOKS, s)}`);
   const removed = [];
@@ -214,7 +214,15 @@ const filled = [
   ...(usableEnv ? fillDefaults(settings.env, RECOMMENDED_ENV, 'env.') : []),
   ...fillDefaults(settings, RECOMMENDED_SETTINGS, ''),
 ];
-fs.writeFileSync(SETTINGS, JSON.stringify(settings, null, 2) + '\n');
+// Folded in before the write rather than left to section 4, where a second write would
+// land without the backup below. Gated on the plugin: tuning env for one you never
+// installed is clutter with no effect.
+const tuned = hasContextMode(settings) && usableEnv ? fillDefaults(settings.env, CONTEXT_MODE.env, 'env.') : [];
+const merged = JSON.stringify(settings, null, 2) + '\n';
+// Only on a real change: a run that merges nothing would otherwise replace your
+// pre-install settings with a copy of themselves.
+if (fs.existsSync(SETTINGS) && fs.readFileSync(SETTINGS, 'utf8') !== merged) backup(SETTINGS);
+fs.writeFileSync(SETTINGS, merged);
 log(added ? `merged ${added} hook entr${added === 1 ? 'y' : 'ies'} into settings.json` : 'settings.json already had all hook entries (no change)');
 if (stale.length) log(`removed ${stale.length} stale hook entr${stale.length === 1 ? 'y' : 'ies'} this installer no longer registers (${stale.join(', ')})`);
 if (filled.length) {
@@ -232,16 +240,8 @@ if (!hasContextMode(settings)) {
   log(`optional: ${CONTEXT_MODE.plugin} keeps raw tool output out of the context window. Run these in Claude Code:`);
   for (const c of CONTEXT_MODE.commands) log(`    ${c}`);
   log(`    then restart Claude Code (or /reload-plugins) and check it with ${CONTEXT_MODE.verify}`);
-} else {
-  // Same only-where-absent contract as RECOMMENDED_ENV, but gated on the plugin being
-  // enabled: tuning env for a plugin you never installed is clutter with no effect.
-  if (usableEnv) {
-    const tuned = fillDefaults(settings.env, CONTEXT_MODE.env, 'env.');
-    if (tuned.length) {
-      fs.writeFileSync(SETTINGS, JSON.stringify(settings, null, 2) + '\n');
-      log(`quieted ${CONTEXT_MODE.plugin}'s routing nudges: ${tuned.join(', ')}`);
-    }
-  }
+} else if (tuned.length) {
+  log(`quieted ${CONTEXT_MODE.plugin}'s routing nudges: ${tuned.join(', ')}`);
 }
 if (hasContextMode(settings) && !settings.statusLine) {
   // printed, not written: statusLine is one slot and a whole terminal row, so an empty

@@ -4,7 +4,7 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
-## Unreleased
+## v1.4.0 — 2026-09-01
 
 ### Fixed
 - `CLAUDE_CONFIG_DIR` is now honored by the installer, the uninstaller, the doctor and
@@ -21,6 +21,12 @@ reconstructed from the tag history.
   now print to stderr, which `claude --debug` surfaces.
 - The `/consig-upgrade` skill reads its state file from the config dir instead of a
   hardcoded `~/.claude`.
+- The installer refreshes a `.consigliere.bak` instead of keeping the first one. A backup
+  written by an early install stayed put, so a later install found one already there,
+  wrote nothing, and overwrote your edit — the protection switched itself off after a
+  single use. `settings.json` is now written once per run, backed up only when the merge
+  actually changes it — the context-mode env tuning used to write a second time with no
+  backup at all.
 
 ### Added
 - A release guard in CI: pushing a `v*` tag fails when it disagrees with
@@ -28,6 +34,11 @@ reconstructed from the tag history.
 - The doctor warns when `CLAUDE_CONFIG_DIR` points elsewhere and an earlier install is
   still sitting in `~/.claude`. Reported only — it removes nothing.
 - `package.json` (private, not published), `CHANGELOG.md`, `SECURITY.md`.
+
+### Changed
+- The config-directory rule has one definition, `hooks/config-dir.mjs`, which the hooks
+  import as a sibling and `manifest.mjs` re-exports. It installs alongside the hooks
+  without registering as one.
 
 ## v1.3.1 — 2026-09-01
 - Verifier exit codes stay readable: no piping a verifier through `tail`/`grep`, one
