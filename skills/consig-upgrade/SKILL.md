@@ -9,13 +9,14 @@ disable-model-invocation: true
 Runs the upgrade the README documents, in the clone the installer recorded, and reports
 what changed.
 
-`disable-model-invocation` is load-bearing: this writes into the user's live `~/.claude`,
+`disable-model-invocation` is load-bearing: this writes into the user's live config dir,
 so it runs when they type `/consig-upgrade` and never because a session decided it was
 time.
 
 ## Steps
 
-1. Read `~/.claude/.consigliere-state.json`. Its `repo` field is the clone `install.mjs`
+1. Read `.consigliere-state.json` from the config dir — `$CLAUDE_CONFIG_DIR` when that is
+   set and not empty, otherwise `~/.claude`. Its `repo` field is the clone `install.mjs`
    was run from — the upgrade goes there, not to a path you guess. No file, or no `repo`
    in it: stop and say consigliere is not installed by this installer.
 2. `git -C <repo> pull --ff-only`. A dirty tree or a diverged branch fails here; report

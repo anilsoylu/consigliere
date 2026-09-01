@@ -1,0 +1,26 @@
+name: release-guard
+
+# Separate from test.yml on purpose: that workflow runs a three-OS matrix, and this check
+# is one string comparison that cannot differ by platform.
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: manifest.VERSION matches the pushed tag
+        run: |
+          node -e "
+            import('./manifest.mjs').then(({ VERSION }) => {
+              const tag = process.env.GITHUB_REF_NAME.replace(/^v/, '');
+              if (VERSION === tag) return console.log('ok: ' + VERSION);
+              console.error('tag ' + process.env.GITHUB_REF_NAME + ' disagrees with manifest.VERSION ' + VERSION);
+              process.exit(1);
+            });
+          "

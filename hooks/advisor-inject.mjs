@@ -7,6 +7,9 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { cfgDir } from './config-dir.mjs';
+const CFG = cfgDir();
+
 let payload = {};
 try { payload = JSON.parse(fs.readFileSync(0, 'utf8')); } catch {}
 const sid = payload.session_id || 'default';
@@ -30,7 +33,10 @@ const isApproval =
   prompt.length <= 24 &&
   /^(onayl|onay|evet|devam|tamam|olur|approve|ok\b|okay\b|go\b|yes\b|proceed)/i.test(prompt);
 if (!isApproval) {
-  try { fs.rmSync(flag, { force: true }); } catch {}
+  // `force` already absorbs a missing file, so anything landing here is a real failure
+  // that leaves a stale flag waving every source edit of the next task straight through.
+  try { fs.rmSync(flag, { force: true }); }
+  catch (error) { console.error(`[consigliere] advisor-inject: cannot clear ${flag}: ${error.message}`); }
 }
 
 // An explicit request always wins, regardless of what else the prompt says.
@@ -64,13 +70,13 @@ process.stdout.write(
   '4) RE-CONSULT when the same error or verifier fails twice — stop before the third attempt and consult with the actual output.\n' +
   '5) FINAL REVIEW, mandatory before reporting done. The built-in /review skill is user-invocable\n' +
   '   only (disable-model-invocation): never call it, and never hand-roll a stand-in for it.\n' +
-  '   node ~/.claude/hooks/review-tier.mjs  → none|medium|high|xhigh (none = no source changes, skip).\n' +
+  `   node ${path.join(CFG, 'hooks', 'review-tier.mjs')}  → none|medium|high|xhigh (none = no source changes, skip).\n` +
   '   Already committed on a branch? The tree is clean and it prints none — pass the branch point:\n' +
-  '   node ~/.claude/hooks/review-tier.mjs . "$(git merge-base origin/main HEAD)". Otherwise the gate silently skips.\n' +
+  `   node ${path.join(CFG, 'hooks', 'review-tier.mjs')} . "$(git merge-base origin/main HEAD)". Otherwise the gate silently skips.\n` +
   '   medium|high → a FRESH advisor consult carrying the actual diff, asking for a review verdict.\n' +
   '   State what the change does, not why you think it is right; a judge given your rationale anchors to it.\n' +
   '   Fix every finding the reviewer stands behind, then re-run the verifier on the fixed diff.\n' +
   '   xhigh → the merge-readiness skill via the Workflow tool. Up to 13 agents, so never below xhigh.\n' +
   '   Escalate the tier with a stated reason if the diff warrants it; never downgrade. Relay all findings — no severity filtering.\n' +
-  'The advisor has Read/Grep/Glob and nothing else — it cannot write code. Details: ~/.claude/rules/advisor-executor.md'
+  `The advisor has Read/Grep/Glob and nothing else — it cannot write code. Details: ${path.join(CFG, 'rules', 'advisor-executor.md')}`
 );

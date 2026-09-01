@@ -15,14 +15,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-
-function cfgDir() {
-  const e = process.env.CLAUDE_CONFIG_DIR;
-  if (e && e.trim() !== '') {
-    return e.startsWith('~') ? path.resolve(os.homedir(), e.replace(/^~[/\\]?/, '')) : path.resolve(e);
-  }
-  return path.join(os.homedir(), '.claude');
-}
+import { cfgDir } from './config-dir.mjs';
 
 let payload = {};
 try { payload = JSON.parse(fs.readFileSync(0, 'utf8')); } catch { process.exit(0); }
@@ -36,7 +29,12 @@ const flag = path.join(os.tmpdir(), `handoff-${sid}.flag`);
 // Only the chain skills open the gate: optimize/perf run before it, and the rule still
 // requires /clean after them, so marking on those would open the gate a step early.
 const CHAIN = ['clean', 'pr-update', 'pr-ready'];
-const mark = () => { try { fs.writeFileSync(flag, ''); } catch {} };
+// Reported, not swallowed: a failed write shows up later as the gate blocking a handoff
+// whose /clean already ran, with nothing in the transcript to explain it.
+const mark = () => {
+  try { fs.writeFileSync(flag, ''); }
+  catch (error) { console.error(`[consigliere] git-discipline: cannot write ${flag}: ${error.message}`); }
+};
 
 if (payload.tool_name === 'Skill') {
   const raw = payload.tool_input?.skill ?? payload.tool_input?.name ?? payload.tool_input?.command ?? '';

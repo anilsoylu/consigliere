@@ -1,17 +1,16 @@
 #!/usr/bin/env node
 // Consigliere installer — OS-agnostic (macOS / Linux / Windows).
-// Copies the advisor subagent, the hooks and the rules into ~/.claude, and idempotently
-// merges the hook entries into settings.json (never clobbers your existing hooks).
+// Copies the advisor subagent, the hooks and the rules into $CLAUDE_CONFIG_DIR (default
+// ~/.claude), and idempotently merges the hook entries into settings.json (never
+// clobbers your existing hooks).
 // Safe to re-run: a second run changes nothing. Backs up any file it edits.
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { VERSION, STATE_FILE, HOOK_FILES, OBSOLETE_HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, HANDOFF_FILES, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, OPTIMIZE_FILES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand, hasRalphLoop, hasContextMode } from './manifest.mjs';
+import { VERSION, STATE_FILE, HOOK_FILES, OBSOLETE_HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, HANDOFF_FILES, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, OPTIMIZE_FILES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, claudeDir, hookCommand, hasRalphLoop, hasContextMode } from './manifest.mjs';
 
-const HOME = os.homedir();
 const REPO = path.dirname(fileURLToPath(import.meta.url));
-const CLAUDE = path.join(HOME, '.claude');
+const CLAUDE = claudeDir();
 const HOOKS = path.join(CLAUDE, 'hooks');
 const RULES = path.join(CLAUDE, 'rules');
 const AGENTS = path.join(CLAUDE, 'agents');
@@ -26,7 +25,7 @@ let state = {};
 try { state = JSON.parse(fs.readFileSync(statePath, 'utf8')); } catch {
   // Unreadable reads exactly like a first install, so the opt-ins below silently reset to
   // whatever this one run passed. Say so, or the only trace is doctor reporting drift later.
-  if (fs.existsSync(statePath)) warn(`~/.claude/${STATE_FILE} does not parse; treating this as a fresh install`);
+  if (fs.existsSync(statePath)) warn(`${statePath} does not parse; treating this as a fresh install`);
 }
 // Opting into an optional asset is a decision, not a per-run argument: a plain
 // `node install.mjs` on upgrade would otherwise skip what it installed last time and leave
@@ -79,7 +78,9 @@ copyAll(HOOK_FILES, path.join(REPO, 'hooks'), HOOKS);
 const RULE_FILES = [...DEFAULT_RULES];
 if (withWorkflow) RULE_FILES.push(WORKFLOW_RULE);
 copyAll(RULE_FILES, path.join(REPO, 'rules'), RULES);
-log(`copied ${AGENT_FILES.length} agent → ~/.claude/agents, ${HOOK_FILES.length} hooks → ~/.claude/hooks and ${RULE_FILES.length} rules → ~/.claude/rules`);
+// Named with the real directory rather than a literal ~/.claude: under CLAUDE_CONFIG_DIR
+// the two differ, and this line is the run's only confirmation of where the files landed.
+log(`copied ${AGENT_FILES.length} agent, ${HOOK_FILES.length} hook files and ${RULE_FILES.length} rules into ${CLAUDE}`);
 
 // Always backed up before removal, not only when it differs: this version ships no copy
 // to compare against, so "did you edit it?" is a question that can no longer be answered.
@@ -88,21 +89,21 @@ for (const f of OBSOLETE_HOOK_FILES) {
   if (!fs.existsSync(stale)) continue;
   backup(stale);
   fs.rmSync(stale);
-  log(`removed ~/.claude/hooks/${f} — this version no longer ships it`);
+  log(`removed ${stale} — this version no longer ships it`);
 }
 
 // workflow.md keeps the Ralph details out of the always-loaded context by pointing at
 // this skill, so the two must ship together or that reference dangles.
 if (withWorkflow) {
   copyAll(['SKILL.md'], path.join(REPO, 'skills', 'ralph-protocol'), path.join(SKILLS, 'ralph-protocol'));
-  log('copied skills/ralph-protocol → ~/.claude/skills (loaded on demand, not every session)');
+  log(`copied skills/ralph-protocol → ${SKILLS} (loaded on demand, not every session)`);
   // Same reason as ralph-protocol: workflow.md orders these three by name.
   for (const skill of HANDOFF_SKILLS) copyAll(HANDOFF_FILES, path.join(REPO, 'skills', skill), path.join(SKILLS, skill));
-  log(`copied the handoff skills → ~/.claude/skills (${HANDOFF_SKILLS.map((s) => `/${s}`).join(', ')}; upstream brooklyn-skills, see README for attribution)`);
+  log(`copied the handoff skills → ${SKILLS} (${HANDOFF_SKILLS.map((s) => `/${s}`).join(', ')}; upstream brooklyn-skills, see README for attribution)`);
   // optimize and perf route to each other by name, and the rule's handoff order is what
   // fires optimize unprompted — so the pair rides the rule's flag.
   for (const skill of OPTIMIZE_SKILLS) copyAll(OPTIMIZE_FILES, path.join(REPO, 'skills', skill), path.join(SKILLS, skill));
-  log(`copied the optimize pair → ~/.claude/skills (${OPTIMIZE_SKILLS.map((s) => `/${s}`).join(', ')})`);
+  log(`copied the optimize pair → ${SKILLS} (${OPTIMIZE_SKILLS.map((s) => `/${s}`).join(', ')})`);
 } else {
   log('skipped rules/workflow.md + the ralph-protocol, handoff and optimize skills — add them with:  node install.mjs --with-workflow');
 }
@@ -111,7 +112,7 @@ if (withWorkflow) {
 // reference dangles. Opt-in on its own flag: a run costs up to 13 premium agents.
 if (withMergeReadiness) {
   copyAll(MERGE_READINESS_FILES, path.join(REPO, 'skills', MERGE_READINESS_SKILL), path.join(SKILLS, MERGE_READINESS_SKILL));
-  log(`copied skills/${MERGE_READINESS_SKILL} → ~/.claude/skills (run it with /${MERGE_READINESS_SKILL} once Claude Code restarts)`);
+  log(`copied skills/${MERGE_READINESS_SKILL} → ${SKILLS} (run it with /${MERGE_READINESS_SKILL} once Claude Code restarts)`);
 } else {
   log(`skipped the ${MERGE_READINESS_SKILL} review graph — add it with:  node install.mjs --with-${MERGE_READINESS_SKILL}`);
 }
@@ -119,30 +120,30 @@ if (withMergeReadiness) {
 // No flag: advisor-executor.md (a default rule) and the advisor-inject banner both call
 // for grilling by name, and grill-me is only the slash wrapper that runs it.
 for (const skill of GRILLING_SKILLS) copyAll(GRILLING_FILES, path.join(REPO, 'skills', skill), path.join(SKILLS, skill));
-log(`copied the grilling pair → ~/.claude/skills (${GRILLING_SKILLS.map((s) => `/${s}`).join(', ')}; upstream mattpocock/skills, see README for attribution)`);
+log(`copied the grilling pair → ${SKILLS} (${GRILLING_SKILLS.map((s) => `/${s}`).join(', ')}; upstream mattpocock/skills, see README for attribution)`);
 
 // No flag: an upgrade command you have to opt into is one you do not have when the
 // update notice arrives.
 copyAll(UPGRADE_FILES, path.join(REPO, 'skills', UPGRADE_SKILL), path.join(SKILLS, UPGRADE_SKILL));
-log(`copied skills/${UPGRADE_SKILL} → ~/.claude/skills (run it with /${UPGRADE_SKILL} when a new version lands)`);
+log(`copied skills/${UPGRADE_SKILL} → ${SKILLS} (run it with /${UPGRADE_SKILL} when a new version lands)`);
 
 // No flag: it is the enforcement pass for rules/coding-discipline.md, which is already a
 // default rule, and it costs nothing until you run /yagni.
 copyAll(YAGNI_FILES, path.join(REPO, 'skills', YAGNI_SKILL), path.join(SKILLS, YAGNI_SKILL));
-log(`copied skills/${YAGNI_SKILL} → ~/.claude/skills (run it with /${YAGNI_SKILL} once Claude Code restarts)`);
+log(`copied skills/${YAGNI_SKILL} → ${SKILLS} (run it with /${YAGNI_SKILL} once Claude Code restarts)`);
 
 // No flag: it is model-invoked on any bug, so a missing one cannot be asked for.
 copyAll(DEBUGGING_FILES, path.join(REPO, 'skills', DEBUGGING_SKILL), path.join(SKILLS, DEBUGGING_SKILL));
-log(`copied skills/${DEBUGGING_SKILL} → ~/.claude/skills (upstream obra/superpowers, see README for attribution)`);
+log(`copied skills/${DEBUGGING_SKILL} → ${SKILLS} (upstream obra/superpowers, see README for attribution)`);
 
 // No flag: like yagni, it is inert until you run /wizard.
 copyAll(WIZARD_FILES, path.join(REPO, 'skills', WIZARD_SKILL), path.join(SKILLS, WIZARD_SKILL));
-log(`copied skills/${WIZARD_SKILL} → ~/.claude/skills (run it with /${WIZARD_SKILL}; upstream mattpocock/skills, see README for attribution)`);
+log(`copied skills/${WIZARD_SKILL} → ${SKILLS} (run it with /${WIZARD_SKILL}; upstream mattpocock/skills, see README for attribution)`);
 
 // shadcn/ui's skill, carrying this repo's edits to its rules. Model-invoked rather than
 // a slash command, so it costs nothing until Claude is actually working on shadcn code.
 copyAll(SHADCN_FILES, path.join(REPO, 'skills', SHADCN_SKILL), path.join(SKILLS, SHADCN_SKILL));
-log(`copied skills/${SHADCN_SKILL} → ~/.claude/skills (upstream shadcn/ui; see README for attribution)`);
+log(`copied skills/${SHADCN_SKILL} → ${SKILLS} (upstream shadcn/ui; see README for attribution)`);
 
 // --- 3. Idempotent settings.json merge (never clobbers existing hooks) ---
 let settings = {};
@@ -256,7 +257,7 @@ if (hasContextMode(settings) && !settings.statusLine) {
 // checkedAt goes back to 0 with it: a cache from before this install describes a
 // comparison against the version it just replaced, so the next session should re-check.
 fs.writeFileSync(statePath, JSON.stringify({ ...state, version: VERSION, repo: REPO, flags, latest: null, checkedAt: 0 }, null, 2) + '\n');
-log(`recorded version ${VERSION} in ~/.claude/${STATE_FILE} — update-check.mjs compares it against this clone's tags once a day`);
+log(`recorded version ${VERSION} in ${statePath} — update-check.mjs compares it against this clone's tags once a day`);
 
 // --- 6. Leftovers from the Codex Sol era (tag v1-sol) ---
 const watchdog = path.join(HOOKS, 'advisor-watchdog.sh');

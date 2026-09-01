@@ -5,7 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { STATE_FILE, HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand, hasRalphLoop, hasContextMode } from './manifest.mjs';
+import { STATE_FILE, HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, claudeDir as resolveClaudeDir, hookCommand, hasRalphLoop, hasContextMode } from './manifest.mjs';
 
 const REPO = path.dirname(fileURLToPath(import.meta.url));
 const USAGE = `Usage: node doctor.mjs [--json]
@@ -70,9 +70,11 @@ function findEntries(settings, event, matcher, script) {
 }
 
 export function runChecks(options = {}) {
-  const home = options.home || os.homedir();
   const repo = options.repo || REPO;
-  const claudeDir = path.join(home, '.claude');
+  // An explicit home points at a fixture; letting the ambient env win there would make
+  // every test read the real install on a machine that sets CLAUDE_CONFIG_DIR.
+  const home = options.home || os.homedir();
+  const claudeDir = options.claudeDir || (options.home ? path.join(options.home, '.claude') : resolveClaudeDir());
   const hooksDir = path.join(claudeDir, 'hooks');
   const rulesDir = path.join(claudeDir, 'rules');
   const agentsDir = path.join(claudeDir, 'agents');
@@ -307,13 +309,20 @@ export function runChecks(options = {}) {
   const latest = installed ? latestTag(repo) : null;
   checks.push(
     !installed
-      ? status('warn', 'version', `no version recorded in ~/.claude/${STATE_FILE}; rerun node install.mjs`)
+      ? status('warn', 'version', `no version recorded in ${path.join(claudeDir, STATE_FILE)}; rerun node install.mjs`)
       : !latest
         ? status('pass', 'version', `${installed} installed; this clone's origin was unreachable, so nothing to compare`)
         : compareTags(latest, installed) > 0
           ? status('warn', 'version', `${latest} is out, ${installed} installed — cd ${repo} && git pull && node install.mjs`)
           : status('pass', 'version', `${installed} installed, up to date with ${repo}`)
   );
+
+  // Reported, never repaired: the old tree may hold hooks and skills of your own, and
+  // this command writes nothing. Left alone it is only confusing, not harmful.
+  const legacy = path.join(home, '.claude');
+  if (path.resolve(legacy) !== path.resolve(claudeDir) && exists(path.join(legacy, STATE_FILE))) {
+    checks.push(status('warn', 'stale install', `CLAUDE_CONFIG_DIR points at ${claudeDir}, but an earlier install is still in ${legacy}; Claude Code no longer reads it — remove it by hand once the new one checks out`));
+  }
 
   return checks;
 }

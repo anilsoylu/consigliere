@@ -10,6 +10,9 @@ export const VERSION = '1.3.1';
 export const STATE_FILE = '.consigliere-state.json';
 
 export const HOOK_FILES = [
+  // First, and with no HOOK_ENTRIES line of its own: a module the hooks import rather than
+  // a hook, and copying it after them leaves an upgrade window where an import throws.
+  'config-dir.mjs',
   'advisor-inject.mjs', 'advisor-mark.mjs', 'advisor-gate.mjs', 'commit-language.mjs',
   'update-check.mjs', 'review-tier.mjs', 'git-discipline.mjs', 'comment-ratio.mjs',
 ];
@@ -143,6 +146,8 @@ export const HOOK_ENTRIES = [
   ['PostToolUse', 'Edit|Write|MultiEdit', 'comment-ratio.mjs'],
   ['SessionStart', null, 'update-check.mjs'],
 ];
+
+export { cfgDir as claudeDir } from './hooks/config-dir.mjs';
 
 // the exact command the installer writes into settings.json
 export function hookCommand(hooksDir, script) {
