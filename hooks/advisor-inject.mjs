@@ -72,7 +72,7 @@ process.stdout.write(
   '4) RE-CONSULT when the same error or verifier fails twice — stop before the third attempt and consult with the actual output.\n' +
   '5) FINAL REVIEW, mandatory before reporting done. The built-in /review skill is user-invocable\n' +
   '   only (disable-model-invocation): never call it, and never hand-roll a stand-in for it.\n' +
-  `   node ${path.join(CFG, 'hooks', 'review-tier.mjs')}  → none|medium|high|xhigh (none = no source changes, skip).\n` +
+  `   node ${path.join(CFG, 'hooks', 'review-tier.mjs')}  → none|medium|high|xhigh (none = nothing to review, skip).\n` +
   '   Already committed on a branch? The tree is clean and it prints none — pass the branch point:\n' +
   `   node ${path.join(CFG, 'hooks', 'review-tier.mjs')} . "$(git merge-base origin/main HEAD)". Otherwise the gate silently skips.\n` +
   '   medium|high → a FRESH advisor consult carrying the actual diff, asking for a review verdict.\n' +

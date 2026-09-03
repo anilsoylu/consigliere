@@ -110,6 +110,15 @@ test('a .review-tiers rule raises the tier and a broken one is skipped', () => {
   assert.equal(tier(dir), 'medium');
 });
 
+test('a .review-tiers rule reaches paths that are not source extensions', () => {
+  const dir = repo({ 'skills/clean/SKILL.md': 'do the thing\n' }, { commit: false });
+  assert.equal(tier(dir), 'none');
+  write(dir, { '.review-tiers': 'high ^nope/\n' });
+  assert.equal(tier(dir), 'none');
+  write(dir, { '.review-tiers': 'high ^skills/.*\\.md$\n' });
+  assert.equal(tier(dir), 'high');
+});
+
 test('a base that does not resolve falls back to HEAD, never to none', () => {
   const dir = repo({ 'session.ts': 'export const s = 1\n' }, { commit: false });
   const proc = execFileSync(process.execPath, [TIER, dir, 'no-such-ref'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
