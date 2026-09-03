@@ -20,7 +20,7 @@ of what looks like an arbitrary choice here is a bug someone already hit.
 ## The rules
 
 - **`advisor-executor.md`** — the behavioral spec Claude reads every session.
-- **`coding-discipline.md`** — a short rule that keeps the *executor* honest: state assumptions before coding, write the minimum that solves the problem, touch only what the request implies, and treat a comment as a last resort — default to none, and when one is genuinely needed keep it short and make it say *why* rather than restate the code. Independent of the advisor loop; useful on its own.
+- **`coding-discipline.md`** — a short rule that keeps the *executor* honest: state assumptions before coding, write the minimum that solves the problem, touch only what the request implies, and treat a comment as a last resort — default to none, and when one is genuinely needed keep it short and make it say *why* rather than restate the code. It holds the repo's own prose — README, design docs, PR bodies, commit messages — to the same plainness, so a line written for rhythm gets cut like a comment that restates its code. Independent of the advisor loop; useful on its own.
 ## The skills
 
 - **the `shadcn` skill** — shadcn/ui's own skill, carrying this repo's edits to its rules: when to reach for Base UI versus Radix, how composition and forms are supposed to look, icons, styling, chat surfaces. Model-invoked rather than a slash command, so it costs nothing until Claude is actually writing shadcn code, and then it stops Claude from inventing component APIs. Upstream is [shadcn/ui](https://github.com/shadcn-ui/ui) (MIT) — the rules are modified, everything else is theirs.
