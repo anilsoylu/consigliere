@@ -4,6 +4,20 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
+## v1.4.5 — 2026-09-03
+
+### Fixed
+- `review-tier.mjs` classifies the whole repository even when it is invoked from a
+  subdirectory. `git ls-files --others` is scoped to its cwd, so a session working inside a
+  monorepo package never saw untracked files elsewhere in the repo, got the rest as
+  cwd-relative paths that no root-anchored rule could match, and looked for `.review-tiers`
+  in the package instead of the root. Every one of those lowered the tier without an error:
+  a diff adding an untracked `lib/stripe-client.ts` printed `none` — review skipped —
+  where the same diff from the root printed `xhigh`. The rule documents the invocation with
+  no argument at all, which is exactly the case that broke. Now the classifier resolves
+  `git rev-parse --show-toplevel` first and runs everything from there; the argument becomes
+  any directory inside the repo rather than the root specifically.
+
 ## v1.4.4 — 2026-09-03
 
 ### Fixed

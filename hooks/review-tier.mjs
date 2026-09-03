@@ -13,7 +13,7 @@
 // "Bash, Zsh, PowerShell, or CMD", so a hook that needs bash is a hook half the users
 // cannot run. Node is already a hard dependency of every other hook here.
 //
-// Usage: node review-tier.mjs [repo-dir] [diff-base]
+// Usage: node review-tier.mjs [dir-inside-repo] [diff-base]
 // The base defaults to HEAD, i.e. the working tree. Work you already committed on a branch
 // leaves a clean tree and would classify as none, so pass the branch point for that:
 //   node review-tier.mjs . "$(git merge-base origin/main HEAD)"
@@ -23,7 +23,9 @@ import { execFileSync } from 'node:child_process';
 
 const done = (tier) => { process.stdout.write(`${tier}\n`); process.exit(0); };
 
-const repo = process.argv[2] || '.';
+// Checked here because spawning into a missing cwd throws the ENOENT the catch below reports
+// as "git is not on PATH".
+let repo = process.argv[2] || '.';
 if (!fs.existsSync(repo)) done('none');
 
 // Never throws: a failed git call is an empty result, which reads as "nothing changed"
@@ -45,7 +47,12 @@ const git = (...args) => {
 const diff = (...args) => git('diff', '--no-ext-diff', ...args);
 const lines = (out) => out.split('\n').map((l) => l.replace(/\r$/, '')).filter(Boolean);
 
-if (!git('rev-parse', '--is-inside-work-tree').trim()) done('none');
+// Rebased to the repo root, because `ls-files --others` is scoped to its cwd: from a
+// subdirectory it hides untracked files elsewhere and prints the rest where no root-anchored
+// .review-tiers rule can match them, lowering the tier in silence.
+const root = git('rev-parse', '--show-toplevel').trim();
+if (!root) done('none');
+repo = root;
 
 // A base that does not resolve falls back to the working tree, never to none — a typo
 // must not read as "no source changes, skip the review".

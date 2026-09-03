@@ -119,6 +119,20 @@ test('a .review-tiers rule reaches paths that are not source extensions', () => 
   assert.equal(tier(dir), 'high');
 });
 
+// Invoked from a package inside a monorepo, the classifier used to print a lower tier: it
+// looked for .review-tiers in that package and never listed untracked files outside it.
+test('a subdirectory classifies the whole repository, not just itself', () => {
+  const dir = repo({
+    'skills/clean/SKILL.md': 'do the thing\n',
+    'sub/keep.md': 'sub\n',
+    '.review-tiers': 'high ^skills/.*\\.md$\n',
+  }, { commit: false });
+  const sub = path.join(dir, 'sub');
+  assert.equal(tier(sub), 'high');
+  write(dir, { 'scratch.ts': 'const key = STRIPE_SECRET_KEY\n' });
+  assert.equal(tier(sub), 'xhigh');
+});
+
 test('a base that does not resolve falls back to HEAD, never to none', () => {
   const dir = repo({ 'session.ts': 'export const s = 1\n' }, { commit: false });
   const proc = execFileSync(process.execPath, [TIER, dir, 'no-such-ref'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
