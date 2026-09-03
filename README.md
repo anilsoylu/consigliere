@@ -8,7 +8,7 @@ It runs entirely inside Claude Code. No second vendor, no API key, no plugin, no
 
 ## Why
 
-Letting one model plan and build in the same breath is how you get code that solves the wrong problem confidently. Splitting the roles helps: a planner that only reasons, a builder that only executes. Fable is strong at planning and critique; Opus is strong at disciplined execution. Consigliere wires them together and handles the parts that break in practice — a review that quietly drops half its findings, an advisor that "promises" not to edit but could, a gate that fires on scratch files and teaches you to ignore it.
+One model that plans and builds in the same pass tends to solve the wrong problem confidently. Splitting the roles helps: a planner that only reasons, a builder that only executes. Fable is strong at planning and critique; Opus is strong at disciplined execution. Consigliere wires them together and handles the parts that break in practice — a review that quietly drops half its findings, an advisor that "promises" not to edit but could, a gate that fires on scratch files and teaches you to ignore it.
 
 ## How it works
 
@@ -53,9 +53,7 @@ Seventeen pieces, all installed under `~/.claude` — or wherever `CLAUDE_CONFIG
 - `/wizard` — writes a bash script for the steps only a human can take.
 - `systematic-debugging` — four phases, and no fix proposed before the root cause is found.
 
-Three things hold the loop up. The advisor's tool list grants `Read`, `Grep` and `Glob` and nothing else, so it cannot write to your repo even if it decides it should. Every consult carries a five-part contract. And the final review is mandatory, tiered, and relayed to you unfiltered. [DESIGN.md](DESIGN.md) has the reasoning.
-
-The advisor has no web access. When it needs a current fact it writes `RESEARCH NEEDED: <question>` instead of guessing; the main loop looks it up and re-consults with the answer appended.
+The advisor has no web access. When it needs a current fact it writes `RESEARCH NEEDED: <question>` instead of guessing; the main loop looks it up with Claude's own web tools and re-consults with the answer appended.
 
 ## Requirements
 
