@@ -57,10 +57,8 @@ if (!git('rev-parse', '--verify', '--quiet', base).trim()) {
 
 const EXT = /\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|rb|php|java|kt|swift|c|h|cpp|hpp|cc|vue|svelte|sql|sh|prisma)$/;
 const untracked = lines(git('ls-files', '--others', '--exclude-standard'));
-const src = [...new Set([...lines(diff('--name-only', base, '--')), ...untracked])]
-  .filter((f) => EXT.test(f))
-  .sort();
-if (!src.length) done('none');
+const all = [...new Set([...lines(diff('--name-only', base, '--')), ...untracked])].sort();
+const src = all.filter((f) => EXT.test(f));
 
 let tier = 'medium';
 const raise = (t) => {
@@ -68,7 +66,8 @@ const raise = (t) => {
   else if (t === 'high' && tier === 'medium') tier = 'high';
 };
 
-// Per-repo overrides first (can only raise, never lower)
+// Per-repo overrides first (can only raise, never lower). Matched against every changed
+// path, not just the source ones: a repo whose product is markdown has nothing in EXT to hit.
 const overrides = path.join(repo, '.review-tiers');
 if (fs.existsSync(overrides)) {
   for (const line of lines(fs.readFileSync(overrides, 'utf8'))) {
@@ -77,9 +76,13 @@ if (fs.existsSync(overrides)) {
     if ((t !== 'xhigh' && t !== 'high') || !pattern) continue;
     // A rule you typed wrong is skipped, not fatal: the classifier still has to print a
     // tier, and a crash here would take the whole review gate down with it.
-    try { if (src.some((f) => new RegExp(pattern, 'i').test(f))) raise(t); } catch {}
+    try { if (all.some((f) => new RegExp(pattern, 'i').test(f))) raise(t); } catch {}
   }
 }
+
+// After the overrides, not before: a floor is the one thing that can make a diff with no
+// source file in it worth reviewing.
+if (!src.length && tier === 'medium') done('none');
 
 // xhigh path floors — narrow by design: migration/schema surfaces, payment providers,
 // unambiguous crypto primitives ("crypt" alone would hit crypto-prices.ts)
