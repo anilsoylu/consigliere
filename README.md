@@ -53,7 +53,7 @@ Seventeen pieces, all installed under `~/.claude` — or wherever `CLAUDE_CONFIG
 - `/wizard` — writes a bash script for the steps only a human can take.
 - `systematic-debugging` — four phases, and no fix proposed before the root cause is found.
 
-The advisor has no web access. When it needs a current fact it writes `RESEARCH NEEDED: <question>` instead of guessing; the main loop looks it up with Claude's own web tools and re-consults with the answer appended.
+The advisor has no Bash and no network. Anything a verdict needs beyond Read, Grep and Glob it hands back as `RESEARCH NEEDED: <question>` under a verdict opening with PROVISIONAL; the main loop does the work and re-consults with the answer and its source appended.
 
 ## Requirements
 

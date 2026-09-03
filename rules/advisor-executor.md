@@ -31,11 +31,14 @@ corrupt it and no temp file to manage. For a large diff, name the files and past
 hunks that matter — the advisor can Read the rest itself.
 
 Read-only is structural, not a promise. The agent has Read, Grep and Glob and nothing
-else — no Edit, no Write, no Bash. It cannot change the repository even if it decides it
-should. It can still ground itself by reading the files you name.
+else — no Edit, no Write, no Bash, no network. It cannot change the repository even if it
+decides it should. It can still ground itself by reading the files you name.
 
-The advisor has no web access; it emits `RESEARCH NEEDED: <q>` instead. Research those
-yourself, then re-consult with the findings appended.
+Anything a verdict needs that those three tools cannot reach — a web fact, a verifier
+run, a live log, a remote call — comes back as `RESEARCH NEEDED: <question>` under a
+verdict opening with PROVISIONAL. Do the work, then re-consult the same advisor with the
+question, the answer and its source, and what you now intend to do; if the work cannot be
+done, re-consult with that fact instead. A PROVISIONAL verdict is not a plan.
 
 ## When
 
@@ -90,9 +93,10 @@ justification anchors to it. You can still consult mid-task on demand ("danış"
 
 ## Review output
 
-When the advisor reviews a diff it opens with a **SHIP / FIX-FIRST /
-RETHINK** verdict, then labels every finding `[ADOPT]` (real bug/security/perf),
-`[DISCUSS]` (debatable), `[STYLE]` (preference), `[OVER-ENGINEERED]` (complexity to cut).
+When the advisor reviews a diff it opens with a **SHIP / FIX-FIRST / RETHINK** verdict,
+prefixed by `PROVISIONAL` when research is outstanding, then labels every finding
+`[ADOPT]` (real bug/security/perf), `[DISCUSS]` (debatable), `[STYLE]` (preference),
+`[OVER-ENGINEERED]` (complexity to cut).
 
 Ask any reviewer — the advisor or merge-readiness — to report everything it finds —
 never "only high-severity issues" or "be conservative". A reviewer told to filter

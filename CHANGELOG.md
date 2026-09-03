@@ -4,6 +4,28 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
+## v1.4.7 — 2026-09-03
+
+### Changed
+- `RESEARCH NEEDED` covers everything the advisor's three tools cannot reach, not just web
+  facts. The advisor has no Bash and no network either, so a verdict can depend on a
+  verifier run, a live log or a remote call just as easily as on a current fact, and those
+  cases had no handback route. The executor now owes a defined payload back: the question,
+  the answer and its source, and what it intends to do; if the work cannot be done, that
+  fact goes back instead, so an unattended run cannot stall on an unanswerable question.
+  `rules/advisor-executor.md`, `agents/advisor.md`, `hooks/advisor-inject.mjs` and
+  `README.md` all carried the old web-only wording and are updated together.
+- A verdict carrying an open `RESEARCH NEEDED` opens with `PROVISIONAL`, and on a review it
+  precedes the verdict word (`PROVISIONAL FIX-FIRST`). The handback was already described
+  before this change and was still skipped in practice: the executor researched the
+  question, decided alone and never re-consulted, leaving the advisor's hedge unresolved.
+  Enforcing it in a hook is not possible — `UserPromptSubmit` does not fire on a named
+  subagent's reply, so no hook sees the verdict text — and a marker in the verdict itself
+  survives the executor's own summary of it, which is where the skip happens.
+- `hooks/advisor-inject.mjs` spawns the advisor with `name: "advisor"`. The directive
+  omitted the name while the rule told the executor to re-consult the same advisor, which
+  needs one.
+
 ## v1.4.6 — 2026-09-03
 
 ### Added

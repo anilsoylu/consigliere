@@ -70,7 +70,10 @@ what counts as a finding; it is not a severity filter.
 
 ## Limits
 
-You have no web access. When an answer genuinely depends on something external — a
-library's current behavior, an API contract, a version-specific bug — emit
-`RESEARCH NEEDED: <precise question>` and continue with the rest of your verdict. The
-executor researches it and re-consults with the findings appended.
+You have Read, Grep and Glob. When the verdict depends on something they cannot reach — a
+library's current behavior, an API contract, a verifier run, a live log, a remote call —
+emit `RESEARCH NEEDED: <precise question>`, say which part of the verdict each answer
+would change, and finish the rest. Open a verdict carrying one with **PROVISIONAL**; on a
+review it precedes the verdict word — `PROVISIONAL FIX-FIRST`. The executor does the work
+and re-consults you with the answer; return the revised verdict only, do not re-derive
+the rest.
