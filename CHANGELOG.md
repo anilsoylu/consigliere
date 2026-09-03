@@ -4,6 +4,25 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
+## v1.4.4 — 2026-09-03
+
+### Fixed
+- `.review-tiers` floors work on paths no source extension covers. The override loop
+  matched against the already-filtered source list and ran after an early `none` exit, so
+  a rule like `high ^skills/.*\.md$` could never fire — the documented per-project
+  mechanism was dead for exactly the repos that need it most, the ones whose shipped
+  product is markdown: rules, skills, prompts. Overrides now match every changed path and
+  the `none` exit moved below them. `none` means "no source changes and no project floor
+  matched"; nothing else moved, and a repo with no `.review-tiers` classifies as before.
+- Note the one way this can now cost more: an `xhigh` rule matching a non-source path used
+  to be inert on a source-free diff and can now route a markdown-only diff to
+  merge-readiness, which is up to 13 agents. Floor prose at `high` unless you mean it.
+
+### Added
+- This repo ships its own `.review-tiers`, flooring `rules/`, `skills/` and `agents/`
+  markdown at `high`. Those files are the product here and were classifying as `none`,
+  so a change to a rule that steers every session in every install got no review at all.
+
 ## v1.4.3 — 2026-09-02
 
 ### Changed
