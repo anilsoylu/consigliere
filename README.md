@@ -42,7 +42,7 @@ Seventeen pieces, all installed under `~/.claude` — or wherever `CLAUDE_CONFIG
 **The rules**
 
 - `advisor-executor.md` — the behavioral spec Claude reads every session.
-- `coding-discipline.md` — minimum code, surgical edits, comments as a last resort.
+- `coding-discipline.md` — minimum code, surgical edits, comments as a last resort, plain repo prose.
 
 **The skills**
 

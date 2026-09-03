@@ -8,6 +8,9 @@ Only add comments as a last resort for weird cases. Prefer short comments.
 Default to none. A comment earns its line by saying **why** — the constraint, the rejected alternative, the bug it prevents. Never what the code already says. One line; two only when the reason genuinely needs it. If the explanation is longer than the code it sits on, it belongs in the commit message or the README, not the file.
 Same rule for prose you write into the repo: a docstring restating the signature, a test name explaining itself, a plan file narrating what a diff already shows. Every one of them is read into context on every future session.
 
+## Repo prose
+README, design docs, PR bodies, commit messages: plain declarative sentences. Nothing written for rhythm — no pull-quote opener, no "not X, but Y", no list padded to three items, no one-line paragraph that only sets up the next one.
+
 ## Surgical edits
 - Touch only what the request requires. Don't refactor, reformat, or "improve" adjacent code.
 - Clean up orphans **your** changes created (unused imports, dead vars). Leave pre-existing dead code alone — mention it instead.

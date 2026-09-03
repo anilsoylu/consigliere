@@ -4,6 +4,18 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
+## v1.4.6 — 2026-09-03
+
+### Added
+- `rules/coding-discipline.md` carries a `## Repo prose` section. The `## Comments` rule
+  already governed whether prose written into the repo earns its place, but nothing
+  governed how it reads, so README, design docs, PR bodies and commit messages drifted
+  into prose written for rhythm. The section names the four patterns it bans — a
+  pull-quote opener, "not X, but Y", a list padded to three items, a one-line paragraph
+  that only sets up the next one — rather than asking for plainness in the abstract,
+  because a named failure mode is easier to follow than a vague instruction.
+  `README.md` and `DESIGN.md` both describe what this rule contains, so both now list it.
+
 ## v1.4.5 — 2026-09-03
 
 ### Fixed
