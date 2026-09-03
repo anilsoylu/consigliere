@@ -63,11 +63,12 @@ process.stdout.write(
   '0) GRILL first only if 2+ material decisions are open and the user is at the keyboard. Once per task;\n' +
   '   ralph/cron/unattended runs never grill — state assumptions and proceed.\n' +
   '1) PLAN via the advisor subagent — spawn it with the Agent tool:\n' +
-  '   Agent({ subagent_type: "advisor", prompt: "<consult>" })\n' +
+  '   Agent({ subagent_type: "advisor", name: "advisor", prompt: "<consult>" })\n' +
   '   It returns through a task notification, not inline. Wait for the verdict before writing code.\n' +
   '   The agent definition carries the advisor doctrine (verdict discipline, ~300 words) — do not retype it.\n' +
   '   Carry the five-part contract in the prompt: objective, files, evidence (actual diff/output, never a paraphrase), constraints, options considered.\n' +
-  '2) RESEARCH each "RESEARCH NEEDED" yourself (the advisor has no web), then re-consult with the findings appended.\n' +
+  '2) RESEARCH each "RESEARCH NEEDED" yourself (the advisor has no Bash and no network), then re-consult the same\n' +
+  '   advisor with the question, the answer and its source. A verdict opening with PROVISIONAL is not a plan.\n' +
   '3) RELAY the plan to the user, then execute. Auto mode: do not stop for plan approval.\n' +
   '4) RE-CONSULT when the same error or verifier fails twice — stop before the third attempt and consult with the actual output.\n' +
   '5) FINAL REVIEW, mandatory before reporting done. The built-in /review skill is user-invocable\n' +
