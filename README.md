@@ -55,6 +55,17 @@ Seventeen pieces, all installed under `~/.claude` — or wherever `CLAUDE_CONFIG
 
 The advisor has no Bash and no network. Anything a verdict needs beyond Read, Grep and Glob it hands back as `RESEARCH NEEDED: <question>` under a verdict opening with PROVISIONAL; the main loop does the work and re-consults with the answer and its source appended.
 
+## The built-in advisor tool
+
+Claude Code ships its own advisor. `/advisor <model>`, the `advisorModel` setting, or `claude --advisor <model>` picks a second model that Claude consults server-side when it decides to. It shares the name with this loop's advisor and little else.
+
+- Trigger: Claude chooses when to call the built-in one. Here `advisor-gate.mjs` blocks source edits until a consult happened, and a built-in advisor call does not clear it — `advisor-mark.mjs` only marks an `Agent` or `SendMessage` call aimed at the `advisor` subagent.
+- Input: the built-in one reads the whole transcript, uncached, on every call. This loop's advisor gets the five-part consult and reads the files it names.
+- Output: free-form guidance. No SHIP / FIX-FIRST / RETHINK verdict, no labelled findings, no `review-tier.mjs` ladder, no `RESEARCH NEEDED` handback.
+- Availability: Anthropic API only, experimental. The subagent runs on any deployment.
+
+Running both pays for every decision twice. `node doctor.mjs` warns when `advisorModel` is set; `/advisor off` clears it, and `CLAUDE_CODE_DISABLE_ADVISOR_TOOL=1` removes the tool entirely.
+
 ## Requirements
 
 - **Claude Code** (ships Node). That's it.
@@ -82,22 +93,19 @@ Besides its hook entries, the installer fills in the settings this loop is tuned
 ```json
 {
   "env": {
-    "CLAUDE_CODE_EFFORT_LEVEL": "high",
     "CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING": "1",
     "MAX_THINKING_TOKENS": "31999",
     "CLAUDE_CODE_DISABLE_1M_CONTEXT": "1",
     "CLAUDE_CODE_NO_FLICKER": "1",
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
-    "ANTHROPIC_CUSTOM_MODEL_OPTION": "claude-fable-5-1",
-    "ANTHROPIC_CUSTOM_MODEL_OPTION_NAME": "Fable 5.1"
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
   "includeCoAuthoredBy": false,
   "alwaysThinkingEnabled": true
 }
 ```
 
-The two that matter most to the loop: effort stays pinned high with adaptive thinking off, so the advisor's model doesn't quietly drop to a shallower pass on a consult that looks routine, and the thinking budget is fixed rather than inferred. `ANTHROPIC_CUSTOM_MODEL_OPTION` puts Fable 5.1 in the `/model` picker; it is not what makes the advisor work — `model: fable` in the subagent definition is a built-in alias and resolves without it. The 1M context window is off on purpose: the whole design keeps the advisor's input small and deliberate, and a bigger window works against that. Every value takes effect on the next `claude` start, and `settings.json` is backed up before the installer touches it.
+The two that matter most to the loop: adaptive thinking is off and the thinking budget is fixed rather than inferred, so a consult that looks routine does not get a shallower pass. Effort is not pinned. The advisor carries `effort: medium` in its own frontmatter, and the main model's effort follows `/effort`, which a `CLAUDE_CODE_EFFORT_LEVEL` env value would override for every model alike. Earlier versions also set `ANTHROPIC_CUSTOM_MODEL_OPTION` to put Fable 5.1 in the `/model` picker; Claude Code 2.1.260 lists it on its own, so the key is gone from the defaults. One you already have does no harm, and `model: fable` in the subagent definition never depended on it. The 1M context window is off on purpose: the whole design keeps the advisor's input small and deliberate, and a bigger window works against that. Every value takes effect on the next `claude` start, and `settings.json` is backed up before the installer touches it.
 
 Run `node doctor.mjs` and it reports which of these have no value set. Delete any you disagree with and re-running the installer puts them back, because an absent key reads as a gap. Set it to your own value if you want it to stick.
 
@@ -224,7 +232,7 @@ Upgrading in place leaves one orphan: `~/.claude/hooks/advisor-watchdog.sh` is n
 
 ## Limits
 
-- **Fable availability:** the advisor pins `model: fable`. On a plan that can't reach it, Claude Code silently falls back to the inherited model — the loop keeps working, but planner and builder become the same model and you lose the independent read. See [Requirements](#requirements). `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` overrides `model:` in every agent definition, including this one. Unless `CLAUDE_CODE_SUBAGENT_MODEL` names a planner model, it collapses the loop the same way, so leave it unset.
+- **Fable availability:** the advisor pins `model: fable`. On a plan that can't reach it, Claude Code silently falls back to the inherited model — the loop keeps working, but planner and builder become the same model and you lose the independent read. See [Requirements](#requirements). `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` overrides `model:` in every agent definition, including this one. Unless `CLAUDE_CODE_SUBAGENT_MODEL` names a planner model, it collapses the loop the same way, so leave it unset; `node doctor.mjs` warns when it is set.
 - Consigliere assumes Opus as the executor. If you want a different main model, pick it with `/model`; nothing here needs changing.
 - **Two skills still need a POSIX shell:** `wizard` generates bash scripts around `template.sh`, and `systematic-debugging` bisects test pollution with `find-polluter.sh`. Nothing in the hook chain does — on Windows, run those two under Git Bash or WSL.
 - **`--with-merge-readiness`:** the skill drives Claude Code's Workflow tool, so nothing fires automatically — you run `/merge-readiness` and Claude asks before spawning the graph. Its tier-2 judge pins Fable for the same reason the advisor does, with the same fallback.
