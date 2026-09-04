@@ -499,12 +499,29 @@ test('warns when the subagent model force flag overrides model: fable', () => {
   assert.equal(check(run(home, makeRepoFixture()), 'advisor model').level, 'warn', 'settings.env counts too');
 });
 
+// Claude Code writes settings.env over the shell, so an empty value there is how you
+// unset a stale export. Reading the shell first reported an override that is not live.
+test('lets settings.env override the shell for the force flag', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+  const settingsPath = path.join(home, '.claude', 'settings.json');
+  const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+  settings.env.CLAUDE_CODE_SUBAGENT_MODEL_FORCE = '';
+  writeFile(settingsPath, JSON.stringify(settings));
+
+  const model = check(run(home, makeRepoFixture(), { CLAUDE_CODE_SUBAGENT_MODEL_FORCE: '1' }), 'advisor model');
+
+  assert.equal(model.level, 'pass');
+});
+
 test('warns when the built-in advisor tool runs alongside the subagent', () => {
   const home = temp('consigliere-doctor-');
   installDefaultFiles(home);
   const settingsPath = path.join(home, '.claude', 'settings.json');
   const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
   settings.advisorModel = 'opus';
+  // the recommended env disables the tool, so only removing it reaches the warning
+  delete settings.env.CLAUDE_CODE_DISABLE_ADVISOR_TOOL;
   writeFile(settingsPath, JSON.stringify(settings));
 
   const model = check(run(home, makeRepoFixture()), 'advisor model');
@@ -512,6 +529,29 @@ test('warns when the built-in advisor tool runs alongside the subagent', () => {
   assert.equal(model.level, 'warn');
   assert.match(model.detail, /advisorModel is "opus"/);
   assert.match(model.detail, /\/advisor off/);
+});
+
+test('stays quiet about advisorModel when the tool is disabled', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+  const settingsPath = path.join(home, '.claude', 'settings.json');
+  const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+  settings.advisorModel = 'opus';
+  writeFile(settingsPath, JSON.stringify(settings));
+
+  assert.equal(check(run(home, makeRepoFixture()), 'advisor model').level, 'pass');
+});
+
+test('reads the disable key as a flag, so "0" still warns', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+  const settingsPath = path.join(home, '.claude', 'settings.json');
+  const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+  settings.advisorModel = 'opus';
+  settings.env.CLAUDE_CODE_DISABLE_ADVISOR_TOOL = '0';
+  writeFile(settingsPath, JSON.stringify(settings));
+
+  assert.equal(check(run(home, makeRepoFixture()), 'advisor model').level, 'warn');
 });
 
 test('--json prints a summary and --help exits clean', () => {
