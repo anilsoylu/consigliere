@@ -129,3 +129,21 @@ edit after a consult is the one exception: the hook is broken, not unsatisfied, 
 it to the user instead of consulting again.
 
 Advisor unreachable → continue alone. Only planning is lost.
+
+## Plan mode
+
+`plans/plan-mode/` holds plans captured from plan mode by `plan-capture.mjs`. It does not
+make `plans/` an unrelated purpose for `/improve`, and `reconcile` does not index it.
+
+When that directory exists at the repo root — not at cwd, since plan mode often starts in a
+package directory — write the plan file in these sections, in order: a `#` title in the
+imperative; `## Status`, carrying **Planned at** (short SHA) and nothing else, the one thing
+a later reader cannot reconstruct from the filename; `## Why this matters`; `## Scope`, in
+and out, a reason on every exclusion; `## Steps`, each naming exact files and symbols and
+ending `**Verify**: <command> → <expected output>`; `## Test plan`; `## Done criteria` as
+checkboxes a command settles, never a judgment; `## STOP conditions`; `## Maintenance notes`.
+
+No code excerpts: plan mode read the files to write the plan, and the copy goes stale while
+the original does not. No commands table, the Verify lines carry them. No drift check and no
+plan number. No `plans/README.md` row — that file is `/improve`'s index, and this does not
+join it.

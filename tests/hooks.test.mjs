@@ -520,3 +520,92 @@ test('comment ratio stays silent below the bar', () => {
   assert.equal(ratio(cfg, '/x/proj/a.c', { content: 'int f() {\n*p = x;\n*q = y;\n*r = z;\nreturn 0;\n}\n' }), '', 'C dereferences are not comments');
   assert.equal(ratio(cfgFixture({ discipline: false }), '/x/proj/a.ts', { content: HEAVY }), '', 'no rule file, no nudge');
 });
+
+// Every ExitPlanMode fixture below is fabricated: no transcript on any machine here holds
+// a real one. The plan_mode attachment literal is not — it is copied from live sessions.
+const CAPTURE = path.join(ROOT, 'hooks', 'plan-capture.mjs');
+
+function planFixture({ target = true, gitFile = false } = {}) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'consigliere-plan-'));
+  homes.push(dir);
+  const repo = path.join(dir, 'repo');
+  fs.mkdirSync(repo, { recursive: true });
+  if (gitFile) fs.writeFileSync(path.join(repo, '.git'), 'gitdir: /elsewhere\n');
+  else fs.mkdirSync(path.join(repo, '.git'));
+  if (target) fs.mkdirSync(path.join(repo, 'plans', 'plan-mode'), { recursive: true });
+  const plan = path.join(dir, 'inherited-kitten.md');
+  fs.writeFileSync(plan, '# The plan\n\n## Context\n\nbody\n');
+  return { dir, repo, plan, captured: () => path.join(repo, 'plans', 'plan-mode') };
+}
+
+function transcript(dir, lines) {
+  const file = path.join(dir, 'session.jsonl');
+  fs.writeFileSync(file, lines.join('\n'));
+  return file;
+}
+
+const attachment = (planFilePath) =>
+  JSON.stringify({ type: 'attachment', attachment: { type: 'plan_mode', reminderType: 'full', planFilePath } });
+
+// stderr is the hook's only channel and would otherwise land in the test output.
+function capture(payload) {
+  execFileSync(process.execPath, [CAPTURE], { input: JSON.stringify(payload), stdio: ['pipe', 'pipe', 'pipe'] });
+}
+
+test('an approved plan lands in plans/plan-mode, verbatim', () => {
+  const f = planFixture();
+  capture({ cwd: f.repo, transcript_path: transcript(f.dir, [attachment(f.plan)]) });
+  const written = fs.readdirSync(f.captured());
+  assert.equal(written.length, 1);
+  assert.match(written[0], /^\d{8}-\d{6}-inherited-kitten\.md$/);
+  assert.equal(fs.readFileSync(path.join(f.captured(), written[0]), 'utf8'), fs.readFileSync(f.plan, 'utf8'));
+});
+
+// The gate. This is the only hook that writes into a working tree, so a repo that never
+// opted in must come out of an approval byte-for-byte unchanged.
+test('no plans/plan-mode means no file and no directory', () => {
+  const f = planFixture({ target: false });
+  capture({ cwd: f.repo, transcript_path: transcript(f.dir, [attachment(f.plan)]) });
+  assert.deepEqual(fs.readdirSync(f.repo), ['.git']);
+});
+
+// Plan mode routinely starts in a package dir, and cwd alone would scatter plans through
+// a monorepo instead of collecting them at the root.
+test('the repo root is found from a subdirectory, worktrees included', () => {
+  for (const gitFile of [false, true]) {
+    const f = planFixture({ gitFile });
+    const deep = path.join(f.repo, 'packages', 'api', 'src');
+    fs.mkdirSync(deep, { recursive: true });
+    capture({ cwd: deep, transcript_path: transcript(f.dir, [attachment(f.plan)]) });
+    assert.equal(fs.readdirSync(f.captured()).length, 1, gitFile ? '.git file' : '.git dir');
+  }
+});
+
+// A session can enter plan mode more than once; the approval belongs to the newest.
+test('the last plan_mode attachment wins, and junk lines do not stop the scan', () => {
+  const f = planFixture();
+  const stale = path.join(f.dir, 'stale.md');
+  fs.writeFileSync(stale, 'old\n');
+  capture({
+    cwd: f.repo,
+    transcript_path: transcript(f.dir, [attachment(stale), '{"type":"user"}', '{not json', attachment(f.plan), '']),
+  });
+  const written = fs.readdirSync(f.captured());
+  assert.equal(written.length, 1);
+  assert.match(written[0], /inherited-kitten\.md$/);
+});
+
+test('a hook that cannot capture stays silent', () => {
+  const cases = {
+    'no attachment': (f) => ({ cwd: f.repo, transcript_path: transcript(f.dir, ['{"type":"user"}']) }),
+    'plan file gone': (f) => ({ cwd: f.repo, transcript_path: transcript(f.dir, [attachment(path.join(f.dir, 'nope.md'))]) }),
+    'no transcript_path': (f) => ({ cwd: f.repo }),
+    'transcript unreadable': (f) => ({ cwd: f.repo, transcript_path: path.join(f.dir, 'missing.jsonl') }),
+    'not a repo': (f) => ({ cwd: f.dir, transcript_path: transcript(f.dir, [attachment(f.plan)]) }),
+  };
+  for (const [name, build] of Object.entries(cases)) {
+    const f = planFixture();
+    capture(build(f));
+    assert.equal(fs.readdirSync(f.captured()).length, 0, name);
+  }
+});
