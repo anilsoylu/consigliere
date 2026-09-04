@@ -78,6 +78,15 @@ test('a new code prompt resets the flag and prints the directive', () => {
   assert.match(r.stdout, /ADVISOR\/EXECUTOR LOOP/);
 });
 
+// A strong executor consulted before it has read anything writes a thin consult, and the
+// consult is all the advisor ever sees. Pinned so the directive cannot drift back to turn 1.
+test('the directive places the consult after reading, before the first edit', () => {
+  const r = inject(session('timing'), 'fix the crash in src/app.ts');
+  assert.match(r.stdout, /once you have read the files and formed a candidate approach/);
+  assert.match(r.stdout, /before the first source edit/);
+  assert.doesNotMatch(r.stdout, /before writing code/);
+});
+
 test('a short approval keeps the flag so execution can continue', () => {
   const r = inject(session('ack'), 'devam');
   assert.ok(r.flagKept);
