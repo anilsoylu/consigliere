@@ -6,7 +6,7 @@ import path from 'node:path';
 // Releases are `git tag v<VERSION>`; update-check.mjs and doctor.mjs both compare against
 // that tag list, so bumping this without tagging makes an installed copy look ahead of
 // upstream. Only vN.N.N sorts — the old `v1-sol` tag is deliberately unsortable.
-export const VERSION = '1.4.7';
+export const VERSION = '1.5.0';
 export const STATE_FILE = '.consigliere-state.json';
 
 export const HOOK_FILES = [
@@ -97,15 +97,12 @@ export const SHADCN_FILES = [
 // absent and never overwrites one you already set; doctor.mjs reports the gaps.
 // Claude Code reads env at startup, so these take effect on the next `claude`.
 export const RECOMMENDED_ENV = {
-  CLAUDE_CODE_EFFORT_LEVEL: 'high',
   CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING: '1',
   MAX_THINKING_TOKENS: '31999',
   CLAUDE_CODE_DISABLE_1M_CONTEXT: '1',
   CLAUDE_CODE_NO_FLICKER: '1',
   CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
   CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1',
-  ANTHROPIC_CUSTOM_MODEL_OPTION: 'claude-fable-5-1',
-  ANTHROPIC_CUSTOM_MODEL_OPTION_NAME: 'Fable 5.1',
 };
 export const RECOMMENDED_SETTINGS = {
   includeCoAuthoredBy: false,

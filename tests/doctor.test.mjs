@@ -102,8 +102,8 @@ function check(checks, name) {
   return checks.find((c) => c.name === name);
 }
 
-function run(home, repo) {
-  return runChecks({ home, repo });
+function run(home, repo, env = {}) {
+  return runChecks({ home, repo, env });
 }
 
 test('passes for a complete default install', () => {
@@ -463,7 +463,7 @@ test('reports the recommended keys instead of crashing on an env of the wrong ty
   const recommended = check(run(home, makeRepoFixture()), 'recommended settings');
 
   assert.equal(recommended.level, 'warn');
-  assert.match(recommended.detail, /env\.CLAUDE_CODE_EFFORT_LEVEL/);
+  assert.match(recommended.detail, /env\.CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING/);
 });
 
 test('reports context-mode as a note when it is not enabled, with the commands', () => {
@@ -478,6 +478,40 @@ test('reports context-mode as a note when it is not enabled, with the commands',
 
   assert.equal(plugin.level, 'warn');
   assert.match(plugin.detail, /\/plugin install context-mode@context-mode/);
+});
+
+test('warns when the subagent model force flag overrides model: fable', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+
+  const forced = check(run(home, makeRepoFixture(), { CLAUDE_CODE_SUBAGENT_MODEL_FORCE: '1' }), 'advisor model');
+  const kept = check(run(home, makeRepoFixture(), { CLAUDE_CODE_SUBAGENT_MODEL_FORCE: '1', CLAUDE_CODE_SUBAGENT_MODEL: 'fable' }), 'advisor model');
+
+  assert.equal(forced.level, 'warn');
+  assert.match(forced.detail, /CLAUDE_CODE_SUBAGENT_MODEL_FORCE/);
+  assert.equal(kept.level, 'pass');
+
+  const settingsPath = path.join(home, '.claude', 'settings.json');
+  const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+  settings.env.CLAUDE_CODE_SUBAGENT_MODEL_FORCE = '1';
+  writeFile(settingsPath, JSON.stringify(settings));
+
+  assert.equal(check(run(home, makeRepoFixture()), 'advisor model').level, 'warn', 'settings.env counts too');
+});
+
+test('warns when the built-in advisor tool runs alongside the subagent', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+  const settingsPath = path.join(home, '.claude', 'settings.json');
+  const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+  settings.advisorModel = 'opus';
+  writeFile(settingsPath, JSON.stringify(settings));
+
+  const model = check(run(home, makeRepoFixture()), 'advisor model');
+
+  assert.equal(model.level, 'warn');
+  assert.match(model.detail, /advisorModel is "opus"/);
+  assert.match(model.detail, /\/advisor off/);
 });
 
 test('--json prints a summary and --help exits clean', () => {

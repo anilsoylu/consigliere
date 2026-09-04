@@ -4,6 +4,33 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
+## v1.5.0 — 2026-09-04
+
+Claude Code 2.1.260.
+
+### Added
+- `doctor.mjs` reports an `advisor model` check. It warns when `CLAUDE_CODE_SUBAGENT_MODEL_FORCE`
+  is set without `CLAUDE_CODE_SUBAGENT_MODEL` naming Fable, because the flag overrides
+  `model: fable` in the agent definition and the `advisor agent` check kept passing while the
+  advisor ran as the main model. It also warns when `advisorModel` is set: Claude Code's
+  built-in advisor tool and this loop's subagent then both run, so every decision is
+  consulted twice, and the built-in one re-reads the whole transcript uncached each call.
+- `README.md` gets a section on the built-in advisor tool (`/advisor`, `advisorModel`,
+  `--advisor`), and `rules/advisor-executor.md` one line: it is a different advisor, it never
+  clears the gate, and `advisor-mark.mjs` does not count it as a consult.
+
+### Changed
+- `RECOMMENDED_ENV` drops `ANTHROPIC_CUSTOM_MODEL_OPTION` and `_NAME`. Claude Code 2.1.260
+  lists Fable 5.1 in the `/model` picker on its own. A value already in `settings.json` is
+  left alone, as the installer always did.
+- `RECOMMENDED_ENV` drops `CLAUDE_CODE_EFFORT_LEVEL`. The pin forced every main model to
+  `high` and made `/effort` a no-op; the README justified it as keeping the advisor from a
+  shallow pass, but the advisor's own frontmatter sets `effort: medium`, and frontmatter
+  takes precedence over the env for that agent. Without the pin the main model's effort
+  follows `/effort` and its own default.
+- `DESIGN.md` notes that on 2.1.260 Fable 5.1's prompt cache covers the context attached
+  after tool results, so a continued advisor pays for its earlier Reads once.
+
 ## v1.4.7 — 2026-09-03
 
 ### Changed

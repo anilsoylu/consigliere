@@ -3,6 +3,8 @@
 **Advisor (brain)** = the `advisor` subagent, running Fable with Read/Grep/Glob only. Plans and critiques, writes no code.
 **Executor (hands)** = the main loop. Implements.
 
+Claude Code's built-in advisor tool (`/advisor`, `advisorModel`) is not this advisor. It never clears the gate, and running both consults twice per decision.
+
 ## Call
 
 ```

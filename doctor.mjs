@@ -257,6 +257,25 @@ export function runChecks(options = {}) {
     );
   }
 
+  // A shell export is how most people set the force flag, so the ambient env counts and
+  // the check runs without a settings.json; tests pass their own env to stay hermetic.
+  const shellEnv = options.env ?? process.env;
+  const cfg = isObject(settings) ? settings : {};
+  const settingsEnv = isObject(cfg.env) ? cfg.env : {};
+  const value = (k) => shellEnv[k] ?? settingsEnv[k];
+  const advisorProblems = [];
+  if (value('CLAUDE_CODE_SUBAGENT_MODEL_FORCE') && !/fable/i.test(value('CLAUDE_CODE_SUBAGENT_MODEL') || '')) {
+    advisorProblems.push('CLAUDE_CODE_SUBAGENT_MODEL_FORCE is set and overrides model: fable in agents/advisor.md, so the advisor runs as the main model unless CLAUDE_CODE_SUBAGENT_MODEL names a planner. Unset it');
+  }
+  if (cfg.advisorModel) {
+    advisorProblems.push(`advisorModel is "${cfg.advisorModel}", so Claude Code's built-in advisor tool runs alongside this loop's advisor subagent: each consult is paid twice and the built-in one re-reads the whole transcript uncached on every call. Run /advisor off, or set CLAUDE_CODE_DISABLE_ADVISOR_TOOL=1`);
+  }
+  checks.push(
+    advisorProblems.length
+      ? status('warn', 'advisor model', advisorProblems.join('; '))
+      : status('pass', 'advisor model', 'nothing overrides model: fable or runs the built-in advisor alongside')
+  );
+
   // --with-workflow ships the rule with every skill it names; one without the others
   // leaves a dangling reference, so they are one check rather than five
   const workflowRule = path.join(rulesDir, WORKFLOW_RULE);
