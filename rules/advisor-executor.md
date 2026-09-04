@@ -47,6 +47,11 @@ done, re-consult with that fact instead. A PROVISIONAL verdict is not a plan.
 Source-code changes and real design work, including `/code-review`, `/apple-design`,
 `/improve`. Pure questions, chat, notes, and config edits go direct.
 
+Consult once you have read the files and formed a candidate approach, before the first
+source edit. The advisor never sees anything but the consult, so one written before you
+have read the files is a verdict on your paraphrase. Consult sooner only for a non-obvious
+design decision or a failure mode you cannot rule out by reading.
+
 Re-consult when the same error or verifier fails twice — stop before the third attempt
 and consult with the actual failing output. The user can also ask for a consultation at
 any point ("consult the advisor" / "danış").

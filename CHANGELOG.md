@@ -4,6 +4,17 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
+## v1.7.0 — 2026-09-04
+
+### Changed
+- The injected directive told the executor to consult "before writing code", which reads
+  as the first turn. `advisor-gate.mjs` enforces something later and different: it denies
+  the first source edit, which comes after the files are read. The two disagreed, and the
+  executor follows the directive. The consult contract is the second reason: this loop's
+  advisor sees the consult and nothing else, never the transcript, so one written before
+  the files are read asks for a verdict on a paraphrase. Step 1 now names the moment the
+  gate already enforced, and `rules/advisor-executor.md` carries the same rule.
+
 ## v1.6.0 — 2026-09-04
 
 ### Added

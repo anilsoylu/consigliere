@@ -62,9 +62,10 @@ process.stdout.write(
   'ADVISOR/EXECUTOR LOOP — this prompt carries a code/design signal.\n' +
   '0) GRILL first only if 2+ material decisions are open and the user is at the keyboard. Once per task;\n' +
   '   ralph/cron/unattended runs never grill — state assumptions and proceed.\n' +
-  '1) PLAN via the advisor subagent — spawn it with the Agent tool:\n' +
+  '1) PLAN via the advisor subagent, once you have read the files and formed a candidate approach,\n' +
+  '   and before the first source edit. Spawn it with the Agent tool:\n' +
   '   Agent({ subagent_type: "advisor", name: "advisor", prompt: "<consult>" })\n' +
-  '   It returns through a task notification, not inline. Wait for the verdict before writing code.\n' +
+  '   It returns through a task notification, not inline. Do not edit source while it is in flight.\n' +
   '   The agent definition carries the advisor doctrine (verdict discipline, ~300 words) — do not retype it.\n' +
   '   Carry the five-part contract in the prompt: objective, files, evidence (actual diff/output, never a paraphrase), constraints, options considered.\n' +
   '2) RESEARCH each "RESEARCH NEEDED" yourself (the advisor has no Bash and no network), then re-consult the same\n' +
