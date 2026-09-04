@@ -11,8 +11,12 @@ reconstructed from the tag history.
   plan into `<repo>/plans/plan-mode/` as `YYYYMMDD-HHMMSS-<slug>.md`. It is the only hook
   here that writes into a working tree, so the directory is the consent: without it nothing
   happens. See "Keeping plan-mode plans" in README.md.
-- `rules/advisor-executor.md` records that `plans/plan-mode/` does not make `plans/` an
-  unrelated purpose for `/improve`, and that `reconcile` does not index it.
+- A `Plan mode` section in `rules/advisor-executor.md`. When `plans/plan-mode/` exists the
+  plan is written in `/improve`'s sections, minus what that template carries only for a
+  cold executor: no code excerpts, no commands table, no drift check, no plan number, no
+  index row. It also
+  records that the directory does not make `plans/` an unrelated purpose for `/improve`,
+  and that `reconcile` does not index it.
 
 ## v1.7.0 — 2026-09-04
 

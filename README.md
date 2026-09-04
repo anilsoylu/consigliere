@@ -79,6 +79,8 @@ mkdir -p plans/plan-mode
 
 From then on every approved plan lands there as `YYYYMMDD-HHMMSS-<slug>.md`, byte for byte, no added frontmatter. Without the directory the hook does nothing — it is the only hook here that writes into your working tree, so the directory is the consent.
 
+The directory also shapes the plan. `rules/advisor-executor.md` says that when it exists, the plan is written in `/improve`'s sections — title, Status carrying only the planned-at SHA, Why this matters, Scope, Steps that name exact files and end in a `**Verify**` command, Test plan, Done criteria as checkboxes, STOP conditions, Maintenance notes. It drops what `/improve` carries only for a cold executor: no inlined code excerpts, no commands table, no drift check, no plan number, no index row. Plan mode has already read the files, and you read the plan on screen before you approve it.
+
 `ExitPlanMode` carries no plan text; it signals that the file is ready. The hook reads the path from the last `plan_mode` attachment in the session transcript. When there is no attachment, or the file it names is gone, the hook exits silently rather than blocking the turn. A rejected plan leaves nothing behind: `PostToolUse` fires only after a tool completes, and rejecting a plan is a permission denial.
 
 It never writes `plans/README.md`. That file is the `improve` skill's index, and it has one owner. The subdirectory keeps the two apart in both directions: `rules/advisor-executor.md` says that `plans/plan-mode/` does not make `plans/` an unrelated purpose for `/improve`, and that `reconcile` does not index it.
