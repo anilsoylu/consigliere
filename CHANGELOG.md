@@ -4,6 +4,23 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
+## v1.6.0 — 2026-09-04
+
+### Added
+- `RECOMMENDED_ENV` sets `CLAUDE_CODE_DISABLE_ADVISOR_TOOL=1`, so `/advisor` is
+  unavailable and a configured `advisorModel` is ignored. v1.5.0 only warned about the
+  built-in tool in the doctor, which reached the user who ran it by hand. The installer
+  fills the key when it is absent; `""` is the value that gets the built-in tool back.
+
+### Fixed
+- The doctor resolved env keys shell-first. Claude Code writes each `settings.json` `env`
+  entry into the process environment over what the shell exported, so `settings.env` wins
+  and `"KEY": ""` is how you unset a stale export. Reading the shell first meant the
+  doctor reported an override the running session does not have.
+- The `advisorModel` warning fired even when `CLAUDE_CODE_DISABLE_ADVISOR_TOOL` was set,
+  so a user who followed the README's own advice was told to fix something already fixed.
+  It now reads the key as a flag, so a value like `"0"` no longer counts as disabled.
+
 ## v1.5.0 — 2026-09-04
 
 Claude Code 2.1.260.

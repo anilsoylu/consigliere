@@ -257,17 +257,19 @@ export function runChecks(options = {}) {
     );
   }
 
-  // A shell export is how most people set the force flag, so the ambient env counts and
-  // the check runs without a settings.json; tests pass their own env to stay hermetic.
+  // settings.env wins because Claude Code writes it over the shell, which makes `"KEY": ""`
+  // the way to unset an export; the shell fills the rest, where FORCE normally lives.
   const shellEnv = options.env ?? process.env;
   const cfg = isObject(settings) ? settings : {};
   const settingsEnv = isObject(cfg.env) ? cfg.env : {};
-  const value = (k) => shellEnv[k] ?? settingsEnv[k];
+  const value = (k) => settingsEnv[k] ?? shellEnv[k];
+  // "0" must not read as disabled — that silences the warning in the case it exists for.
+  const advisorToolOff = /^(1|true|yes|on)$/i.test(value('CLAUDE_CODE_DISABLE_ADVISOR_TOOL') || '');
   const advisorProblems = [];
   if (value('CLAUDE_CODE_SUBAGENT_MODEL_FORCE') && !/fable/i.test(value('CLAUDE_CODE_SUBAGENT_MODEL') || '')) {
     advisorProblems.push('CLAUDE_CODE_SUBAGENT_MODEL_FORCE is set and overrides model: fable in agents/advisor.md, so the advisor runs as the main model unless CLAUDE_CODE_SUBAGENT_MODEL names a planner. Unset it');
   }
-  if (cfg.advisorModel) {
+  if (cfg.advisorModel && !advisorToolOff) {
     advisorProblems.push(`advisorModel is "${cfg.advisorModel}", so Claude Code's built-in advisor tool runs alongside this loop's advisor subagent: each consult is paid twice and the built-in one re-reads the whole transcript uncached on every call. Run /advisor off, or set CLAUDE_CODE_DISABLE_ADVISOR_TOOL=1`);
   }
   checks.push(

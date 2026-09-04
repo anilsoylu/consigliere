@@ -64,7 +64,7 @@ Claude Code ships its own advisor. `/advisor <model>`, the `advisorModel` settin
 - Output: free-form guidance. No SHIP / FIX-FIRST / RETHINK verdict, no labelled findings, no `review-tier.mjs` ladder, no `RESEARCH NEEDED` handback.
 - Availability: Anthropic API only, experimental. The subagent runs on any deployment.
 
-Running both pays for every decision twice. `node doctor.mjs` warns when `advisorModel` is set; `/advisor off` clears it, and `CLAUDE_CODE_DISABLE_ADVISOR_TOOL=1` removes the tool entirely.
+Running both pays for every decision twice, so the installer sets `CLAUDE_CODE_DISABLE_ADVISOR_TOOL=1`. `/advisor` becomes unavailable and a configured `advisorModel` is ignored. To use the built-in tool instead, set the key to `""` in `settings.json`; the installer fills a recommended key only when it is absent, so your value survives an upgrade. `node doctor.mjs` warns about an `advisorModel` only when the key is not in effect, which is the case that bills you twice.
 
 ## Requirements
 
@@ -98,7 +98,8 @@ Besides its hook entries, the installer fills in the settings this loop is tuned
     "CLAUDE_CODE_DISABLE_1M_CONTEXT": "1",
     "CLAUDE_CODE_NO_FLICKER": "1",
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "CLAUDE_CODE_DISABLE_ADVISOR_TOOL": "1"
   },
   "includeCoAuthoredBy": false,
   "alwaysThinkingEnabled": true
