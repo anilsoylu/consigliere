@@ -47,6 +47,9 @@ done, re-consult with that fact instead. A PROVISIONAL verdict is not a plan.
 Source-code changes and real design work, including `/code-review`, `/apple-design`,
 `/improve`. Pure questions, chat, notes, and config edits go direct.
 
+`plans/plan-mode/` holds plans captured from plan mode by `plan-capture.mjs`. It does not
+make `plans/` an unrelated purpose for `/improve`, and `reconcile` does not index it.
+
 Consult once you have read the files and formed a candidate approach, before the first
 source edit. The advisor never sees anything but the consult, so one written before you
 have read the files is a verdict on your paraphrase. Consult sooner only for a non-obvious

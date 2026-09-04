@@ -4,6 +4,16 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
+## v1.8.0 — 2026-09-05
+
+### Added
+- `plan-capture.mjs`, a `PostToolUse` hook on `ExitPlanMode`, copies an approved plan-mode
+  plan into `<repo>/plans/plan-mode/` as `YYYYMMDD-HHMMSS-<slug>.md`. It is the only hook
+  here that writes into a working tree, so the directory is the consent: without it nothing
+  happens. See "Keeping plan-mode plans" in README.md.
+- `rules/advisor-executor.md` records that `plans/plan-mode/` does not make `plans/` an
+  unrelated purpose for `/improve`, and that `reconcile` does not index it.
+
 ## v1.7.0 — 2026-09-04
 
 ### Changed
