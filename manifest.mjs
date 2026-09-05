@@ -114,6 +114,9 @@ export const RECOMMENDED_SETTINGS = {
   // The root must be the most capable model for the topology to mean anything: it decides
   // and delegates, and the Opus subagents execute. Filled only when you have no value.
   model: 'claude-fable-5-1',
+  // A subagent's prompt is cached for 5 minutes by default, which a delegation that waits
+  // on a sibling routinely outlives; re-delegating to the same agent then pays full price.
+  subagentPromptCacheTtl: '1h',
 };
 
 // [event, matcher, script] — matcher null means the block carries no matcher.
