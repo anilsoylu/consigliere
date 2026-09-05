@@ -1,7 +1,7 @@
 {
   "name": "consigliere",
   "private": true,
-  "description": "An advisor/executor loop for Claude Code, installed with node install.mjs.",
+  "description": "An orchestrator/worker topology for Claude Code, installed with node install.mjs.",
   "license": "MIT",
   "engines": {
     "node": ">=18"

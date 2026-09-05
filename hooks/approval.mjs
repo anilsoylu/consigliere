@@ -1,8 +1,8 @@
-// The two prompt shapes both re-arming gates (advisor-inject, git-discipline) must agree on:
-// split definitions would re-arm them on different turns.
+// The two prompt shapes git-discipline's re-arming gate turns on, kept out of it so the
+// definitions have one home.
 
-// The cap stays tight because a wrong reset costs one re-consult, while a wrong keep lets
-// unconsulted work through silently.
+// The cap stays tight because a wrong reset only re-arms the workflow gate once, while a
+// wrong keep lets an un-gated command through silently.
 export const isApproval = (prompt) => {
   const text = prompt.trim();
   return text.length <= 24

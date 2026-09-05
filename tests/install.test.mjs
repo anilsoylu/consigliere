@@ -51,7 +51,7 @@ test('installs into CLAUDE_CONFIG_DIR and leaves ~/.claude untouched', () => {
 
   const settings = JSON.parse(read(path.join(configured, 'settings.json')));
   const registered = settings.hooks.UserPromptSubmit
-    .some((b) => b.hooks.some((h) => h.command === hookCommand(path.join(configured, 'hooks'), 'advisor-inject.mjs')));
+    .some((b) => b.hooks.some((h) => h.command === hookCommand(path.join(configured, 'hooks'), 'git-discipline.mjs')));
   assert.ok(registered, 'the registered command must point at the configured hooks dir');
   assert.ok(fs.existsSync(path.join(configured, STATE_FILE)), 'and the state file goes with them');
 });
@@ -69,9 +69,9 @@ test('removes a stale entry it once wrote and keeps a hook of yours on the same 
   settings.hooks.PreToolUse.push({
     matcher: 'Read',
     hooks: [
-      { type: 'command', command: hookCommand(hooks, 'advisor-mark.mjs') },
+      { type: 'command', command: hookCommand(hooks, 'orchestrator-gate.mjs') },
       { type: 'command', command: 'node /somewhere/else/my-own-hook.mjs' },
-      { type: 'command', command: `node /my/shim.mjs ${path.join(hooks, 'advisor-mark.mjs')}` },
+      { type: 'command', command: `node /my/shim.mjs ${path.join(hooks, 'orchestrator-gate.mjs')}` },
     ],
   });
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
@@ -81,10 +81,10 @@ test('removes a stale entry it once wrote and keeps a hook of yours on the same 
   const after = JSON.parse(read(settingsPath));
   const block = after.hooks.PreToolUse.find((b) => b.matcher === 'Read');
   const commands = block.hooks.map((h) => h.command);
-  assert.equal(commands.includes(hookCommand(hooks, 'advisor-mark.mjs')), false, 'the stale entry must be gone');
+  assert.equal(commands.includes(hookCommand(hooks, 'orchestrator-gate.mjs')), false, 'the stale entry must be gone');
   assert.equal(commands.length, 2, 'both of the user\'s entries must survive');
-  const task = after.hooks.PreToolUse.find((b) => b.matcher === 'Task|SendMessage');
-  assert.ok(task.hooks.some((h) => h.command === hookCommand(hooks, 'advisor-mark.mjs')), 'the listed entry must stay');
+  const listed = after.hooks.PreToolUse.find((b) => b.matcher === 'Bash');
+  assert.ok(listed.hooks.some((h) => h.command === hookCommand(hooks, 'orchestrator-gate.mjs')), 'the listed entry must stay');
 });
 
 // A name dropped from HOOK_FILES leaves an orphan that nothing removes and doctor no
@@ -105,7 +105,7 @@ test('leaves a block empty of our entries out of settings.json entirely', () => 
   const settingsPath = path.join(home, '.claude', 'settings.json');
   const hooks = path.join(home, '.claude', 'hooks');
   const settings = JSON.parse(read(settingsPath));
-  settings.hooks.PreToolUse.push({ matcher: 'Read', hooks: [{ type: 'command', command: hookCommand(hooks, 'advisor-mark.mjs') }] });
+  settings.hooks.PreToolUse.push({ matcher: 'Read', hooks: [{ type: 'command', command: hookCommand(hooks, 'orchestrator-gate.mjs') }] });
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
   install(home);

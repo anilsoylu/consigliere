@@ -6,28 +6,31 @@ import path from 'node:path';
 // Releases are `git tag v<VERSION>`; update-check.mjs and doctor.mjs both compare against
 // that tag list, so bumping this without tagging makes an installed copy look ahead of
 // upstream. Only vN.N.N sorts — the old `v1-sol` tag is deliberately unsortable.
-export const VERSION = '1.10.0';
+export const VERSION = '2.0.0';
 export const STATE_FILE = '.consigliere-state.json';
 
 export const HOOK_FILES = [
   // First, and with no HOOK_ENTRIES lines of their own: modules the hooks import rather than
   // hooks, and copying them after their importers leaves an upgrade window where an import throws.
   'config-dir.mjs', 'approval.mjs',
-  'advisor-inject.mjs', 'advisor-mark.mjs', 'advisor-gate.mjs', 'commit-language.mjs',
+  'orchestrator-gate.mjs', 'commit-language.mjs',
   'update-check.mjs', 'review-tier.mjs', 'git-discipline.mjs', 'comment-ratio.mjs',
   'plan-capture.mjs',
 ];
 // Files an earlier version installed and this one does not. Dropping a name from
 // HOOK_FILES alone leaves an orphan nothing removes and doctor no longer looks at, so
 // install.mjs deletes these and uninstall.mjs sweeps them.
-export const OBSOLETE_HOOK_FILES = ['review-tier.sh'];
-export const DEFAULT_RULES = ['advisor-executor.md', 'coding-discipline.md'];
+export const OBSOLETE_HOOK_FILES = ['review-tier.sh', 'advisor-inject.mjs', 'advisor-mark.mjs', 'advisor-gate.mjs'];
+// Same reason, for the other two directories: the advisor loop this version replaced.
+export const OBSOLETE_AGENT_FILES = ['advisor.md'];
+export const OBSOLETE_RULE_FILES = ['advisor-executor.md'];
+export const DEFAULT_RULES = ['orchestrator.md', 'coding-discipline.md'];
 export const WORKFLOW_RULE = 'workflow.md';
 
-// The advisor itself, as a Claude Code subagent definition. advisor-gate.mjs blocks
-// source edits and names this subagent as the way through, so a gate installed without
-// the agent is a lock with no key. It gets the same missing/modified treatment as a hook.
-export const AGENT_FILES = ['advisor.md'];
+// The five roles, as Claude Code subagent definitions. orchestrator-gate.mjs blocks the
+// root's source edits and names these roles as the way through, so a gate installed
+// without the agents is a lock with no key. Same missing/modified treatment as a hook.
+export const AGENT_FILES = ['worker.md', 'tester.md', 'explorer.md', 'researcher.md', 'reviewer.md'];
 
 // The merge-readiness skill and the Workflow script it invokes are one feature: the
 // skill reads the script from beside it, so either one alone is a dangling reference.
@@ -44,8 +47,8 @@ export const HANDOFF_FILES = ['SKILL.md'];
 
 // mattpocock's grilling interview, shipped as its upstream pair: `grilling` carries the
 // doctrine, `grill-me` is the user-only slash wrapper that runs it, so either alone is a
-// dangling reference. Default, not flagged: advisor-executor.md (a default rule) and the
-// advisor-inject.mjs banner both call for grilling by name. See README for attribution.
+// dangling reference. Default, not flagged: a prompt file with no runtime cost, inert
+// until something invokes it. See README for attribution.
 export const GRILLING_SKILLS = ['grilling', 'grill-me'];
 export const GRILLING_FILES = ['SKILL.md'];
 
@@ -109,42 +112,27 @@ export const RECOMMENDED_ENV = {
 export const RECOMMENDED_SETTINGS = {
   includeCoAuthoredBy: false,
   alwaysThinkingEnabled: true,
-};
-
-// A third-party MCP server (ELv2, github.com/mksglu/context-mode) that keeps raw tool
-// output out of the context window. This package never enables it for you: writing the
-// plugin entries by file edit would skip the trust prompt Claude Code shows when you
-// install someone else's plugin, and that prompt is the point. install.mjs prints the
-// two commands, doctor.mjs reports whether you ran them.
-export const CONTEXT_MODE = {
-  plugin: 'context-mode',
-  commands: ['/plugin marketplace add mksglu/context-mode', '/plugin install context-mode@context-mode'],
-  verify: '/context-mode:ctx-doctor',
-  statusLine: { type: 'command', command: 'context-mode statusline' },
-  // Filled only when the plugin is enabled: quiets its per-command routing nudges on
-  // short Bash calls and thins the external-MCP reminder, without touching the
-  // curl/wget flood interception that is the plugin's actual saving.
-  env: {
-    CONTEXT_MODE_BASH_NUDGE_MIN_COMMAND_BYTES: '200',
-    CONTEXT_MODE_EXTERNAL_MCP_NUDGE_EVERY: '50',
-  },
+  // The root must be the most capable model for the topology to mean anything: it decides
+  // and delegates, and the Opus subagents execute. Filled only when you have no value.
+  model: 'claude-fable-5-1',
 };
 
 // [event, matcher, script] — matcher null means the block carries no matcher.
-// git-discipline and comment-ratio register unconditionally but self-gate at runtime on
-// the rule file they enforce (workflow.md / coding-discipline.md), so a default install
-// carries them inert rather than the installer growing per-flag entry bookkeeping.
+// orchestrator-gate, git-discipline and comment-ratio register unconditionally but
+// self-gate at runtime on the rule file they enforce (orchestrator.md / workflow.md /
+// coding-discipline.md), so a default install carries them inert rather than the installer
+// growing per-flag entry bookkeeping. orchestrator-gate leads the Bash block: it decides
+// whether the root may run the command at all.
 // plan-capture is the one hook that writes into your working tree: an approved plan-mode
 // plan lands in `plans/` at the repo root, which it creates when absent.
 export const HOOK_ENTRIES = [
-  ['PreToolUse', 'Task|SendMessage', 'advisor-mark.mjs'],
-  ['PreToolUse', 'Edit|Write|MultiEdit', 'advisor-gate.mjs'],
+  ['PreToolUse', 'Edit|Write|MultiEdit', 'orchestrator-gate.mjs'],
+  ['PreToolUse', 'Bash', 'orchestrator-gate.mjs'],
   ['PreToolUse', 'Bash', 'commit-language.mjs'],
   ['PreToolUse', 'Bash', 'git-discipline.mjs'],
   ['PreToolUse', 'Skill', 'git-discipline.mjs'],
   ['PostToolUse', 'Bash', 'git-discipline.mjs'],
   ['SessionStart', null, 'git-discipline.mjs'],
-  ['UserPromptSubmit', null, 'advisor-inject.mjs'],
   ['UserPromptSubmit', null, 'git-discipline.mjs'],
   ['PostToolUse', 'Edit|Write|MultiEdit', 'comment-ratio.mjs'],
   ['PostToolUse', 'ExitPlanMode', 'plan-capture.mjs'],
@@ -163,10 +151,4 @@ export function hasRalphLoop(claudeDir) {
     path.join(claudeDir, 'plugins', 'cache', 'claude-plugins-official', 'ralph-loop'),
     path.join(claudeDir, 'plugins', 'marketplaces', 'claude-plugins-official', 'plugins', 'ralph-loop'),
   ].some((p) => fs.existsSync(p));
-}
-
-// Enabled by the user through /plugin, so the record of it is theirs, not ours to write.
-export function hasContextMode(settings) {
-  return Object.entries(settings?.enabledPlugins || {})
-    .some(([name, on]) => on && name.startsWith(`${CONTEXT_MODE.plugin}@`));
 }

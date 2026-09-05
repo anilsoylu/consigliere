@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import { runChecks, summarize, compareTags } from '../doctor.mjs';
-import { VERSION, STATE_FILE, HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, hookCommand } from '../manifest.mjs';
+import { VERSION, STATE_FILE, HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, hookCommand } from '../manifest.mjs';
 
 const DOCTOR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'doctor.mjs');
 const temps = [];
@@ -58,7 +58,6 @@ function settingsFor(home) {
     hooks,
     env: { ...RECOMMENDED_ENV },
     ...RECOMMENDED_SETTINGS,
-    enabledPlugins: { [`${CONTEXT_MODE.plugin}@${CONTEXT_MODE.plugin}`]: true },
   });
 }
 
@@ -127,7 +126,7 @@ test('reads the config dir the environment names when no home is given', () => {
   try {
     const checks = runChecks({ repo: makeRepoFixture() });
     assert.equal(check(checks, 'installed hooks').level, 'pass');
-    assert.equal(check(checks, 'advisor agent').level, 'pass');
+    assert.equal(check(checks, 'agents').level, 'pass');
   } finally {
     if (previous === undefined) delete process.env.CLAUDE_CONFIG_DIR;
     else process.env.CLAUDE_CONFIG_DIR = previous;
@@ -173,12 +172,12 @@ test('warns when the workflow rule is installed without a skill it names', () =>
 test('warns when an installed hook no longer matches the repo copy', () => {
   const home = temp('consigliere-doctor-');
   installDefaultFiles(home);
-  writeFile(path.join(home, '.claude', 'hooks', 'advisor-gate.mjs'), 'edited by hand');
+  writeFile(path.join(home, '.claude', 'hooks', 'orchestrator-gate.mjs'), 'edited by hand');
 
   const hooks = check(run(home, makeRepoFixture()), 'installed hooks');
 
   assert.equal(hooks.level, 'warn');
-  assert.match(hooks.detail, /advisor-gate\.mjs/);
+  assert.match(hooks.detail, /orchestrator-gate\.mjs/);
 });
 
 test('warns about a locally customized rule instead of certifying it', () => {
@@ -196,13 +195,13 @@ test('warns when a hook entry does not carry the command the installer writes', 
   const home = temp('consigliere-doctor-');
   installDefaultFiles(home);
   const settings = JSON.parse(fs.readFileSync(path.join(home, '.claude', 'settings.json'), 'utf8'));
-  settings.hooks.PreToolUse[0].hooks[0].command = 'echo advisor-mark.mjs';
+  settings.hooks.PreToolUse[0].hooks[0].command = 'echo orchestrator-gate.mjs';
   writeFile(path.join(home, '.claude', 'settings.json'), JSON.stringify(settings));
 
   const entries = check(run(home, makeRepoFixture()), 'settings hooks');
 
   assert.equal(entries.level, 'warn');
-  assert.match(entries.detail, /PreToolUse\/Task\|SendMessage:advisor-mark\.mjs/);
+  assert.match(entries.detail, /PreToolUse\/Edit\|Write\|MultiEdit:orchestrator-gate\.mjs/);
 });
 
 test('warns when the installer command is registered twice for one entry', () => {
@@ -211,13 +210,13 @@ test('warns when the installer command is registered twice for one entry', () =>
   const settingsPath = path.join(home, '.claude', 'settings.json');
   const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
   const block = settings.hooks.PreToolUse[0];
-  block.hooks.push({ ...block.hooks[0], command: 'echo advisor-mark.mjs' });
+  block.hooks.push({ ...block.hooks[0], command: 'echo orchestrator-gate.mjs' });
   writeFile(settingsPath, JSON.stringify(settings));
 
   const entries = check(run(home, makeRepoFixture()), 'settings hooks');
 
   assert.equal(entries.level, 'warn');
-  assert.match(entries.detail, /exactly once.*PreToolUse\/Task\|SendMessage:advisor-mark\.mjs/);
+  assert.match(entries.detail, /exactly once.*PreToolUse\/Edit\|Write\|MultiEdit:orchestrator-gate\.mjs/);
 });
 
 test('reports missing and wrongly registered entries together', () => {
@@ -225,15 +224,15 @@ test('reports missing and wrongly registered entries together', () => {
   installDefaultFiles(home);
   const settingsPath = path.join(home, '.claude', 'settings.json');
   const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-  settings.hooks.PreToolUse[0].hooks[0].command = 'echo advisor-mark.mjs';
+  settings.hooks.PreToolUse[0].hooks[0].command = 'echo orchestrator-gate.mjs';
   settings.hooks.UserPromptSubmit = [];
   writeFile(settingsPath, JSON.stringify(settings));
 
   const entries = check(run(home, makeRepoFixture()), 'settings hooks');
 
   assert.equal(entries.level, 'warn');
-  assert.match(entries.detail, /missing: UserPromptSubmit:advisor-inject\.mjs/);
-  assert.match(entries.detail, /exactly once.*PreToolUse\/Task\|SendMessage:advisor-mark\.mjs/);
+  assert.match(entries.detail, /missing: UserPromptSubmit:git-discipline\.mjs/);
+  assert.match(entries.detail, /exactly once.*PreToolUse\/Edit\|Write\|MultiEdit:orchestrator-gate\.mjs/);
 });
 
 test('reports invalid settings JSON as a failure without echoing its contents', () => {
@@ -271,32 +270,32 @@ test('warns when installed hook entries are missing', () => {
   assert.equal(check(run(home, makeRepoFixture()), 'settings hooks').level, 'warn');
 });
 
-// advisor-gate.mjs blocks source edits and names this subagent as the way through, so a
-// gate installed without the agent is a lock with no key — the check has to say that much.
-test('warns when the advisor agent is missing, naming what breaks', () => {
+// orchestrator-gate.mjs blocks the root's source edits and names these roles as the way
+// through, so a gate installed without them is a lock with no key — the check says so.
+test('warns when a subagent is missing, naming what breaks', () => {
   const home = temp('consigliere-doctor-');
   installDefaultFiles(home);
   fs.rmSync(path.join(home, '.claude', 'agents', AGENT_FILES[0]));
 
-  const agent = check(run(home, makeRepoFixture()), 'advisor agent');
+  const agents = check(run(home, makeRepoFixture()), 'agents');
 
-  assert.equal(agent.level, 'warn');
-  assert.match(agent.detail, /missing: advisor\.md/);
-  assert.match(agent.detail, /advisor-gate\.mjs will block source edits/);
+  assert.equal(agents.level, 'warn');
+  assert.match(agents.detail, new RegExp(`missing: ${AGENT_FILES[0]}`));
+  assert.match(agents.detail, /orchestrator-gate\.mjs will block the root's source edits/);
 });
 
-test('warns about a locally customized advisor agent instead of certifying it', () => {
+test('warns about a locally customized subagent instead of certifying it', () => {
   const home = temp('consigliere-doctor-');
   installDefaultFiles(home);
   writeFile(path.join(home, '.claude', 'agents', AGENT_FILES[0]), 'my own version');
 
-  const agent = check(run(home, makeRepoFixture()), 'advisor agent');
+  const agents = check(run(home, makeRepoFixture()), 'agents');
 
-  assert.equal(agent.level, 'warn');
-  assert.match(agent.detail, /customized locally.*advisor\.md/);
+  assert.equal(agents.level, 'warn');
+  assert.match(agents.detail, new RegExp(`customized locally.*${AGENT_FILES[0]}`));
 });
 
-test('fails when the repo itself is missing the advisor agent', () => {
+test('fails when the repo itself is missing a subagent', () => {
   const home = temp('consigliere-doctor-');
   const repo = makeRepoFixture();
   installDefaultFiles(home);
@@ -305,7 +304,7 @@ test('fails when the repo itself is missing the advisor agent', () => {
   const assets = check(run(home, repo), 'repo assets');
 
   assert.equal(assets.level, 'fail');
-  assert.match(assets.detail, /agents\/advisor\.md/);
+  assert.match(assets.detail, new RegExp(`agents/${AGENT_FILES[0]}`));
 });
 
 // the skill is optional, so the check only exists once the directory is there
@@ -466,37 +465,55 @@ test('reports the recommended keys instead of crashing on an env of the wrong ty
   assert.match(recommended.detail, /env\.CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING/);
 });
 
-test('reports context-mode as a note when it is not enabled, with the commands', () => {
+// The root decides and delegates, which is the one seat the topology needs at the top
+// model; a downgrade here is silent everywhere else.
+test('warns when the root is not on the recommended model', () => {
   const home = temp('consigliere-doctor-');
   installDefaultFiles(home);
   const settingsPath = path.join(home, '.claude', 'settings.json');
   const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-  delete settings.enabledPlugins;
+  settings.model = 'claude-sonnet-5';
   writeFile(settingsPath, JSON.stringify(settings));
 
-  const plugin = check(run(home, makeRepoFixture()), 'context-mode plugin');
+  const model = check(run(home, makeRepoFixture()), 'root model');
 
-  assert.equal(plugin.level, 'warn');
-  assert.match(plugin.detail, /\/plugin install context-mode@context-mode/);
+  assert.equal(model.level, 'warn');
+  assert.match(model.detail, new RegExp(`model is "claude-sonnet-5".*${RECOMMENDED_SETTINGS.model}`));
+
+  delete settings.model;
+  writeFile(settingsPath, JSON.stringify(settings));
+  assert.match(check(run(home, makeRepoFixture()), 'root model').detail, /model is unset/);
 });
 
-test('warns when the subagent model force flag overrides model: fable', () => {
+// One env var that outranks the effort: line in all five agent files at once.
+test('warns when a global effort level overrides the agent files', () => {
   const home = temp('consigliere-doctor-');
   installDefaultFiles(home);
 
-  const forced = check(run(home, makeRepoFixture(), { CLAUDE_CODE_SUBAGENT_MODEL_FORCE: '1' }), 'advisor model');
-  const kept = check(run(home, makeRepoFixture(), { CLAUDE_CODE_SUBAGENT_MODEL_FORCE: '1', CLAUDE_CODE_SUBAGENT_MODEL: 'fable' }), 'advisor model');
+  const model = check(run(home, makeRepoFixture(), { CLAUDE_CODE_EFFORT_LEVEL: 'medium' }), 'root model');
 
-  assert.equal(forced.level, 'warn');
-  assert.match(forced.detail, /CLAUDE_CODE_SUBAGENT_MODEL_FORCE/);
-  assert.equal(kept.level, 'pass');
+  assert.equal(model.level, 'warn');
+  assert.match(model.detail, /CLAUDE_CODE_EFFORT_LEVEL/);
+});
+
+// Each agent file carries its own model:, so either of these silently flattens all five
+// to one model — a value of your own does not make that acceptable.
+test('warns when either subagent model key overrides the agent files', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+
+  for (const key of ['CLAUDE_CODE_SUBAGENT_MODEL', 'CLAUDE_CODE_SUBAGENT_MODEL_FORCE']) {
+    const model = check(run(home, makeRepoFixture(), { [key]: '1' }), 'root model');
+    assert.equal(model.level, 'warn', key);
+    assert.match(model.detail, new RegExp(key));
+  }
 
   const settingsPath = path.join(home, '.claude', 'settings.json');
   const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
   settings.env.CLAUDE_CODE_SUBAGENT_MODEL_FORCE = '1';
   writeFile(settingsPath, JSON.stringify(settings));
 
-  assert.equal(check(run(home, makeRepoFixture()), 'advisor model').level, 'warn', 'settings.env counts too');
+  assert.equal(check(run(home, makeRepoFixture()), 'root model').level, 'warn', 'settings.env counts too');
 });
 
 // Claude Code writes settings.env over the shell, so an empty value there is how you
@@ -509,12 +526,12 @@ test('lets settings.env override the shell for the force flag', () => {
   settings.env.CLAUDE_CODE_SUBAGENT_MODEL_FORCE = '';
   writeFile(settingsPath, JSON.stringify(settings));
 
-  const model = check(run(home, makeRepoFixture(), { CLAUDE_CODE_SUBAGENT_MODEL_FORCE: '1' }), 'advisor model');
+  const model = check(run(home, makeRepoFixture(), { CLAUDE_CODE_SUBAGENT_MODEL_FORCE: '1' }), 'root model');
 
   assert.equal(model.level, 'pass');
 });
 
-test('warns when the built-in advisor tool runs alongside the subagent', () => {
+test('warns when the built-in advisor tool runs alongside this topology', () => {
   const home = temp('consigliere-doctor-');
   installDefaultFiles(home);
   const settingsPath = path.join(home, '.claude', 'settings.json');
@@ -524,7 +541,7 @@ test('warns when the built-in advisor tool runs alongside the subagent', () => {
   delete settings.env.CLAUDE_CODE_DISABLE_ADVISOR_TOOL;
   writeFile(settingsPath, JSON.stringify(settings));
 
-  const model = check(run(home, makeRepoFixture()), 'advisor model');
+  const model = check(run(home, makeRepoFixture()), 'root model');
 
   assert.equal(model.level, 'warn');
   assert.match(model.detail, /advisorModel is "opus"/);
@@ -539,7 +556,7 @@ test('stays quiet about advisorModel when the tool is disabled', () => {
   settings.advisorModel = 'opus';
   writeFile(settingsPath, JSON.stringify(settings));
 
-  assert.equal(check(run(home, makeRepoFixture()), 'advisor model').level, 'pass');
+  assert.equal(check(run(home, makeRepoFixture()), 'root model').level, 'pass');
 });
 
 test('reads the disable key as a flag, so "0" still warns', () => {
@@ -551,7 +568,7 @@ test('reads the disable key as a flag, so "0" still warns', () => {
   settings.env.CLAUDE_CODE_DISABLE_ADVISOR_TOOL = '0';
   writeFile(settingsPath, JSON.stringify(settings));
 
-  assert.equal(check(run(home, makeRepoFixture()), 'advisor model').level, 'warn');
+  assert.equal(check(run(home, makeRepoFixture()), 'root model').level, 'warn');
 });
 
 test('--json prints a summary and --help exits clean', () => {

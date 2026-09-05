@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 // Consigliere installer — OS-agnostic (macOS / Linux / Windows).
-// Copies the advisor subagent, the hooks and the rules into $CLAUDE_CONFIG_DIR (default
+// Copies the five subagents, the hooks and the rules into $CLAUDE_CONFIG_DIR (default
 // ~/.claude), and idempotently merges the hook entries into settings.json (never
 // clobbers your existing hooks).
 // Safe to re-run: a second run changes nothing. Backs up any file it edits.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { VERSION, STATE_FILE, HOOK_FILES, OBSOLETE_HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, HANDOFF_FILES, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, OPTIMIZE_FILES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, claudeDir, hookCommand, hasRalphLoop, hasContextMode } from './manifest.mjs';
+import { VERSION, STATE_FILE, HOOK_FILES, OBSOLETE_HOOK_FILES, OBSOLETE_AGENT_FILES, OBSOLETE_RULE_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, HANDOFF_FILES, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, OPTIMIZE_FILES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, claudeDir, hookCommand, hasRalphLoop } from './manifest.mjs';
 
 const REPO = path.dirname(fileURLToPath(import.meta.url));
 const CLAUDE = claudeDir();
@@ -71,9 +71,9 @@ if (withWorkflow && !hasRalphLoop(CLAUDE)) {
   warn('Continuing install anyway — the rest of the rule works, but /ralph-loop and /cancel-ralph will not exist.');
 }
 
-// --- 2. Copy the agent, the hooks and the rules ---
-// The agent is not optional: advisor-gate.mjs blocks source edits and names this
-// subagent as the way through, so a gate without an agent is a lock with no key.
+// --- 2. Copy the agents, the hooks and the rules ---
+// The agents are not optional: orchestrator-gate.mjs blocks the root's source edits and
+// names these five roles as the way through, so a gate without them is a lock with no key.
 copyAll(AGENT_FILES, path.join(REPO, 'agents'), AGENTS);
 copyAll(HOOK_FILES, path.join(REPO, 'hooks'), HOOKS);
 const RULE_FILES = [...DEFAULT_RULES];
@@ -81,16 +81,18 @@ if (withWorkflow) RULE_FILES.push(WORKFLOW_RULE);
 copyAll(RULE_FILES, path.join(REPO, 'rules'), RULES);
 // Named with the real directory rather than a literal ~/.claude: under CLAUDE_CONFIG_DIR
 // the two differ, and this line is the run's only confirmation of where the files landed.
-log(`copied ${AGENT_FILES.length} agent, ${HOOK_FILES.length} hook files and ${RULE_FILES.length} rules into ${CLAUDE}`);
+log(`copied ${AGENT_FILES.length} agents, ${HOOK_FILES.length} hook files and ${RULE_FILES.length} rules into ${CLAUDE}`);
 
 // Always backed up before removal, not only when it differs: this version ships no copy
 // to compare against, so "did you edit it?" is a question that can no longer be answered.
-for (const f of OBSOLETE_HOOK_FILES) {
-  const stale = path.join(HOOKS, f);
-  if (!fs.existsSync(stale)) continue;
-  backup(stale);
-  fs.rmSync(stale);
-  log(`removed ${stale} — this version no longer ships it`);
+for (const [dir, obsolete] of [[HOOKS, OBSOLETE_HOOK_FILES], [AGENTS, OBSOLETE_AGENT_FILES], [RULES, OBSOLETE_RULE_FILES]]) {
+  for (const f of obsolete) {
+    const stale = path.join(dir, f);
+    if (!fs.existsSync(stale)) continue;
+    backup(stale);
+    fs.rmSync(stale);
+    log(`removed ${stale} — this version no longer ships it`);
+  }
 }
 
 // workflow.md keeps the Ralph details out of the always-loaded context by pointing at
@@ -118,8 +120,8 @@ if (withMergeReadiness) {
   log(`skipped the ${MERGE_READINESS_SKILL} review graph — add it with:  node install.mjs --with-${MERGE_READINESS_SKILL}`);
 }
 
-// No flag: advisor-executor.md (a default rule) and the advisor-inject banner both call
-// for grilling by name, and grill-me is only the slash wrapper that runs it.
+// No flag: a prompt file with no runtime cost, and grill-me is only the slash wrapper
+// that runs it.
 for (const skill of GRILLING_SKILLS) copyAll(GRILLING_FILES, path.join(REPO, 'skills', skill), path.join(SKILLS, skill));
 log(`copied the grilling pair → ${SKILLS} (${GRILLING_SKILLS.map((s) => `/${s}`).join(', ')}; upstream mattpocock/skills, see README for attribution)`);
 
@@ -214,10 +216,6 @@ const filled = [
   ...(usableEnv ? fillDefaults(settings.env, RECOMMENDED_ENV, 'env.') : []),
   ...fillDefaults(settings, RECOMMENDED_SETTINGS, ''),
 ];
-// Folded in before the write rather than left to section 4, where a second write would
-// land without the backup below. Gated on the plugin: tuning env for one you never
-// installed is clutter with no effect.
-const tuned = hasContextMode(settings) && usableEnv ? fillDefaults(settings.env, CONTEXT_MODE.env, 'env.') : [];
 const merged = JSON.stringify(settings, null, 2) + '\n';
 // Only on a real change: a run that merges nothing would otherwise replace your
 // pre-install settings with a copy of themselves.
@@ -231,26 +229,14 @@ if (filled.length) {
 } else {
   log('settings.json already had every recommended env key and setting (no change)');
 }
-
-// --- 4. context-mode, if you want it ---
-// Not installed here by design: /plugin shows a trust prompt before running someone
-// else's code, and writing enabledPlugins from a script would answer that prompt for
-// you. Printed instead, so the decision stays yours.
-if (!hasContextMode(settings)) {
-  log(`optional: ${CONTEXT_MODE.plugin} keeps raw tool output out of the context window. Run these in Claude Code:`);
-  for (const c of CONTEXT_MODE.commands) log(`    ${c}`);
-  log(`    then restart Claude Code (or /reload-plugins) and check it with ${CONTEXT_MODE.verify}`);
-} else if (tuned.length) {
-  log(`quieted ${CONTEXT_MODE.plugin}'s routing nudges: ${tuned.join(', ')}`);
-}
-if (hasContextMode(settings) && !settings.statusLine) {
-  // printed, not written: statusLine is one slot and a whole terminal row, so an empty
-  // one means "no bar", not "no opinion". See README for why the command may not resolve.
-  log(`${CONTEXT_MODE.plugin} is enabled and you have no statusLine. Its savings bar is this, added by hand:`);
-  log(`    "statusLine": ${JSON.stringify(CONTEXT_MODE.statusLine)}`);
+// Not filled by us, so it survives fillDefaults: it applies to every model at once and
+// overrides the per-role `effort:` in each agent file.
+if (usableEnv && settings.env.CLAUDE_CODE_EFFORT_LEVEL !== undefined) {
+  warn('settings.env.CLAUDE_CODE_EFFORT_LEVEL overrides the effort: line in every agent file.');
+  warn('Remove it and set the root\'s effort with /effort instead.');
 }
 
-// --- 5. Version stamp for update-check.mjs ---
+// --- 4. Version stamp for update-check.mjs ---
 // The installed side carries no manifest, so the hook has nothing to compare against
 // unless the installer leaves the version and the clone it came from behind. `latest` is
 // dropped on every install: it describes a comparison against a version now superseded.
@@ -259,11 +245,11 @@ if (hasContextMode(settings) && !settings.statusLine) {
 fs.writeFileSync(statePath, JSON.stringify({ ...state, version: VERSION, repo: REPO, flags, latest: null, checkedAt: 0 }, null, 2) + '\n');
 log(`recorded version ${VERSION} in ${statePath} — update-check.mjs compares it against this clone's tags once a day`);
 
-// --- 6. Leftovers from the Codex Sol era (tag v1-sol) ---
+// --- 5. Leftovers from the Codex Sol era (tag v1-sol) ---
 const watchdog = path.join(HOOKS, 'advisor-watchdog.sh');
 if (fs.existsSync(watchdog)) {
   warn(`${watchdog} is left over from the Codex Sol advisor and nothing references it now.`);
   warn('Nothing here reads it, so it is inert — delete it by hand when you want it gone.');
 }
 
-log('done. Restart Claude Code (plain `claude`) so the agent, rules and hooks load. See README for how the loop works.');
+log('done. Restart Claude Code (plain `claude`) so the agents, rules and hooks load. See README for how the topology works.');
