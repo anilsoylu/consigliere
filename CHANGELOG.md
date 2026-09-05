@@ -4,6 +4,29 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
+## Unreleased
+
+### Changed
+- `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is no longer a recommended env key. With it set, a
+  named spawn becomes a teammate: the agent file is appended to the default system prompt
+  instead of replacing it, and effort is inherited from the root, which is what the
+  reviewer's fresh context and the per-role `effort:` lines depend on not happening.
+  `install.mjs` never overwrites a value you already have, so `doctor.mjs` now warns under
+  its `root model` check while the key is still set.
+- `subagentPromptCacheTtl: "1h"` is a recommended setting. The default caches a subagent's
+  prompt for five minutes, which a delegation waiting on a sibling routinely outlives.
+- `rules/orchestrator.md` adds three rules: follow-up work goes back to an agent already
+  engaged with `SendMessage` rather than a fresh spawn, which is why every `worker` and
+  `tester` spawn now carries a `name:` to address; context several contracts share is
+  written once to `/tmp/<task>/brief.md`; and mechanical steps of one kind go to a single
+  worker as a checklist instead of parallel spawns.
+- `worker`, `tester`, `explorer` and `researcher` reports are capped at 40 lines. `worker`
+  and `tester` now report five fields: Changed, Files, Verifier and exit code, Confidence,
+  and Out of scope, with raw output written to `/tmp/<task>/<name>.log` and cited by path.
+  `explorer` and `researcher` hold no write tool, so they cite a path and a line range.
+- `rules/workflow.md` now says how the review tier is obtained. The root cannot run `node`,
+  so a `worker` runs `review-tier.mjs` against the merge-base and reports what it prints.
+
 ## 2.0.0 — 2026-09-06
 
 The advisor/executor loop is replaced by an orchestrator/worker topology. The root session

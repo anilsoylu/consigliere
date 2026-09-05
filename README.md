@@ -37,6 +37,10 @@ Everything installs under `~/.claude` — or wherever `CLAUDE_CONFIG_DIR` points
 
 `worker` and `tester` return to the root instead of deciding when a task turns out to need an architectural choice, a breaking API change, a schema or migration change, a new dependency, or a security decision — or when two readings of the requirement produce different code.
 
+Every report is capped at 40 lines. `worker` and `tester` return five fields: what changed, the files touched, the verifier and its exit code, the confidence, and what was left out of scope. Raw output goes to a log file the report points at, because the root reads each report into the one context that has to last the whole task.
+
+`SendMessage` addresses an agent by name, so every `worker` and `tester` spawn carries a `name:` of its own, `w-<task>` and `t-<task>`. Follow-up work for one already engaged goes back to that name, which resumes it with the history it already has. A fresh spawn is for a different role, or for `reviewer`, where the clean context is the point.
+
 **The hooks**
 
 - `orchestrator-gate.mjs` — denies the root's source edits and every mutating command.
@@ -129,16 +133,20 @@ Besides its hook entries, the installer fills in the settings this topology is t
     "CLAUDE_CODE_DISABLE_1M_CONTEXT": "1",
     "CLAUDE_CODE_NO_FLICKER": "1",
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
     "CLAUDE_CODE_DISABLE_ADVISOR_TOOL": "1"
   },
   "includeCoAuthoredBy": false,
   "alwaysThinkingEnabled": true,
-  "model": "claude-fable-5-1"
+  "model": "claude-fable-5-1",
+  "subagentPromptCacheTtl": "1h"
 }
 ```
 
 `model` is the one that decides whether any of this pays off: the root only decides and delegates, which is the work worth spending the strongest model on. Adaptive thinking is off and the thinking budget is fixed rather than inferred, so a decision that looks routine does not get a shallower pass. `CLAUDE_CODE_DISABLE_ADVISOR_TOOL` keeps Claude Code's own built-in advisor tool out of the loop, where it would consult a second model server-side on top of the roles here; set the key to `""` to get `/advisor` and `advisorModel` back. The 1M context window is off on purpose: the design keeps each subagent's input small and deliberate, and a bigger window works against that.
+
+`subagentPromptCacheTtl` holds a subagent's prompt cache for an hour instead of the default five minutes, which a delegation waiting on a sibling routinely outlives; re-delegating to the same agent after that pays for the prompt again.
+
+Earlier versions filled `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` and this one does not. With it set, a named spawn becomes a teammate: the agent file is appended to the default system prompt instead of replacing it, and effort is inherited from the root. That leaves the reviewer reading a diff at the root's effort with the default prompt still under it, which is neither the fresh context nor the effort tier it was spawned for. The installer never overwrites a value you already have, so it and the doctor both warn while the key is still set.
 
 Three env keys are deliberately not filled, because each one overrides a per-role setting for every agent at once. `CLAUDE_CODE_EFFORT_LEVEL` overrides the `effort:` line in every agent file; the root's effort belongs to `/effort`. `CLAUDE_CODE_SUBAGENT_MODEL` and `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` override the `model:` line, which collapses Opus workers and a Fable reviewer into one model. The installer warns about the first and the doctor warns about all three.
 
