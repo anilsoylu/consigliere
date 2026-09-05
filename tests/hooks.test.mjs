@@ -507,8 +507,8 @@ test('a new task prompt re-arms the handoff gate, an approval does not', () => {
   const pr = bash(sid, repo('feat/x'), 'gh pr create --fill');
   envHook(DISCIPLINE, { session_id: sid, prompt: '/clean' }, cfg);
   assert.equal(envHook(DISCIPLINE, pr, cfg), '', 'the chain opened it');
-  envHook(DISCIPLINE, { session_id: sid, prompt: 'devam' }, cfg);
-  assert.equal(envHook(DISCIPLINE, pr, cfg), '', 'an approval continues the same task');
+  envHook(DISCIPLINE, { session_id: sid, prompt: '  devam \n' }, cfg);
+  assert.equal(envHook(DISCIPLINE, pr, cfg), '', 'an approval continues the same task, padding included');
   envHook(DISCIPLINE, { session_id: sid, prompt: 'now add the export button to the toolbar' }, cfg);
   assert.match(denyReason(envHook(DISCIPLINE, pr, cfg)), /HANDOFF GATE/, 'a new task re-arms');
 });
