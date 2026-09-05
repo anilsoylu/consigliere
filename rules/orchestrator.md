@@ -35,10 +35,22 @@ Every delegation carries six parts. A subagent shares none of your context.
 
 A contract you cannot finish writing means the decision is not made yet. Make it first.
 
+When more than one subagent needs the same context, write it once to `/tmp/<task>/brief.md`
+and point each Context section at that path instead of restating it in every contract.
+
 ## Parallelism
 
 Independent work goes out in one message as concurrent calls. Dependent work is a serial
-chain. Two workers never touch the same file.
+chain. Two workers never touch the same file. Mechanical steps of the same kind go to one
+worker as a checklist; spawn in parallel only when the pieces are genuinely independent.
+
+## Re-delegation
+
+`SendMessage` addresses an agent by name, so every `worker` and `tester` spawn carries a
+`name:` of its own: `w-<task>` for a worker, `t-<task>` for a tester. Follow-up work for one
+already engaged goes back to that name, which resumes it with its full history. Spawn a
+fresh one only for a different role, or when the clean context is the point, as it is for
+`reviewer`.
 
 ## Escalation
 

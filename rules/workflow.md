@@ -49,6 +49,15 @@ Update it in batches, not per checkbox. A tick is a full tool round-trip that re
   diff adds or materially changes a compute-heavy routine (data loops, math kernels,
   parsers, media processing), run `optimize` on it before the review; otherwise skip
   silently.
+- The review step starts with the tier. The root cannot run `node`, so a `worker` runs
+  `node ~/.claude/hooks/review-tier.mjs <repo> "$(git merge-base origin/main HEAD)"` and
+  reports what it prints: `none | medium | high | xhigh`. Always pass the merge-base: a
+  committed branch leaves a clean tree and the bare form reads the working tree only.
+  `none` means no source changed and needs no review. `medium` and `high` spawn
+  `reviewer` fresh with the diff and no rationale. `xhigh` runs `/merge-readiness`
+  instead. The printed tier is a floor: escalate with a stated reason, never downgrade.
+  A repo raises the floor for its own paths with a `.review-tiers` file at the root,
+  one `<xhigh|high> <regex>` rule per line.
 - Never `cpr`: it fuses clean and pr-update with no gap for the review. Only a `none`
   tier — no source changed — earns the single pass.
 - `pr-ready` is not part of that chain. It unblocks an already-open PR (stale base, red

@@ -34,9 +34,13 @@ filter's exit status hides a red run. Redirect and read the exit code.
 
 ## Report
 
-- what changed, in one or two sentences
-- the exact files touched
-- the verifier you ran and its exit code
-- residual risk, or "none"
+Five fields, at most 40 lines in total. No preamble, no restatement of the task.
 
-No preamble, no restatement of the task.
+- **Changed** — what you did, in one or two sentences
+- **Files** — the exact paths you touched
+- **Verifier** — the command you ran and its exit code
+- **Confidence** — residual risk and anything you could not verify, or "none"
+- **Out of scope** — what you deliberately left alone, or "none"
+
+Raw output longer than ten lines belongs in `/tmp/<task>/<name>.log`; the report gives the
+path.

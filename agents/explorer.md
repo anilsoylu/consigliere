@@ -19,5 +19,4 @@ is grounded — breadth over depth unless the contract says otherwise.
 - the shape of what you found (call chain, data flow, module boundary) when it matters
 - what you looked for and did not find, when absence is part of the answer
 
-Never paste large file dumps. If the root needs the bytes, give it the path and the line
-range.
+At most 40 lines. Never paste large file dumps: give the path and the line range.
