@@ -4,6 +4,71 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
+## 2.0.0 — 2026-09-06
+
+The advisor/executor loop is replaced by an orchestrator/worker topology. The root session
+decides and delegates; every code change, shell command and remote action runs in a subagent.
+
+### Breaking
+- `agents/advisor.md`, `rules/advisor-executor.md`, `hooks/advisor-inject.mjs`,
+  `hooks/advisor-gate.mjs` and `hooks/advisor-mark.mjs` are gone. `install.mjs` removes each
+  one, backing it up first — this version ships no copy to byte-compare against, so "did you
+  edit it?" can no longer be answered — and prunes their `settings.json` entries.
+  `uninstall.mjs` sweeps the same list.
+- The root's `Edit`/`Write`/`MultiEdit` on source and config files, and every mutating Bash
+  command, are now denied. Work that used to run in the main loop has to be delegated.
+- Claude Code must be restarted after installing. The agent registry loads at startup, so
+  until then `rules/orchestrator.md` names five subagents that do not exist. Hooks and rules
+  are read per invocation and need no restart.
+
+### Added
+- Five agent roles. `worker` (opus, high) holds every tool the root gave up; `tester` (opus,
+  high) reproduces and verifies and does not implement fixes; `explorer` and `researcher`
+  (opus, medium) are read-only; `reviewer` (fable, medium) reads a finished diff on a fresh
+  context with no rationale attached. `worker` and `tester` escalate an architectural choice,
+  a breaking API change, a schema change, a new dependency, a security decision or an
+  ambiguous requirement back to the root instead of widening their own scope.
+- `hooks/orchestrator-gate.mjs`. It keys on `agent_id`, which Claude Code puts in the hook
+  payload only inside a subagent, so its absence identifies the root's own thread. That is
+  the distinction `permissions.deny` cannot draw: a deny rule applies to subagents too and
+  would block the workers with the root. On file tools it denies the source and config
+  extensions and exempts the config dir, the OS temp dir, `/tmp`, `~/Desktop`, any
+  `/.claude/`, and markdown and other non-source files. On Bash it fails closed against an
+  allow-list of read-only programs plus the read subcommands of `git` and `gh`, with
+  unconditional denies for redirects, command substitution and inline variable assignment,
+  and named denies for the write or exec options of otherwise allowed commands. Self-gated
+  on `rules/orchestrator.md`, checked before the payload is parsed, so deleting that rule
+  turns the gate off rather than making it deny everything.
+- `rules/orchestrator.md`: what root owns, the five roles, the six-part delegation contract,
+  parallelism, escalation, and the fresh-context review.
+- `RECOMMENDED_SETTINGS.model` is `claude-fable-5-1`, filled only when `settings.json` has no
+  `model` of its own. The root only decides and delegates, which is the work worth the
+  strongest model.
+- A `root model` check in `doctor.mjs`. It warns when the model differs from the recommended
+  one, when `CLAUDE_CODE_EFFORT_LEVEL` is set (it overrides the `effort:` line in every agent
+  file), and when `CLAUDE_CODE_SUBAGENT_MODEL` or `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` is set
+  (either overrides `model:` in every agent file, collapsing Opus workers and a Fable
+  reviewer into one model). `install.mjs` warns about `CLAUDE_CODE_EFFORT_LEVEL` too.
+  `CLAUDE_CODE_DISABLE_ADVISOR_TOOL=1` stays in the recommended env.
+
+### Removed
+- The context-mode integration: the installer's two env keys, the doctor's check, and the
+  README section. Its instruction to use `sed` and heredocs instead of `Read`, `Edit` and
+  `Write` routes file writes around the `Edit|Write|MultiEdit` tools, so `comment-ratio.mjs`
+  and the file half of `orchestrator-gate.mjs` never see them. Installing the plugin yourself
+  still works; nothing here depends on it either way.
+
+### Changed
+- The topology follows [donvito/codex-astra-luna-orchestrator](https://github.com/donvito/codex-astra-luna-orchestrator),
+  which does the same for Codex. One deliberate divergence: upstream reviews with its weakest
+  model on low reasoning in a read-only sandbox, and the reviewer here is Fable, because a
+  verdict is where capability pays for itself.
+- `review-tier.mjs` routes `medium` and `high` to a fresh `reviewer` spawn instead of an
+  advisor consult. `xhigh` still routes to `/merge-readiness`; the tiers themselves are
+  unchanged.
+- The `grilling`, `merge-readiness` and `systematic-debugging` skills now name the
+  delegation contract, the `reviewer` role and the root's re-decide instead of the advisor.
+
 ## v1.10.0 — 2026-09-05
 
 ### Fixed
