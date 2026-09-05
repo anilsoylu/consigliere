@@ -516,6 +516,23 @@ test('warns when either subagent model key overrides the agent files', () => {
   assert.equal(check(run(home, makeRepoFixture()), 'root model').level, 'warn', 'settings.env counts too');
 });
 
+// A teammate spawn appends the agent file to the default prompt instead of replacing it and
+// inherits the root's effort; the fresh context and the per-role effort both need it off.
+test('warns when the agent teams flag is set, and stays quiet when it is not', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+
+  const warned = check(run(home, makeRepoFixture(), { CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1' }), 'root model');
+
+  assert.equal(warned.level, 'warn');
+  assert.match(warned.detail, /CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS/);
+
+  const quiet = check(run(home, makeRepoFixture()), 'root model');
+
+  assert.equal(quiet.level, 'pass');
+  assert.doesNotMatch(quiet.detail, /CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS/);
+});
+
 // Claude Code writes settings.env over the shell, so an empty value there is how you
 // unset a stale export. Reading the shell first reported an override that is not live.
 test('lets settings.env override the shell for the force flag', () => {

@@ -255,7 +255,8 @@ export function runChecks(options = {}) {
   const settingsEnv = isObject(cfg.env) ? cfg.env : {};
   const value = (k) => settingsEnv[k] ?? shellEnv[k];
   // "0" must not read as disabled — that silences the warning in the case it exists for.
-  const advisorToolOff = /^(1|true|yes|on)$/i.test(value('CLAUDE_CODE_DISABLE_ADVISOR_TOOL') || '');
+  const truthy = (key) => /^(1|true|yes|on)$/i.test(value(key) || '');
+  const advisorToolOff = truthy('CLAUDE_CODE_DISABLE_ADVISOR_TOOL');
   const rootProblems = [];
   if (cfg.model !== RECOMMENDED_SETTINGS.model) {
     rootProblems.push(`model is ${cfg.model ? `"${cfg.model}"` : 'unset'}, but the root only decides and delegates, which is worth doing at ${RECOMMENDED_SETTINGS.model}. Set it in settings.json or with /model`);
@@ -265,6 +266,9 @@ export function runChecks(options = {}) {
   }
   for (const key of ['CLAUDE_CODE_SUBAGENT_MODEL', 'CLAUDE_CODE_SUBAGENT_MODEL_FORCE']) {
     if (value(key)) rootProblems.push(`${key} is set and overrides the model: line in every agent file. Unset it`);
+  }
+  if (truthy('CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS')) {
+    rootProblems.push('CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS makes a named subagent a teammate: its agent file is appended to the default system prompt instead of replacing it, and it inherits the root\'s effort. The reviewer\'s fresh context and the per-role effort: lines both depend on the flag being off. Unset it, or set it to "" in settings.env');
   }
   if (cfg.advisorModel && !advisorToolOff) {
     rootProblems.push(`advisorModel is "${cfg.advisorModel}", so Claude Code's built-in advisor tool runs alongside this topology: each consult is paid twice and it re-reads the whole transcript uncached on every call. Run /advisor off, or set CLAUDE_CODE_DISABLE_ADVISOR_TOOL=1`);
