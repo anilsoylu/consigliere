@@ -10,10 +10,13 @@ reconstructed from the tag history.
 - The handoff gate is per task and per PR, not per session. `handoff-<sid>.flag` was written
   once and never cleared, so the first `/clean` of a session opened the gate for every PR
   after it — a live transcript shows nine consecutive PRs opened on one chain. It is now
-  cleared on any prompt that is not a short approval, and again once `gh pr create` returns.
+  cleared on any prompt that is neither a short approval nor a subagent notification, and
+  again once `gh pr create` returns with `exit_code` 0 — a create that failed on auth or a
+  missing remote keeps the chain that prepared it.
 - `plan-capture.mjs` creates `plans/` instead of standing down when it is absent. Requiring
   the directory first meant a repo that had not opted in lost its plans in silence, which is
-  how the plan for this hook was itself dropped.
+  how the plan for this hook was itself dropped. The directory is created only once a plan is
+  in hand, so an ExitPlanMode with nothing to capture leaves the tree unchanged.
 
 ### Added
 - Four `Bash` denies in `git-discipline.mjs`, each naming the rewrite that clears it: a bare
@@ -24,8 +27,12 @@ reconstructed from the tag history.
 - `git-discipline.mjs` re-states the workflow rules on `SessionStart` when `source` is
   `compact` or `resume` — the two moments the conversation is rebuilt from a summary, and the
   reported cause of the loop losing them mid-session.
-- `hooks/approval.mjs`, one definition of "a short approval, not a new task", shared by the
-  advisor gate and the handoff gate so they cannot re-arm on different turns.
+- `hooks/approval.mjs`, one definition each of "a short approval" and "a subagent
+  notification", shared by the advisor gate and the handoff gate so they cannot re-arm on
+  different turns.
+
+This repo gitignores its own `plans/`: the captures here are the hook's output under test,
+not source. `improve` expects them committed everywhere else.
 
 ## v1.9.0 — 2026-09-05
 

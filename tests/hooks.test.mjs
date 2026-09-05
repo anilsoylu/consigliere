@@ -513,6 +513,24 @@ test('a new task prompt re-arms the handoff gate, an approval does not', () => {
   assert.match(denyReason(envHook(DISCIPLINE, pr, cfg)), /HANDOFF GATE/, 'a new task re-arms');
 });
 
+// The rules put the full suite in the background before a handoff, so its notification lands
+// between /clean and gh pr create. Re-arming on it would deny the PR its own chain prepared.
+test('a subagent notification does not re-arm the handoff gate', () => {
+  const cfg = cfgFixture();
+  const pr = (sid) => bash(sid, repo('feat/x'), 'gh pr create --fill');
+  const shapes = [
+    '[SYSTEM NOTIFICATION - NOT USER INPUT] the background job exited',
+    '<task-notification>\n<task-id>bubvqt1pj</task-id>\n<status>completed</status>\n</task-notification>',
+    '<agent-message teammate_id="advisor" from="advisor">SHIP</agent-message>',
+  ];
+  for (const prompt of shapes) {
+    const sid = session(`handoff-notify-${shapes.indexOf(prompt)}`);
+    envHook(DISCIPLINE, { session_id: sid, prompt: '/clean' }, cfg);
+    envHook(DISCIPLINE, { session_id: sid, prompt }, cfg);
+    assert.equal(envHook(DISCIPLINE, pr(sid), cfg), '', prompt.slice(0, 24));
+  }
+});
+
 // One chain per PR. Cleared on the Post event so a denied or failed create keeps the chain.
 test('the handoff gate re-arms once the PR has actually opened', () => {
   const cfg = cfgFixture();
@@ -520,6 +538,8 @@ test('the handoff gate re-arms once the PR has actually opened', () => {
   const pr = bash(sid, repo('feat/x'), 'gh pr create --fill');
   envHook(DISCIPLINE, { session_id: sid, prompt: '/clean' }, cfg);
   assert.equal(envHook(DISCIPLINE, pr, cfg), '');
+  envHook(DISCIPLINE, { ...pr, hook_event_name: 'PostToolUse', tool_response: { exit_code: 1 } }, cfg);
+  assert.equal(envHook(DISCIPLINE, pr, cfg), '', 'a create that failed keeps the chain');
   envHook(DISCIPLINE, { ...pr, hook_event_name: 'PostToolUse' }, cfg);
   assert.match(denyReason(envHook(DISCIPLINE, pr, cfg)), /HANDOFF GATE/);
 });
@@ -710,6 +730,14 @@ test('a repo with no plans/ gets one', () => {
   const f = planFixture({ target: null });
   capture({ cwd: f.repo, transcript_path: transcript(f.dir, [attachment(f.plan)]) });
   assert.deepEqual(f.plans(), ['001-inherited-kitten.md']);
+  assert.deepEqual(fs.readdirSync(f.repo).sort(), ['.git', 'plans']);
+});
+
+test('advisor-plans/ alone is enough; plans/ is not created beside it', () => {
+  const f = planFixture({ target: 'advisor-plans' });
+  capture({ cwd: f.repo, transcript_path: transcript(f.dir, [attachment(f.plan)]) });
+  assert.deepEqual(f.plans('advisor-plans'), ['001-inherited-kitten.md']);
+  assert.deepEqual(fs.readdirSync(f.repo).sort(), ['.git', 'advisor-plans']);
 });
 
 // Outside a repo there is no root to create anything at, so the walk must give up rather
@@ -753,15 +781,18 @@ test('a hook that cannot capture stays silent', () => {
     'transcript unreadable': (f) => ({ cwd: f.repo, transcript_path: path.join(f.dir, 'missing.jsonl') }),
     'not a repo': (f) => ({ cwd: f.dir, transcript_path: transcript(f.dir, [attachment(f.plan)]) }),
   };
+  // target: null throughout, so the assertion is that the tree is byte-for-byte unchanged —
+  // the directory is created at write time, not when the walk finds a root.
   for (const [name, build] of Object.entries(cases)) {
-    const f = planFixture();
+    const f = planFixture({ target: null });
     capture(build(f));
-    assert.equal(fs.readdirSync(f.captured()).length, 0, name);
+    assert.deepEqual(fs.readdirSync(f.repo), ['.git'], name);
   }
   // A repo where `plans` is a regular file: the gate must reject it, not crash on readdir.
   const f = planFixture({ target: null });
   fs.writeFileSync(path.join(f.repo, 'plans'), 'not a directory\n');
   capture({ cwd: f.repo, transcript_path: transcript(f.dir, [attachment(f.plan)]) });
   assert.deepEqual(fs.readdirSync(f.repo).sort(), ['.git', 'plans']);
+  assert.equal(fs.readFileSync(path.join(f.repo, 'plans'), 'utf8'), 'not a directory\n');
 });
 

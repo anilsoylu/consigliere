@@ -16,13 +16,14 @@ import path from 'node:path';
 let payload = {};
 try { payload = JSON.parse(fs.readFileSync(0, 'utf8')); } catch { process.exit(0); }
 
+// Names the directory, never creates it: the caller does that only once a plan is in hand,
+// so a session that exits plan mode with nothing to capture leaves no empty plans/ behind.
 // advisor-plans/ wins, which is /improve's own answer for a repo whose plans/ already means
-// something else; otherwise plans/ is created. Requiring the directory up front was the
-// earlier design and it failed the obvious way — the plan for this very hook was dropped in
-// silence, and nobody learns about a capture that never happened. Walked up from cwd rather
-// than trusting it: plan mode often starts in a package dir, and cwd alone would scatter
-// plans across a monorepo. A worktree's .git is a file, so existence is the test, not
-// isDirectory. Outside a repo there is no root to write to, so nothing is created.
+// something else. Requiring the directory to pre-exist was the earlier design and it failed
+// the obvious way — the plan for this very hook was dropped in silence, and nobody learns
+// about a capture that never happened. Walked up from cwd rather than trusting it: plan mode
+// often starts in a package dir, and cwd alone would scatter plans across a monorepo. A
+// worktree's .git is a file, so existence is the test, not isDirectory.
 function targetDir(from) {
   let dir = path.resolve(from || process.cwd());
   for (;;) {
@@ -30,14 +31,7 @@ function targetDir(from) {
       const found = ['advisor-plans', 'plans']
         .map((name) => path.join(dir, name))
         .find((candidate) => fs.statSync(candidate, { throwIfNoEntry: false })?.isDirectory());
-      if (found) return found;
-      const made = path.join(dir, 'plans');
-      // A regular file named `plans` lands here as EEXIST, same as an unwritable root.
-      try { fs.mkdirSync(made, { recursive: true }); } catch (error) {
-        console.error(`[consigliere] plan-capture: cannot create ${made}: ${error.message}`);
-        return null;
-      }
-      return made;
+      return found ?? path.join(dir, 'plans');
     }
     const up = path.dirname(dir);
     if (up === dir) return null;
@@ -112,6 +106,13 @@ const src = planFile(payload.transcript_path);
 if (!src) process.exit(0);
 let text;
 try { text = fs.readFileSync(src, 'utf8'); } catch { process.exit(0); }
+
+// Only now, with the plan read: every branch above leaves the tree byte-for-byte unchanged.
+// `recursive` is what makes an existing directory pass; a regular file named `plans` throws.
+try { fs.mkdirSync(dir, { recursive: true }); } catch (error) {
+  console.error(`[consigliere] plan-capture: cannot create ${dir}: ${error.message}`);
+  process.exit(0);
+}
 
 const number = nextNumber(dir);
 // The trailing strip catches a model that numbered the title itself; only the hook can

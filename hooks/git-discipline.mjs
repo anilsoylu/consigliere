@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// PreToolUse(Bash|Skill) + UserPromptSubmit: enforce the git rules of rules/workflow.md
-// at the three moments they are machine-visible — a commit on main/master, a
-// non-conventional subject, and a PR opened without the /clean → review → /pr-update
-// handoff. The prose alone did not hold; a rule with no detectable moment gets sampled,
-// not obeyed.
+// PreToolUse(Bash|Skill) + PostToolUse(Bash) + UserPromptSubmit + SessionStart: enforce the
+// rules of rules/workflow.md at the moments they are machine-visible — a commit on
+// main/master, a non-conventional subject, a bare --force, a poll, a filtered verifier, and a
+// PR opened without the /clean → review → /pr-update handoff. The prose alone did not hold; a
+// rule with no detectable moment gets sampled, not obeyed.
 //
 // Self-gated on ~/.claude/rules/workflow.md: a default install (no --with-workflow)
 // never ships that rule, so this hook stays silent rather than enforcing a doctrine
@@ -16,7 +16,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { cfgDir } from './config-dir.mjs';
-import { isApproval } from './approval.mjs';
+import { isApproval, isNotification } from './approval.mjs';
 
 let payload = {};
 try { payload = JSON.parse(fs.readFileSync(0, 'utf8')); } catch { process.exit(0); }
@@ -43,8 +43,8 @@ const mark = () => {
 };
 
 // Compaction and resume rebuild the conversation from a summary, and the workflow rules are
-// what the summary drops first — the reported failure is precisely "uzun konuşmalardan sonra
-// sapıtıyor". startup and clear already read the rule file, so re-stating there is noise.
+// what a summary drops first — the reported failure is the loop drifting after a long
+// session. startup and clear already read the rule file, so re-stating there is noise.
 if (payload.hook_event_name === 'SessionStart') {
   if ((payload.source === 'compact' || payload.source === 'resume')
     && fs.existsSync(path.join(cfgDir(), 'rules', 'workflow.md'))) {
@@ -74,20 +74,20 @@ if (payload.tool_name === 'Skill') {
   process.exit(0);
 }
 if (typeof payload.prompt === 'string' && payload.prompt !== '') {
-  // The gate is per task, not per session. Without this the first /clean of a long session
-  // opened it for every PR that followed — nine of them, in the transcript that prompted this.
-  // Clearing before the chain test keeps a prompt that IS /clean marked.
-  if (!isApproval(payload.prompt.trim())) clear();
+  // Per task, not per session: one /clean used to open the gate for every PR that followed.
+  // A notification is not a new task — the backgrounded full-suite run lands here too.
+  if (!isNotification(payload.prompt) && !isApproval(payload.prompt)) clear();
   const typed = new RegExp(`(?:<command-name>|^\\s*)/(?:${CHAIN.join('|')})\\b`);
   if (typed.test(payload.prompt)) mark();
   process.exit(0);
 }
 
-// Per PR, not per prompt: the chain that opened this one does not cover the next. Cleared on
-// the Post event rather than the Pre one so a denied or failed create does not consume it.
+// Per PR, not per prompt: the chain that opened this one does not cover the next. On the Post
+// event rather than the Pre one so a denied create does not consume the chain, and on
+// exit_code so a create that failed on auth or a missing remote can be retried.
 if (payload.hook_event_name === 'PostToolUse') {
   const ran = (payload.tool_name === 'Bash' && payload.tool_input?.command) || '';
-  if (PR_CREATE.test(ran)) clear();
+  if (PR_CREATE.test(ran) && Number(payload.tool_response?.exit_code ?? 0) === 0) clear();
   process.exit(0);
 }
 

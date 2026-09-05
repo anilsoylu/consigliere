@@ -2,6 +2,5 @@
 *.consigliere-uninstall.bak
 .DS_Store
 node_modules/
-# This repo's own plan-mode captures. plan-capture.mjs is the product here, so its output
-# in this tree is a test artifact, not source.
+# plan-capture.mjs output under test, not source.
 plans/
