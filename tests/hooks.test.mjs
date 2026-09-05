@@ -601,6 +601,25 @@ test('an existing index gets the row, and nothing else changes', () => {
   assert.ok(f.index().includes('## Notes\n\nkeep me\n'));
 });
 
+// The two branches the row falls back through, and a title that would splice itself in as
+// a string replacement pattern.
+test('a plan without a Status block, and an index without a table', () => {
+  const f = planFixture();
+  fs.writeFileSync(f.plan, '# Cut $& $$ spend\n\nbody\n');
+  fs.writeFileSync(path.join(f.captured(), 'README.md'), '# Plans\n\nno table here\n');
+  capture({ cwd: f.repo, transcript_path: transcript(f.dir, [attachment(f.plan)]) });
+  assert.deepEqual(f.plans(), ['001-inherited-kitten.md']);
+  assert.match(fs.readFileSync(path.join(f.captured(), '001-inherited-kitten.md'), 'utf8'),
+    /^# Plan 001: Cut \$& \$\$ spend$/m);
+  assert.equal(f.index(), '# Plans\n\nno table here\n');
+});
+
+test('an index the hook creates carries the status vocabulary', () => {
+  const f = planFixture();
+  capture({ cwd: f.repo, transcript_path: transcript(f.dir, [attachment(f.plan)]) });
+  assert.match(f.index(), /^Status values: TODO \| IN PROGRESS \| DONE \|/m);
+});
+
 // /improve's own escape hatch for a repo whose plans/ already means something else.
 test('advisor-plans/ wins over plans/', () => {
   const f = planFixture({ target: ['plans', 'advisor-plans'] });
@@ -654,4 +673,10 @@ test('a hook that cannot capture stays silent', () => {
     capture(build(f));
     assert.equal(fs.readdirSync(f.captured()).length, 0, name);
   }
+  // A repo where `plans` is a regular file: the gate must reject it, not crash on readdir.
+  const f = planFixture({ target: null });
+  fs.writeFileSync(path.join(f.repo, 'plans'), 'not a directory\n');
+  capture({ cwd: f.repo, transcript_path: transcript(f.dir, [attachment(f.plan)]) });
+  assert.deepEqual(fs.readdirSync(f.repo).sort(), ['.git', 'plans']);
 });
+

@@ -27,7 +27,7 @@ function targetDir(from) {
     if (fs.existsSync(path.join(dir, '.git'))) {
       const found = ['advisor-plans', 'plans']
         .map((name) => path.join(dir, name))
-        .find((candidate) => fs.existsSync(candidate));
+        .find((candidate) => fs.statSync(candidate, { throwIfNoEntry: false })?.isDirectory());
       return found ?? null;
     }
     const up = path.dirname(dir);
@@ -54,7 +54,7 @@ function planFile(transcript) {
 }
 
 // Appending is the only order a hook can know: the plan just approved is the next thing to
-// run. /improve's reconcile renumbers when the order turns out otherwise.
+// run.
 function nextNumber(dir) {
   const highest = fs.readdirSync(dir)
     .reduce((max, name) => Math.max(max, Number(name.match(/^(\d+)-/)?.[1] ?? 0)), 0);
@@ -75,12 +75,15 @@ fully before starting, honor its STOP conditions, and update your row when done.
 |------|-------|----------|--------|------------|--------|
 `;
 
+const LEGEND = '\nStatus values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason)'
+  + ' | REJECTED (with one-line rationale)\n';
+
 // Without a row there is no status, and reconcile iterates the index by status — an
 // unindexed plan is one /improve never picks up.
 function addRow(dir, row) {
   const file = path.join(dir, 'README.md');
   if (!fs.existsSync(file)) {
-    fs.writeFileSync(file, `${HEADER + row}\n`);
+    fs.writeFileSync(file, `${HEADER + row}\n${LEGEND}`);
     return;
   }
   const lines = fs.readFileSync(file, 'utf8').split('\n');
@@ -102,12 +105,15 @@ let text;
 try { text = fs.readFileSync(src, 'utf8'); } catch { process.exit(0); }
 
 const number = nextNumber(dir);
-const title = text.match(/^# +(.+)$/m)?.[1].trim() ?? path.basename(src, '.md');
+// The trailing strip catches a model that numbered the title itself; only the hook can
+// know the number, so its own is the one that stands.
+const title = (text.match(/^# +(.+)$/m)?.[1].trim() ?? path.basename(src, '.md'))
+  .replace(/^Plan \d+: */, '');
 const dest = path.join(dir, `${number}-${path.basename(src)}`);
 try {
   // wx, never overwrite: a re-plan in the same session reuses the slug, and the point is
-  // to keep both plans.
-  fs.writeFileSync(dest, text.replace(/^# +.+$/m, `# Plan ${number}: ${title}`), { flag: 'wx' });
+  // to keep both plans. Function replacer, or a `$&` in the title would splice.
+  fs.writeFileSync(dest, text.replace(/^# +.+$/m, () => `# Plan ${number}: ${title}`), { flag: 'wx' });
 } catch (error) {
   console.error(`[consigliere] plan-capture: cannot write ${dest}: ${error.message}`);
   process.exit(0);
