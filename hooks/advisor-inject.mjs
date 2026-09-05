@@ -20,7 +20,7 @@ const prompt = (payload.prompt || '').trim();
 // flag inside a catch, so it would fail there in silence and deny every source edit forever.
 const flag = path.join(os.tmpdir(), `advisor-gate-${sid}.flag`);
 
-// Exiting 0 also suppresses the directive, which was being reprinted once per notification.
+// Exiting 0 suppresses the directive too, which was reprinted once per notification before.
 if (isNotification(prompt)) process.exit(0);
 
 if (!isApproval(prompt)) {

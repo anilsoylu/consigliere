@@ -19,11 +19,9 @@ try { payload = JSON.parse(fs.readFileSync(0, 'utf8')); } catch { process.exit(0
 // Names the directory, never creates it: the caller does that only once a plan is in hand,
 // so a session that exits plan mode with nothing to capture leaves no empty plans/ behind.
 // advisor-plans/ wins, which is /improve's own answer for a repo whose plans/ already means
-// something else. Requiring the directory to pre-exist was the earlier design and it failed
-// the obvious way — the plan for this very hook was dropped in silence, and nobody learns
-// about a capture that never happened. Walked up from cwd rather than trusting it: plan mode
-// often starts in a package dir, and cwd alone would scatter plans across a monorepo. A
-// worktree's .git is a file, so existence is the test, not isDirectory.
+// something else. Walked up from cwd rather than trusting it: plan mode often starts in a
+// package dir, and cwd alone would scatter plans across a monorepo. A worktree's .git is a
+// file, so existence is the test, not isDirectory.
 function targetDir(from) {
   let dir = path.resolve(from || process.cwd());
   for (;;) {

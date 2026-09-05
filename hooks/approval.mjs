@@ -1,5 +1,5 @@
-// The two prompt shapes both re-arming gates (advisor-inject, git-discipline) must agree on.
-// Split definitions would re-arm them on different turns.
+// The two prompt shapes both re-arming gates (advisor-inject, git-discipline) must agree on:
+// split definitions would re-arm them on different turns.
 
 // The cap stays tight because a wrong reset costs one re-consult, while a wrong keep lets
 // unconsulted work through silently.
