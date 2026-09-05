@@ -16,11 +16,13 @@ import path from 'node:path';
 let payload = {};
 try { payload = JSON.parse(fs.readFileSync(0, 'utf8')); } catch { process.exit(0); }
 
-// The directory is the opt-in — this hook writes into your working tree, so it stays inert
-// until you make the target once. advisor-plans/ wins, which is /improve's own answer for a
-// repo whose plans/ already means something else. Walked up from cwd rather than trusting
-// it: plan mode often starts in a package dir, and cwd alone would scatter plans across a
-// monorepo. A worktree's .git is a file, so existence is the test, not isDirectory.
+// advisor-plans/ wins, which is /improve's own answer for a repo whose plans/ already means
+// something else; otherwise plans/ is created. Requiring the directory up front was the
+// earlier design and it failed the obvious way — the plan for this very hook was dropped in
+// silence, and nobody learns about a capture that never happened. Walked up from cwd rather
+// than trusting it: plan mode often starts in a package dir, and cwd alone would scatter
+// plans across a monorepo. A worktree's .git is a file, so existence is the test, not
+// isDirectory. Outside a repo there is no root to write to, so nothing is created.
 function targetDir(from) {
   let dir = path.resolve(from || process.cwd());
   for (;;) {
@@ -28,7 +30,14 @@ function targetDir(from) {
       const found = ['advisor-plans', 'plans']
         .map((name) => path.join(dir, name))
         .find((candidate) => fs.statSync(candidate, { throwIfNoEntry: false })?.isDirectory());
-      return found ?? null;
+      if (found) return found;
+      const made = path.join(dir, 'plans');
+      // A regular file named `plans` lands here as EEXIST, same as an unwritable root.
+      try { fs.mkdirSync(made, { recursive: true }); } catch (error) {
+        console.error(`[consigliere] plan-capture: cannot create ${made}: ${error.message}`);
+        return null;
+      }
+      return made;
     }
     const up = path.dirname(dir);
     if (up === dir) return null;
