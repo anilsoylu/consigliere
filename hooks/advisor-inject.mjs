@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { cfgDir } from './config-dir.mjs';
+import { isApproval, isNotification } from './approval.mjs';
 const CFG = cfgDir();
 
 let payload = {};
@@ -19,22 +20,10 @@ const prompt = (payload.prompt || '').trim();
 // flag inside a catch, so it would fail there in silence and deny every source edit forever.
 const flag = path.join(os.tmpdir(), `advisor-gate-${sid}.flag`);
 
-// A background subagent finishing arrives here through the same event as real user input.
-// Every Agent call is asynchronous in this harness, so resetting on one would delete the flag
-// the advisor call itself just set — the gate could never be satisfied. Exiting 0 also
-// suppresses the directive, which was being reprinted once per notification.
-// A NAMED subagent returns as <agent-message>, and the doctrine names the advisor.
-// Each tag is paired with a sibling token so a user quoting one while debugging still counts
-// as a task; `from` ignores attribute order, since an unmatched shape is how this broke.
-if (/^\[SYSTEM NOTIFICATION - NOT USER INPUT\]/.test(prompt) || /^<task-notification>\s*<task-id>/.test(prompt)
-  || /^<agent-message [^>]*from="/.test(prompt)) process.exit(0);
+// Exiting 0 suppresses the directive too, which was reprinted once per notification before.
+if (isNotification(prompt)) process.exit(0);
 
-// The cap stays tight because the two errors are not symmetric: a wrong reset costs one
-// re-consult, a wrong keep lets unconsulted code through and says nothing.
-const isApproval =
-  prompt.length <= 24 &&
-  /^(onayl|onay|evet|devam|tamam|olur|approve|ok\b|okay\b|go\b|yes\b|proceed)/i.test(prompt);
-if (!isApproval) {
+if (!isApproval(prompt)) {
   // `force` already absorbs a missing file, so anything landing here is a real failure
   // that leaves a stale flag waving every source edit of the next task straight through.
   try { fs.rmSync(flag, { force: true }); }

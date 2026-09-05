@@ -499,6 +499,103 @@ test('handoff gate stands down when the clean skill is not installed', () => {
   assert.equal(envHook(DISCIPLINE, bash(session('handoff-noskill'), repo('feat/x'), 'gh pr create --fill'), cfg), '');
 });
 
+// The bug this covers: the flag was written once and never cleared, so the first /clean of a
+// session opened the gate for every PR after it — nine, in the transcript that prompted this.
+test('a new task prompt re-arms the handoff gate, an approval does not', () => {
+  const cfg = cfgFixture();
+  const sid = session('handoff-rearm');
+  const pr = bash(sid, repo('feat/x'), 'gh pr create --fill');
+  envHook(DISCIPLINE, { session_id: sid, prompt: '/clean' }, cfg);
+  assert.equal(envHook(DISCIPLINE, pr, cfg), '', 'the chain opened it');
+  envHook(DISCIPLINE, { session_id: sid, prompt: '  devam \n' }, cfg);
+  assert.equal(envHook(DISCIPLINE, pr, cfg), '', 'an approval continues the same task, padding included');
+  envHook(DISCIPLINE, { session_id: sid, prompt: 'now add the export button to the toolbar' }, cfg);
+  assert.match(denyReason(envHook(DISCIPLINE, pr, cfg)), /HANDOFF GATE/, 'a new task re-arms');
+});
+
+// The rules put the full suite in the background before a handoff, so its notification lands
+// between /clean and gh pr create. Re-arming on it would deny the PR its own chain prepared.
+test('a subagent notification does not re-arm the handoff gate', () => {
+  const cfg = cfgFixture();
+  const pr = (sid) => bash(sid, repo('feat/x'), 'gh pr create --fill');
+  const shapes = [
+    '[SYSTEM NOTIFICATION - NOT USER INPUT] the background job exited',
+    '<task-notification>\n<task-id>bubvqt1pj</task-id>\n<status>completed</status>\n</task-notification>',
+    '<agent-message teammate_id="advisor" from="advisor">SHIP</agent-message>',
+  ];
+  for (const prompt of shapes) {
+    const sid = session(`handoff-notify-${shapes.indexOf(prompt)}`);
+    envHook(DISCIPLINE, { session_id: sid, prompt: '/clean' }, cfg);
+    envHook(DISCIPLINE, { session_id: sid, prompt }, cfg);
+    assert.equal(envHook(DISCIPLINE, pr(sid), cfg), '', prompt.slice(0, 24));
+  }
+});
+
+// One chain per PR. Cleared on the Post event so a denied or failed create keeps the chain.
+test('the handoff gate re-arms once the PR has actually opened', () => {
+  const cfg = cfgFixture();
+  const sid = session('handoff-perpr');
+  const pr = bash(sid, repo('feat/x'), 'gh pr create --fill');
+  envHook(DISCIPLINE, { session_id: sid, prompt: '/clean' }, cfg);
+  assert.equal(envHook(DISCIPLINE, pr, cfg), '');
+  envHook(DISCIPLINE, { ...pr, hook_event_name: 'PostToolUse', tool_response: { exit_code: 1 } }, cfg);
+  assert.equal(envHook(DISCIPLINE, pr, cfg), '', 'a create that failed keeps the chain');
+  envHook(DISCIPLINE, { ...pr, hook_event_name: 'PostToolUse' }, cfg);
+  assert.match(denyReason(envHook(DISCIPLINE, pr, cfg)), /HANDOFF GATE/);
+});
+
+test('force gate denies a bare --force and passes the leased forms', () => {
+  const cfg = cfgFixture();
+  const feat = repo('feat/x');
+  const run = (n, c) => envHook(DISCIPLINE, bash(session(`force-${n}`), feat, c), cfg);
+  assert.match(denyReason(run('bare', 'git push --force origin feat/x')), /FORCE GATE/);
+  assert.match(denyReason(run('short', 'git push -f origin feat/x')), /FORCE GATE/);
+  assert.match(denyReason(run('cluster', 'git push -uf origin feat/x')), /FORCE GATE/);
+  assert.equal(run('lease', 'git push --force-with-lease origin feat/x'), '');
+  assert.equal(run('includes', 'git push --force-if-includes origin feat/x'), '');
+  assert.equal(run('plain', 'git push -u origin feat/x'), '');
+});
+
+test('wait gate denies sleep polling and an inflated timeout', () => {
+  const cfg = cfgFixture();
+  const feat = repo('feat/x');
+  const run = (n, c, extra) => envHook(DISCIPLINE,
+    { ...bash(session(`wait-${n}`), feat, c), tool_input: { command: c, ...extra } }, cfg);
+  assert.match(denyReason(run('sleep', 'sleep 30 && cat /tmp/out.log')), /WAIT GATE/);
+  assert.match(denyReason(run('timeout', 'npm run build', { timeout: 600000 })), /WAIT GATE/);
+  assert.equal(run('default', 'npm run build', { timeout: 120000 }), '');
+  assert.equal(run('nan', 'npm run build', { timeout: 'later' }), '');
+  assert.equal(run('word', 'echo "sleep on it"'), '', 'sleep inside a quoted string is prose');
+});
+
+test('verifier gate denies a filtered verifier and leaves other pipelines alone', () => {
+  const cfg = cfgFixture();
+  const feat = repo('feat/x');
+  const run = (n, c) => envHook(DISCIPLINE, bash(session(`filter-${n}`), feat, c), cfg);
+  assert.match(denyReason(run('npm', 'npm test | tail -20')), /VERIFIER GATE/);
+  assert.match(denyReason(run('npx', 'npx jest src/ | grep -i fail')), /VERIFIER GATE/);
+  assert.match(denyReason(run('node', 'node --test tests/hooks.test.mjs | head -40')), /VERIFIER GATE/);
+  assert.equal(run('redirect', 'npm test > /tmp/t.log 2>&1; echo "exit=$?"'), '');
+  // A verifier and an unrelated filter in one command are two segments, not a filtered run.
+  assert.equal(run('split', 'npm test > /tmp/t.log 2>&1; git log --oneline | head -5'), '');
+  assert.equal(run('other', 'gh pr view 12 | tail -5'), '', 'gh is not a verifier');
+});
+
+// The reported failure is that the rules go missing after a long conversation, and compact
+// and resume are the two events that rebuild one from a summary.
+test('session start re-states the rules only where the context was rebuilt', () => {
+  const cfg = cfgFixture();
+  const start = (source) => envHook(DISCIPLINE, { hook_event_name: 'SessionStart', source }, cfg);
+  for (const source of ['compact', 'resume']) {
+    const out = JSON.parse(start(source)).hookSpecificOutput;
+    assert.equal(out.hookEventName, 'SessionStart', source);
+    assert.match(out.additionalContext, /\/clean → review → \/pr-update/, source);
+  }
+  for (const source of ['startup', 'clear']) assert.equal(start(source), '', source);
+  assert.equal(envHook(DISCIPLINE, { hook_event_name: 'SessionStart', source: 'compact' },
+    cfgFixture({ workflow: false })), '', 'still self-gated on the rule it re-states');
+});
+
 const ratio = (cfg, file, tool_input) => envHook(RATIO, { tool_input: { file_path: file, ...tool_input } }, cfg);
 const HEAVY = '// what this does\n// and how\n// and when\nconst x = 1;\nconst y = 2;\n';
 
@@ -628,12 +725,28 @@ test('advisor-plans/ wins over plans/', () => {
   assert.deepEqual(f.plans(), []);
 });
 
-// The gate. This is the only hook that writes into a working tree, so a repo that never
-// opted in must come out of an approval byte-for-byte unchanged.
-test('no plans/ means no file and no directory', () => {
+// Requiring the directory up front was the earlier design, and it dropped plans in silence.
+test('a repo with no plans/ gets one', () => {
   const f = planFixture({ target: null });
   capture({ cwd: f.repo, transcript_path: transcript(f.dir, [attachment(f.plan)]) });
-  assert.deepEqual(fs.readdirSync(f.repo), ['.git']);
+  assert.deepEqual(f.plans(), ['001-inherited-kitten.md']);
+  assert.deepEqual(fs.readdirSync(f.repo).sort(), ['.git', 'plans']);
+});
+
+test('advisor-plans/ alone is enough; plans/ is not created beside it', () => {
+  const f = planFixture({ target: 'advisor-plans' });
+  capture({ cwd: f.repo, transcript_path: transcript(f.dir, [attachment(f.plan)]) });
+  assert.deepEqual(f.plans('advisor-plans'), ['001-inherited-kitten.md']);
+  assert.deepEqual(fs.readdirSync(f.repo).sort(), ['.git', 'advisor-plans']);
+});
+
+// Outside a repo there is no root to create anything at, so the walk must give up rather
+// than dropping a plans/ wherever the session happened to start.
+test('no repo root means nothing is written', () => {
+  const f = planFixture({ target: null });
+  fs.rmSync(path.join(f.repo, '.git'), { recursive: true, force: true });
+  capture({ cwd: f.repo, transcript_path: transcript(f.dir, [attachment(f.plan)]) });
+  assert.deepEqual(fs.readdirSync(f.repo), []);
 });
 
 // Plan mode routinely starts in a package dir, and cwd alone would scatter plans through
@@ -668,15 +781,18 @@ test('a hook that cannot capture stays silent', () => {
     'transcript unreadable': (f) => ({ cwd: f.repo, transcript_path: path.join(f.dir, 'missing.jsonl') }),
     'not a repo': (f) => ({ cwd: f.dir, transcript_path: transcript(f.dir, [attachment(f.plan)]) }),
   };
+  // target: null throughout, so the assertion is that the tree is byte-for-byte unchanged —
+  // the directory is created at write time, not when the walk finds a root.
   for (const [name, build] of Object.entries(cases)) {
-    const f = planFixture();
+    const f = planFixture({ target: null });
     capture(build(f));
-    assert.equal(fs.readdirSync(f.captured()).length, 0, name);
+    assert.deepEqual(fs.readdirSync(f.repo), ['.git'], name);
   }
   // A repo where `plans` is a regular file: the gate must reject it, not crash on readdir.
   const f = planFixture({ target: null });
   fs.writeFileSync(path.join(f.repo, 'plans'), 'not a directory\n');
   capture({ cwd: f.repo, transcript_path: transcript(f.dir, [attachment(f.plan)]) });
   assert.deepEqual(fs.readdirSync(f.repo).sort(), ['.git', 'plans']);
+  assert.equal(fs.readFileSync(path.join(f.repo, 'plans'), 'utf8'), 'not a directory\n');
 });
 

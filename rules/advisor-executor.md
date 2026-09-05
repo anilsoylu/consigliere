@@ -134,10 +134,9 @@ Advisor unreachable → continue alone. Only planning is lost.
 
 `plan-capture.mjs` copies an approved plan-mode plan into `plans/` at the repo root — not at
 cwd, since plan mode often starts in a package directory — or into `advisor-plans/` when
-that exists instead. It numbers the file `NNN-<slug>.md` after the highest plan already
-there and adds its `TODO` row to the index. From then on it is an `/improve` plan:
-`reconcile` refreshes it, `execute` hands it off. The hook is inert until the directory
-exists.
+that exists instead. It creates `plans/` when absent. It numbers the file `NNN-<slug>.md`
+after the highest plan already there and adds its `TODO` row to the index. From then on it
+is an `/improve` plan: `reconcile` refreshes it, `execute` hands it off.
 
 Write the plan in `/improve`'s template sections, in order: a `#` title in the imperative
 (no number, the hook assigns it); the executor-instructions block with a drift check —

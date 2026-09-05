@@ -2,3 +2,5 @@
 *.consigliere-uninstall.bak
 .DS_Store
 node_modules/
+# plan-capture.mjs output under test, not source.
+plans/

@@ -6,13 +6,13 @@ import path from 'node:path';
 // Releases are `git tag v<VERSION>`; update-check.mjs and doctor.mjs both compare against
 // that tag list, so bumping this without tagging makes an installed copy look ahead of
 // upstream. Only vN.N.N sorts — the old `v1-sol` tag is deliberately unsortable.
-export const VERSION = '1.9.0';
+export const VERSION = '1.10.0';
 export const STATE_FILE = '.consigliere-state.json';
 
 export const HOOK_FILES = [
-  // First, and with no HOOK_ENTRIES line of its own: a module the hooks import rather than
-  // a hook, and copying it after them leaves an upgrade window where an import throws.
-  'config-dir.mjs',
+  // First, and with no HOOK_ENTRIES lines of their own: modules the hooks import rather than
+  // hooks, and copying them after their importers leaves an upgrade window where an import throws.
+  'config-dir.mjs', 'approval.mjs',
   'advisor-inject.mjs', 'advisor-mark.mjs', 'advisor-gate.mjs', 'commit-language.mjs',
   'update-check.mjs', 'review-tier.mjs', 'git-discipline.mjs', 'comment-ratio.mjs',
   'plan-capture.mjs',
@@ -134,14 +134,16 @@ export const CONTEXT_MODE = {
 // git-discipline and comment-ratio register unconditionally but self-gate at runtime on
 // the rule file they enforce (workflow.md / coding-discipline.md), so a default install
 // carries them inert rather than the installer growing per-flag entry bookkeeping.
-// plan-capture is the one hook that writes into your working tree, so its gate is the
-// consent: no `plans/` in the repo, no file ever appears.
+// plan-capture is the one hook that writes into your working tree: an approved plan-mode
+// plan lands in `plans/` at the repo root, which it creates when absent.
 export const HOOK_ENTRIES = [
   ['PreToolUse', 'Task|SendMessage', 'advisor-mark.mjs'],
   ['PreToolUse', 'Edit|Write|MultiEdit', 'advisor-gate.mjs'],
   ['PreToolUse', 'Bash', 'commit-language.mjs'],
   ['PreToolUse', 'Bash', 'git-discipline.mjs'],
   ['PreToolUse', 'Skill', 'git-discipline.mjs'],
+  ['PostToolUse', 'Bash', 'git-discipline.mjs'],
+  ['SessionStart', null, 'git-discipline.mjs'],
   ['UserPromptSubmit', null, 'advisor-inject.mjs'],
   ['UserPromptSubmit', null, 'git-discipline.mjs'],
   ['PostToolUse', 'Edit|Write|MultiEdit', 'comment-ratio.mjs'],
