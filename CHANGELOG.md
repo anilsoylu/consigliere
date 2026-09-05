@@ -4,6 +4,20 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
+## v1.9.0 — 2026-09-05
+
+### Changed
+- `plan-capture.mjs` now writes into `plans/` itself, not a `plans/plan-mode/` subdirectory,
+  and names the file `NNN-<slug>.md` after the highest plan already there. It appends the
+  plan's row to the status table in `plans/README.md`, creating that file from `improve`'s
+  template when absent. A repo whose `plans/` is already something else gets
+  `advisor-plans/`, the same escape hatch `improve` takes. Captures and `/improve` plans now
+  share one sequence and one index, so `reconcile` and `execute` treat them alike.
+- The `Plan mode` section of `rules/advisor-executor.md` follows: the plan carries the full
+  Status block, since the hook copies Priority, Effort and Depends on into the index row,
+  and the drift check comes back. Code excerpts and the commands table stay out, and the
+  session no longer writes the index row itself.
+
 ## v1.8.0 — 2026-09-05
 
 ### Added

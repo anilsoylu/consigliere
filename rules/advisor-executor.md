@@ -132,18 +132,25 @@ Advisor unreachable → continue alone. Only planning is lost.
 
 ## Plan mode
 
-`plans/plan-mode/` holds plans captured from plan mode by `plan-capture.mjs`. It does not
-make `plans/` an unrelated purpose for `/improve`, and `reconcile` does not index it.
+`plan-capture.mjs` copies an approved plan-mode plan into `plans/` at the repo root — not at
+cwd, since plan mode often starts in a package directory — or into `advisor-plans/` when
+that exists instead. It numbers the file `NNN-<slug>.md` after the highest plan already
+there and adds its `TODO` row to the index. From then on it is an `/improve` plan:
+`reconcile` refreshes it, `execute` hands it off. The hook is inert until the directory
+exists.
 
-When that directory exists at the repo root — not at cwd, since plan mode often starts in a
-package directory — write the plan file in these sections, in order: a `#` title in the
-imperative; `## Status`, carrying **Planned at** (short SHA) and nothing else, the one thing
-a later reader cannot reconstruct from the filename; `## Why this matters`; `## Scope`, in
-and out, a reason on every exclusion; `## Steps`, each naming exact files and symbols and
-ending `**Verify**: <command> → <expected output>`; `## Test plan`; `## Done criteria` as
-checkboxes a command settles, never a judgment; `## STOP conditions`; `## Maintenance notes`.
+Write the plan in `/improve`'s template sections, in order: a `#` title in the imperative
+(no number, the hook assigns it); the executor-instructions block with a drift check —
+`git diff --stat <planned-at SHA>..HEAD -- <in-scope paths>`, any output is a STOP;
+`## Status` with Priority, Effort, Risk, Depends on, Category and **Planned at** (short SHA,
+date), since the hook copies Priority, Effort and Depends on into the index row;
+`## Why this matters`; `## Current state` as the file list with one line per role, no code
+excerpts, since the plan was written against the live code and a copy goes stale;
+`## Scope`, in and out, a reason on every exclusion; `## Steps`, each naming exact files and
+symbols and ending `**Verify**: <command> → <expected output>`; `## Test plan`;
+`## Done criteria` as checkboxes a command settles, never a judgment; `## STOP conditions`;
+`## Maintenance notes`. No commands table, the Verify lines carry it.
 
-No code excerpts: plan mode read the files to write the plan, and the copy goes stale while
-the original does not. No commands table, the Verify lines carry them. No drift check and no
-plan number. No `plans/README.md` row — that file is `/improve`'s index, and this does not
-join it.
+Do not write the index row after approval; the hook already did. What plan mode already
+established — the code read, the design settled — is not re-audited on the way into
+`plans/`.
