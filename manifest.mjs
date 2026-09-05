@@ -6,7 +6,7 @@ import path from 'node:path';
 // Releases are `git tag v<VERSION>`; update-check.mjs and doctor.mjs both compare against
 // that tag list, so bumping this without tagging makes an installed copy look ahead of
 // upstream. Only vN.N.N sorts — the old `v1-sol` tag is deliberately unsortable.
-export const VERSION = '1.8.0';
+export const VERSION = '1.9.0';
 export const STATE_FILE = '.consigliere-state.json';
 
 export const HOOK_FILES = [
@@ -135,7 +135,7 @@ export const CONTEXT_MODE = {
 // the rule file they enforce (workflow.md / coding-discipline.md), so a default install
 // carries them inert rather than the installer growing per-flag entry bookkeeping.
 // plan-capture is the one hook that writes into your working tree, so its gate is the
-// consent: no `plans/plan-mode/` in the repo, no file ever appears.
+// consent: no `plans/` in the repo, no file ever appears.
 export const HOOK_ENTRIES = [
   ['PreToolUse', 'Task|SendMessage', 'advisor-mark.mjs'],
   ['PreToolUse', 'Edit|Write|MultiEdit', 'advisor-gate.mjs'],

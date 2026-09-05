@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Copies an approved plan-mode plan into the repo it plans.
+// Copies an approved plan-mode plan into the repo it plans, as an /improve plan.
 //
 // Claude Code already writes the plan, to a global ~/.claude/plans/<slug>.md named in a
 // plan_mode transcript attachment. That file is machine-local and carries no project, so
@@ -16,16 +16,19 @@ import path from 'node:path';
 let payload = {};
 try { payload = JSON.parse(fs.readFileSync(0, 'utf8')); } catch { process.exit(0); }
 
-// The directory is the opt-in — this hook writes into your working tree, so it stays
-// inert until you make the target once. Walked up from cwd rather than trusting it: plan
-// mode often starts in a package dir, and cwd alone would scatter plans across a monorepo.
-// A worktree's .git is a file, so existence is the test, not isDirectory.
+// The directory is the opt-in — this hook writes into your working tree, so it stays inert
+// until you make the target once. advisor-plans/ wins, which is /improve's own answer for a
+// repo whose plans/ already means something else. Walked up from cwd rather than trusting
+// it: plan mode often starts in a package dir, and cwd alone would scatter plans across a
+// monorepo. A worktree's .git is a file, so existence is the test, not isDirectory.
 function targetDir(from) {
   let dir = path.resolve(from || process.cwd());
   for (;;) {
     if (fs.existsSync(path.join(dir, '.git'))) {
-      const target = path.join(dir, 'plans', 'plan-mode');
-      return fs.existsSync(target) ? target : null;
+      const found = ['advisor-plans', 'plans']
+        .map((name) => path.join(dir, name))
+        .find((candidate) => fs.existsSync(candidate));
+      return found ?? null;
     }
     const up = path.dirname(dir);
     if (up === dir) return null;
@@ -50,21 +53,71 @@ function planFile(transcript) {
   return null;
 }
 
+// Appending is the only order a hook can know: the plan just approved is the next thing to
+// run. /improve's reconcile renumbers when the order turns out otherwise.
+function nextNumber(dir) {
+  const highest = fs.readdirSync(dir)
+    .reduce((max, name) => Math.max(max, Number(name.match(/^(\d+)-/)?.[1] ?? 0)), 0);
+  return String(highest + 1).padStart(3, '0');
+}
+
+const field = (text, name) =>
+  text.match(new RegExp(`^- \\*\\*${name}\\*\\*: *(.+)$`, 'm'))?.[1].trim() || '—';
+
+const HEADER = `# Implementation Plans
+
+Execute in the order below unless dependencies say otherwise. Each executor: read the plan
+fully before starting, honor its STOP conditions, and update your row when done.
+
+## Execution order & status
+
+| Plan | Title | Priority | Effort | Depends on | Status |
+|------|-------|----------|--------|------------|--------|
+`;
+
+// Without a row there is no status, and reconcile iterates the index by status — an
+// unindexed plan is one /improve never picks up.
+function addRow(dir, row) {
+  const file = path.join(dir, 'README.md');
+  if (!fs.existsSync(file)) {
+    fs.writeFileSync(file, `${HEADER + row}\n`);
+    return;
+  }
+  const lines = fs.readFileSync(file, 'utf8').split('\n');
+  let at = lines.findLastIndex((line) => /^\| *\d+ *\|/.test(line));
+  if (at < 0) at = lines.findIndex((line) => /^\|[-| :]+\|$/.test(line));
+  if (at < 0) {
+    console.error(`[consigliere] plan-capture: no status table in ${file}; row skipped`);
+    return;
+  }
+  lines.splice(at + 1, 0, row);
+  fs.writeFileSync(file, lines.join('\n'));
+}
+
 const dir = targetDir(payload.cwd);
 if (!dir) process.exit(0);
 const src = planFile(payload.transcript_path);
-if (!src || !fs.existsSync(src)) process.exit(0);
+if (!src) process.exit(0);
+let text;
+try { text = fs.readFileSync(src, 'utf8'); } catch { process.exit(0); }
 
-// Timestamped because the slug is fixed for the whole session: re-planning would
-// otherwise overwrite the plan it replaced, and the point is to keep both.
-const now = new Date();
-const pad = (n) => String(n).padStart(2, '0');
-const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`
-  + `-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-const dest = path.join(dir, `${stamp}-${path.basename(src)}`);
+const number = nextNumber(dir);
+const title = text.match(/^# +(.+)$/m)?.[1].trim() ?? path.basename(src, '.md');
+const dest = path.join(dir, `${number}-${path.basename(src)}`);
 try {
-  fs.copyFileSync(src, dest);
-  console.error(`[consigliere] plan-capture: wrote ${dest}`);
+  // wx, never overwrite: a re-plan in the same session reuses the slug, and the point is
+  // to keep both plans.
+  fs.writeFileSync(dest, text.replace(/^# +.+$/m, `# Plan ${number}: ${title}`), { flag: 'wx' });
 } catch (error) {
   console.error(`[consigliere] plan-capture: cannot write ${dest}: ${error.message}`);
+  process.exit(0);
 }
+
+const cell = (value) => value.replaceAll('|', '\\|');
+try {
+  addRow(dir, `| ${number} | ${cell(title)} | ${cell(field(text, 'Priority'))} `
+    + `| ${cell(field(text, 'Effort'))} | ${cell(field(text, 'Depends on'))} | TODO |`);
+} catch (error) {
+  console.error(`[consigliere] plan-capture: cannot index ${dest}: ${error.message}`);
+}
+console.error(`[consigliere] plan-capture: wrote ${dest}`);

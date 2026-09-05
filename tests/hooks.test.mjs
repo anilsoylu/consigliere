@@ -525,17 +525,22 @@ test('comment ratio stays silent below the bar', () => {
 // a real one. The plan_mode attachment literal is not — it is copied from live sessions.
 const CAPTURE = path.join(ROOT, 'hooks', 'plan-capture.mjs');
 
-function planFixture({ target = true, gitFile = false } = {}) {
+const PLAN_BODY = '# The plan\n\n## Status\n\n- **Priority**: P2\n- **Effort**: M\n- **Depends on**: none\n\nbody\n';
+
+function planFixture({ target = 'plans', gitFile = false } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'consigliere-plan-'));
   homes.push(dir);
   const repo = path.join(dir, 'repo');
   fs.mkdirSync(repo, { recursive: true });
   if (gitFile) fs.writeFileSync(path.join(repo, '.git'), 'gitdir: /elsewhere\n');
   else fs.mkdirSync(path.join(repo, '.git'));
-  if (target) fs.mkdirSync(path.join(repo, 'plans', 'plan-mode'), { recursive: true });
+  for (const name of [].concat(target || [])) fs.mkdirSync(path.join(repo, name));
   const plan = path.join(dir, 'inherited-kitten.md');
-  fs.writeFileSync(plan, '# The plan\n\n## Context\n\nbody\n');
-  return { dir, repo, plan, captured: () => path.join(repo, 'plans', 'plan-mode') };
+  fs.writeFileSync(plan, PLAN_BODY);
+  const captured = (name = 'plans') => path.join(repo, name);
+  const plans = (name) => fs.readdirSync(captured(name)).filter((f) => f !== 'README.md');
+  const index = (name) => fs.readFileSync(path.join(captured(name), 'README.md'), 'utf8');
+  return { dir, repo, plan, captured, plans, index };
 }
 
 function transcript(dir, lines) {
@@ -552,19 +557,62 @@ function capture(payload) {
   execFileSync(process.execPath, [CAPTURE], { input: JSON.stringify(payload), stdio: ['pipe', 'pipe', 'pipe'] });
 }
 
-test('an approved plan lands in plans/plan-mode, verbatim', () => {
+test('an approved plan lands in plans/ as a numbered, indexed /improve plan', () => {
   const f = planFixture();
   capture({ cwd: f.repo, transcript_path: transcript(f.dir, [attachment(f.plan)]) });
-  const written = fs.readdirSync(f.captured());
-  assert.equal(written.length, 1);
-  assert.match(written[0], /^\d{8}-\d{6}-inherited-kitten\.md$/);
-  assert.equal(fs.readFileSync(path.join(f.captured(), written[0]), 'utf8'), fs.readFileSync(f.plan, 'utf8'));
+  assert.deepEqual(f.plans(), ['001-inherited-kitten.md']);
+  assert.equal(
+    fs.readFileSync(path.join(f.captured(), '001-inherited-kitten.md'), 'utf8'),
+    PLAN_BODY.replace('# The plan', '# Plan 001: The plan'),
+  );
+  assert.match(f.index(), /^\| 001 \| The plan \| P2 \| M \| none \| TODO \|$/m);
+});
+
+// The numbering is the whole point of landing in plans/: an /improve plan and a captured
+// one share the sequence, so improve picks up where plan mode left off.
+test('numbering continues after the highest plan already there', () => {
+  const f = planFixture();
+  fs.writeFileSync(path.join(f.captured(), '007-existing.md'), '# Existing\n');
+  capture({ cwd: f.repo, transcript_path: transcript(f.dir, [attachment(f.plan)]) });
+  assert.ok(f.plans().includes('008-inherited-kitten.md'), f.plans().join());
+});
+
+// The slug is fixed for the whole session, so a re-plan must not overwrite the plan it
+// replaces — the number, not the name, keeps them apart.
+test('a second approval in one session gets the next number', () => {
+  const f = planFixture();
+  const t = transcript(f.dir, [attachment(f.plan)]);
+  capture({ cwd: f.repo, transcript_path: t });
+  capture({ cwd: f.repo, transcript_path: t });
+  assert.deepEqual(f.plans().sort(), ['001-inherited-kitten.md', '002-inherited-kitten.md']);
+  assert.equal(f.index().match(/^\| 00\d \|/gm).length, 2);
+});
+
+test('an existing index gets the row, and nothing else changes', () => {
+  const f = planFixture();
+  const readme = path.join(f.captured(), 'README.md');
+  fs.writeFileSync(path.join(f.captured(), '001-old.md'), '# Old\n');
+  fs.writeFileSync(readme, '# Plans\n\n| Plan | Title | Priority | Effort | Depends on | Status |\n'
+    + '|------|-------|----------|--------|------------|--------|\n| 001 | Old | P1 | S | — | DONE |\n\n## Notes\n\nkeep me\n');
+  capture({ cwd: f.repo, transcript_path: transcript(f.dir, [attachment(f.plan)]) });
+  const lines = f.index().split('\n');
+  assert.equal(lines[4], '| 001 | Old | P1 | S | — | DONE |');
+  assert.match(lines[5], /^\| 002 \| The plan \|/);
+  assert.ok(f.index().includes('## Notes\n\nkeep me\n'));
+});
+
+// /improve's own escape hatch for a repo whose plans/ already means something else.
+test('advisor-plans/ wins over plans/', () => {
+  const f = planFixture({ target: ['plans', 'advisor-plans'] });
+  capture({ cwd: f.repo, transcript_path: transcript(f.dir, [attachment(f.plan)]) });
+  assert.deepEqual(f.plans('advisor-plans'), ['001-inherited-kitten.md']);
+  assert.deepEqual(f.plans(), []);
 });
 
 // The gate. This is the only hook that writes into a working tree, so a repo that never
 // opted in must come out of an approval byte-for-byte unchanged.
-test('no plans/plan-mode means no file and no directory', () => {
-  const f = planFixture({ target: false });
+test('no plans/ means no file and no directory', () => {
+  const f = planFixture({ target: null });
   capture({ cwd: f.repo, transcript_path: transcript(f.dir, [attachment(f.plan)]) });
   assert.deepEqual(fs.readdirSync(f.repo), ['.git']);
 });
@@ -577,7 +625,7 @@ test('the repo root is found from a subdirectory, worktrees included', () => {
     const deep = path.join(f.repo, 'packages', 'api', 'src');
     fs.mkdirSync(deep, { recursive: true });
     capture({ cwd: deep, transcript_path: transcript(f.dir, [attachment(f.plan)]) });
-    assert.equal(fs.readdirSync(f.captured()).length, 1, gitFile ? '.git file' : '.git dir');
+    assert.equal(f.plans().length, 1, gitFile ? '.git file' : '.git dir');
   }
 });
 
@@ -590,9 +638,7 @@ test('the last plan_mode attachment wins, and junk lines do not stop the scan', 
     cwd: f.repo,
     transcript_path: transcript(f.dir, [attachment(stale), '{"type":"user"}', '{not json', attachment(f.plan), '']),
   });
-  const written = fs.readdirSync(f.captured());
-  assert.equal(written.length, 1);
-  assert.match(written[0], /inherited-kitten\.md$/);
+  assert.deepEqual(f.plans(), ['001-inherited-kitten.md']);
 });
 
 test('a hook that cannot capture stays silent', () => {

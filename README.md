@@ -38,7 +38,7 @@ Seventeen pieces, all installed under `~/.claude` — or wherever `CLAUDE_CONFIG
 - `commit-language.mjs` — blocks a `git commit` or `gh pr create` whose message reads as Turkish.
 - `git-discipline.mjs` — the branch, the conventional subject, and the `/clean` → review → `/pr-update` order.
 - `comment-ratio.mjs` — nudges when an edit lands more comment lines than code.
-- `plan-capture.mjs` — copies an approved plan-mode plan into `plans/plan-mode/`, when that directory exists.
+- `plan-capture.mjs` — copies an approved plan-mode plan into `plans/`, numbered and indexed as an `improve` plan, when that directory exists.
 
 **The rules**
 
@@ -71,19 +71,19 @@ Running both pays for every decision twice, so the installer sets `CLAUDE_CODE_D
 
 Plan mode already writes its plan to a file, at `~/.claude/plans/<slug>.md`. That location is machine-local, is not partitioned by project, and the slug names no repo, so the plan is invisible to git, to a reviewer, and to you on another machine.
 
-`plan-capture.mjs` copies it beside the code it plans. Opt in per repo:
+`plan-capture.mjs` copies it beside the code it plans, as an `improve` plan. Opt in per repo:
 
 ```sh
-mkdir -p plans/plan-mode
+mkdir -p plans
 ```
 
-From then on every approved plan lands there as `YYYYMMDD-HHMMSS-<slug>.md`, byte for byte, no added frontmatter. Without the directory the hook does nothing — it is the only hook here that writes into your working tree, so the directory is the consent.
+From then on every approved plan lands there as `NNN-<slug>.md`, numbered after the highest plan already in the directory, with its row appended to the status table in `plans/README.md` — created from `improve`'s template when absent. Priority, Effort and Depends on come from the plan's own Status block; the status starts at `TODO`. A repo whose `plans/` already means something else uses `advisor-plans/` instead, which is the same escape hatch `improve` takes. Without either directory the hook does nothing — it is the only hook here that writes into your working tree, so the directory is the consent.
 
-The directory also shapes the plan. `rules/advisor-executor.md` says that when it exists, the plan is written in `/improve`'s sections — title, Status carrying only the planned-at SHA, Why this matters, Scope, Steps that name exact files and end in a `**Verify**` command, Test plan, Done criteria as checkboxes, STOP conditions, Maintenance notes. It drops what `/improve` carries only for a cold executor: no inlined code excerpts, no commands table, no drift check, no plan number, no index row. Plan mode has already read the files, and you read the plan on screen before you approve it.
+One numbering, one index, so `/improve` continues from where plan mode stopped: `reconcile` refreshes a captured plan like any other, `execute` hands it off. A re-plan in the same session reuses the slug but takes the next number, so it never overwrites the plan it replaces.
+
+The directory also shapes the plan. `rules/advisor-executor.md` says that when it exists, the plan is written in `/improve`'s sections — title, drift check, Status, Why this matters, Current state, Scope, Steps that name exact files and end in a `**Verify**` command, Test plan, Done criteria as checkboxes, STOP conditions, Maintenance notes. Two things `/improve` carries only for a cold executor are dropped: no inlined code excerpts and no commands table. Plan mode has already read the files, and you read the plan on screen before you approve it, so nothing is re-audited on the way in.
 
 `ExitPlanMode` carries no plan text; it signals that the file is ready. The hook reads the path from the last `plan_mode` attachment in the session transcript. When there is no attachment, or the file it names is gone, the hook exits silently rather than blocking the turn. A rejected plan leaves nothing behind: `PostToolUse` fires only after a tool completes, and rejecting a plan is a permission denial.
-
-It never writes `plans/README.md`. That file is the `improve` skill's index, and it has one owner. The subdirectory keeps the two apart in both directions: `rules/advisor-executor.md` says that `plans/plan-mode/` does not make `plans/` an unrelated purpose for `/improve`, and that `reconcile` does not index it.
 
 ## Requirements
 
