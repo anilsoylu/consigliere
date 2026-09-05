@@ -118,9 +118,9 @@ for (const [label, live, file] of [
 test('strips only its own hook entries and leaves an unrelated hook in the same block', () => {
   const home = installed();
   const settings = readSettings(home);
-  // a third-party hook sharing consigliere's PreToolUse/Task block, plus an event
+  // a third-party hook sharing consigliere's PreToolUse/Bash block, plus an event
   // consigliere owns outright — the first must survive, the second must vanish entirely
-  const mine = settings.hooks.PreToolUse.find((b) => b.matcher === 'Task|SendMessage');
+  const mine = settings.hooks.PreToolUse.find((b) => b.matcher === 'Bash');
   mine.hooks.push({ type: 'command', command: 'node /somewhere/else/my-own-hook.mjs' });
   fs.writeFileSync(settingsPath(home), JSON.stringify(settings, null, 2));
 
@@ -166,7 +166,7 @@ test('installs cleanly again after an uninstall', () => {
   run(INSTALL, home);
 
   const registered = readSettings(home).hooks.UserPromptSubmit
-    .some((b) => !b.matcher && b.hooks.some((h) => h.command === hookCommand(path.join(home, '.claude', 'hooks'), 'advisor-inject.mjs')));
-  assert.ok(registered, 'advisor-inject.mjs should be registered again');
+    .some((b) => !b.matcher && b.hooks.some((h) => h.command === hookCommand(path.join(home, '.claude', 'hooks'), 'git-discipline.mjs')));
+  assert.ok(registered, 'git-discipline.mjs should be registered again');
   assert.ok(fs.existsSync(hookPath(home, HOOK_FILES[0])));
 });

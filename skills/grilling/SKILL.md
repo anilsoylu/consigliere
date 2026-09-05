@@ -4,7 +4,7 @@ description: Grill the user relentlessly about a plan, decision, or idea. Use wh
 ---
 
 <!-- Vendored from https://github.com/mattpocock/skills (MIT), edited to fit this setup:
-     plain-markdown question format, advisor handoff line. -->
+     plain-markdown question format, delegation handoff line. -->
 
 # Grilling
 
@@ -42,5 +42,5 @@ The session is done when the frontier is empty: every branch of the design tree
 visited, nothing left silently assumed. Do not act on it until the user confirms
 you have reached a shared understanding.
 
-On source-code tasks, the settled tree becomes the advisor consult's objective
-and options-considered: grill first, then consult, then edit.
+On source-code tasks, the settled tree becomes the delegation contract's Objective
+and Constraints: grill first, then delegate.

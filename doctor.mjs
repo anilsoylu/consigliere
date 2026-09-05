@@ -5,7 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { STATE_FILE, HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, CONTEXT_MODE, claudeDir as resolveClaudeDir, hookCommand, hasRalphLoop, hasContextMode } from './manifest.mjs';
+import { STATE_FILE, HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, claudeDir as resolveClaudeDir, hookCommand, hasRalphLoop } from './manifest.mjs';
 
 const REPO = path.dirname(fileURLToPath(import.meta.url));
 const USAGE = `Usage: node doctor.mjs [--json]
@@ -104,15 +104,16 @@ export function runChecks(options = {}) {
       : status('warn', 'claude directory', `${claudeDir} does not exist yet; run Claude Code before or after install`)
   );
 
-  // The gate blocks source edits and names this subagent as the way through. Missing, it
-  // is a lock with no key — the loudest thing an otherwise-complete install can get wrong.
+  // The gate blocks the root's source edits and names these roles as the way through.
+  // Missing, it is a lock with no key — the loudest thing an otherwise-complete install
+  // can get wrong.
   const agents = compare(AGENT_FILES, path.join(repo, 'agents'), agentsDir);
   checks.push(
     agents.missing.length
-      ? status('warn', 'advisor agent', `missing: ${list(agents.missing)}; advisor-gate.mjs will block source edits naming a subagent that does not exist — rerun node install.mjs`)
+      ? status('warn', 'agents', `missing: ${list(agents.missing)}; orchestrator-gate.mjs will block the root's source edits naming subagents that do not exist — rerun node install.mjs`)
       : agents.modified.length
-        ? status('warn', 'advisor agent', `customized locally, no longer this repo's: ${list(agents.modified)}`)
-        : status('pass', 'advisor agent', 'the advisor subagent is installed and matches this repo')
+        ? status('warn', 'agents', `customized locally, no longer this repo's: ${list(agents.modified)}`)
+        : status('pass', 'agents', 'the five subagents are installed and match this repo')
   );
 
   const hooks = compare(HOOK_FILES, path.join(repo, 'hooks'), hooksDir);
@@ -121,7 +122,7 @@ export function runChecks(options = {}) {
       ? status('warn', 'installed hooks', `missing: ${list(hooks.missing)}; rerun node install.mjs`)
       : hooks.modified.length
         ? status('warn', 'installed hooks', `differ from this repo: ${list(hooks.modified)}; rerun node install.mjs to restore`)
-        : status('pass', 'installed hooks', 'all advisor hooks are installed and match this repo')
+        : status('pass', 'installed hooks', 'all orchestrator hooks are installed and match this repo')
   );
 
   // Editing a rule is legitimate — the uninstaller keeps those — but a pass has to mean verified.
@@ -131,7 +132,7 @@ export function runChecks(options = {}) {
       ? status('warn', 'installed rules', `missing: ${list(rules.missing)}; rerun node install.mjs`)
       : rules.modified.length
         ? status('warn', 'installed rules', `customized locally, no longer this repo's: ${list(rules.modified)}`)
-        : status('pass', 'installed rules', 'default advisor rules are installed and match this repo')
+        : status('pass', 'installed rules', 'the default rules are installed and match this repo')
   );
 
   const upgrade = compare(UPGRADE_FILES, path.join(repo, 'skills', UPGRADE_SKILL), path.join(skillsDir, UPGRADE_SKILL));
@@ -153,8 +154,7 @@ export function runChecks(options = {}) {
         : status('pass', 'yagni skill', 'the yagni deletion pass is installed and matches this repo')
   );
 
-  // Default like yagni, but its absence also strands rule text: advisor-executor.md and
-  // the advisor-inject banner both call for grilling by name.
+  // Default like yagni: a prompt file with no runtime cost, inert until it is invoked.
   const grilling = { missing: [], modified: [] };
   for (const skill of GRILLING_SKILLS) {
     const r = compare(GRILLING_FILES, path.join(repo, 'skills', skill), path.join(skillsDir, skill));
@@ -227,7 +227,7 @@ export function runChecks(options = {}) {
       checks.push(
         problems.length
           ? status('warn', 'settings hooks', problems.join('; '))
-          : status('pass', 'settings hooks', 'all advisor hook entries are registered as installed')
+          : status('pass', 'settings hooks', 'all orchestrator hook entries are registered as installed')
       );
     }
   }
@@ -246,15 +246,6 @@ export function runChecks(options = {}) {
         ? status('warn', 'recommended settings', `no value set for: ${list(absent)}; rerun node install.mjs to fill them in`)
         : status('pass', 'recommended settings', 'every recommended env key and setting has a value')
     );
-
-    // Third-party and opt-in: you enable it through /plugin, so its absence is a note.
-    // An occupied statusLine is a choice, not a gap, so only an empty one is mentioned.
-    const bar = settings.statusLine ? '' : `; its savings bar is available, see README`;
-    checks.push(
-      hasContextMode(settings)
-        ? status('pass', 'context-mode plugin', `${CONTEXT_MODE.plugin} is enabled${bar}`)
-        : status('warn', 'context-mode plugin', `optional, not enabled. In Claude Code: ${list(CONTEXT_MODE.commands)}`)
-    );
   }
 
   // settings.env wins because Claude Code writes it over the shell, which makes `"KEY": ""`
@@ -265,17 +256,23 @@ export function runChecks(options = {}) {
   const value = (k) => settingsEnv[k] ?? shellEnv[k];
   // "0" must not read as disabled — that silences the warning in the case it exists for.
   const advisorToolOff = /^(1|true|yes|on)$/i.test(value('CLAUDE_CODE_DISABLE_ADVISOR_TOOL') || '');
-  const advisorProblems = [];
-  if (value('CLAUDE_CODE_SUBAGENT_MODEL_FORCE') && !/fable/i.test(value('CLAUDE_CODE_SUBAGENT_MODEL') || '')) {
-    advisorProblems.push('CLAUDE_CODE_SUBAGENT_MODEL_FORCE is set and overrides model: fable in agents/advisor.md, so the advisor runs as the main model unless CLAUDE_CODE_SUBAGENT_MODEL names a planner. Unset it');
+  const rootProblems = [];
+  if (cfg.model !== RECOMMENDED_SETTINGS.model) {
+    rootProblems.push(`model is ${cfg.model ? `"${cfg.model}"` : 'unset'}, but the root only decides and delegates, which is worth doing at ${RECOMMENDED_SETTINGS.model}. Set it in settings.json or with /model`);
+  }
+  if (value('CLAUDE_CODE_EFFORT_LEVEL')) {
+    rootProblems.push('CLAUDE_CODE_EFFORT_LEVEL applies to every model at once and overrides the effort: line in each agent file. Unset it and use /effort for the root');
+  }
+  for (const key of ['CLAUDE_CODE_SUBAGENT_MODEL', 'CLAUDE_CODE_SUBAGENT_MODEL_FORCE']) {
+    if (value(key)) rootProblems.push(`${key} is set and overrides the model: line in every agent file. Unset it`);
   }
   if (cfg.advisorModel && !advisorToolOff) {
-    advisorProblems.push(`advisorModel is "${cfg.advisorModel}", so Claude Code's built-in advisor tool runs alongside this loop's advisor subagent: each consult is paid twice and the built-in one re-reads the whole transcript uncached on every call. Run /advisor off, or set CLAUDE_CODE_DISABLE_ADVISOR_TOOL=1`);
+    rootProblems.push(`advisorModel is "${cfg.advisorModel}", so Claude Code's built-in advisor tool runs alongside this topology: each consult is paid twice and it re-reads the whole transcript uncached on every call. Run /advisor off, or set CLAUDE_CODE_DISABLE_ADVISOR_TOOL=1`);
   }
   checks.push(
-    advisorProblems.length
-      ? status('warn', 'advisor model', advisorProblems.join('; '))
-      : status('pass', 'advisor model', 'nothing overrides model: fable or runs the built-in advisor alongside')
+    rootProblems.length
+      ? status('warn', 'root model', rootProblems.join('; '))
+      : status('pass', 'root model', 'the root runs the recommended model and nothing overrides the agents\' model or effort')
   );
 
   // --with-workflow ships the rule with every skill it names; one without the others

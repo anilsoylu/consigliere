@@ -7,13 +7,9 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
-const INJECT = path.join(ROOT, 'hooks', 'advisor-inject.mjs');
-const GATE = path.join(ROOT, 'hooks', 'advisor-gate.mjs');
+const GATE = path.join(ROOT, 'hooks', 'orchestrator-gate.mjs');
 const LANG = path.join(ROOT, 'hooks', 'commit-language.mjs');
-const MARK = path.join(ROOT, 'hooks', 'advisor-mark.mjs');
 
-const flagPath = (sid) => path.join(os.tmpdir(), `advisor-gate-${sid}.flag`);
-const rosterPath = (sid) => path.join(os.tmpdir(), `advisor-agents-${sid}.json`);
 const handoffPath = (sid) => path.join(os.tmpdir(), `handoff-${sid}.flag`);
 const sids = [];
 const homes = [];
@@ -27,144 +23,126 @@ function session(name) {
 }
 
 test.after(() => {
-  for (const sid of sids) {
-    fs.rmSync(flagPath(sid), { force: true });
-    fs.rmSync(rosterPath(sid), { force: true });
-    fs.rmSync(handoffPath(sid), { force: true });
-  }
+  for (const sid of sids) fs.rmSync(handoffPath(sid), { force: true });
   for (const home of homes) fs.rmSync(home, { recursive: true, force: true });
 });
 
-function hook(script, payload) {
-  return execFileSync(process.execPath, [script], { input: JSON.stringify(payload), encoding: 'utf8' });
-}
+// The gate keys on the absence of agent_id and self-gates on rules/orchestrator.md, so
+// every case points CLAUDE_CONFIG_DIR at a fixture carrying that rule.
+const rootEdit = (file, tool = 'Edit') => ({ tool_name: tool, tool_input: { file_path: file } });
+const rootBash = (command) => ({ tool_name: 'Bash', tool_input: { command } });
+const decision = (out) => (out === '' ? 'allow' : JSON.parse(out).hookSpecificOutput.permissionDecision);
 
-function inject(sid, prompt, { flagged = true } = {}) {
-  if (flagged) fs.writeFileSync(flagPath(sid), '');
-  else fs.rmSync(flagPath(sid), { force: true });
-  const stdout = hook(INJECT, { session_id: sid, prompt });
-  return { stdout, flagKept: fs.existsSync(flagPath(sid)) };
-}
-
-// The bug this file exists for: a finishing background subagent arrives as a
-// UserPromptSubmit event, and resetting on one deletes the flag the advisor call
-// itself just set — leaving the gate impossible to satisfy for the rest of the task.
-// All three literals are shapes the harness actually emits, taken from live transcripts.
-test('a task notification leaves the flag alone and prints nothing', () => {
-  for (const prompt of [
-    '[SYSTEM NOTIFICATION - NOT USER INPUT]\nThis is an automated background-task event.',
-    '<task-notification>\n<task-id>bubvqt1pj</task-id>\n<status>completed</status>\n</task-notification>',
-    '<agent-message from="advisor">\nSHIP. No [ADOPT] findings.\n</agent-message>',
-  ]) {
-    const r = inject(session(`notif-${prompt.length}`), prompt);
-    assert.ok(r.flagKept, `flag should survive: ${prompt.slice(0, 40)}`);
-    assert.equal(r.stdout, '', 'a notification is not a new task, so no directive');
-  }
-});
-
-// This package's own audience quotes these tags while debugging their hooks, so an
-// unanchored match would hand the next task a stale flag and no directive.
-test('a prompt that merely quotes an envelope tag is still a task', () => {
-  for (const tag of ['<task-notification>', '<agent-message>']) {
-    const r = inject(session(`quoted-${tag.length}`), `why did ${tag} not reset the flag in hooks/advisor-inject.mjs?`);
-    assert.equal(r.flagKept, false, tag);
-    assert.match(r.stdout, /ADVISOR\/EXECUTOR LOOP/);
-  }
-});
-
-test('a new code prompt resets the flag and prints the directive', () => {
-  const r = inject(session('code'), 'fix the crash in src/app.ts');
-  assert.equal(r.flagKept, false, 'a new task must start without a consult');
-  assert.match(r.stdout, /ADVISOR\/EXECUTOR LOOP/);
-});
-
-// A strong executor consulted before it has read anything writes a thin consult, and the
-// consult is all the advisor ever sees. Pinned so the directive cannot drift back to turn 1.
-test('the directive places the consult after reading, before the first edit', () => {
-  const r = inject(session('timing'), 'fix the crash in src/app.ts');
-  assert.match(r.stdout, /once you have read the files and formed a candidate approach/);
-  assert.match(r.stdout, /before the first source edit/);
-  assert.doesNotMatch(r.stdout, /before writing code/);
-});
-
-test('a short approval keeps the flag so execution can continue', () => {
-  const r = inject(session('ack'), 'devam');
-  assert.ok(r.flagKept);
-  assert.equal(r.stdout, '');
-});
-
-// Pinned so it does not get "fixed" by widening the cap.
-test('a long mid-task reply resets the flag; the gate re-consults, not the prompt heuristic', () => {
-  const r = inject(session('mid-task-reply'), 'Şu an yok. Beklemekten başka bir şey gerekmiyor.\n\nSıra sana kod bitip PR açıldıktan sonra gelecek — R2 hesabı, age anahtarı ve Coolify değişkenleri.');
-  assert.equal(r.flagKept, false);
-  assert.equal(r.stdout, '', 'no code signal, so no directive either');
-});
-
-test('an approval word carrying a new task still resets the flag', () => {
-  const r = inject(session('ack-task'), 'tamam, şimdi src/api.ts içindeki hatayı düzelt');
-  assert.equal(r.flagKept, false);
-});
-
-test('gate denies a source write when no consult has run', () => {
-  const sid = session('gate-deny');
-  fs.rmSync(flagPath(sid), { force: true });
-  const out = JSON.parse(hook(GATE, { session_id: sid, tool_input: { file_path: '/Users/x/proj/steps.ts' } }));
-  assert.equal(out.hookSpecificOutput.permissionDecision, 'deny');
-  const reason = out.hookSpecificOutput.permissionDecisionReason;
-  assert.match(reason, /retry this exact edit once it lands/);
-  // "this task" was false whenever a consult had run before the last user message, and it
-  // pushed the executor to the hook-is-broken branch when the answer was to re-consult.
-  assert.match(reason, /since the last user prompt/);
-  assert.doesNotMatch(reason, /for this task yet/);
-  // The removed branch: offering "ask the user" turned every deny into a stall.
-  assert.doesNotMatch(reason, /ask the user/i);
-  // ...but a deny that repeats after a consult is a malfunction and needs a way out.
-  assert.match(reason, /denied again after a consult/);
-});
-
-test('gate allows the write once the flag is there', () => {
-  const sid = session('gate-allow');
-  fs.writeFileSync(flagPath(sid), '');
-  assert.equal(hook(GATE, { session_id: sid, tool_input: { file_path: '/Users/x/proj/steps.ts' } }), '');
-});
-
-// The temp exemption is a prefix test, and on Linux the prefix is `/tmp` — without the
-// separator attached, every sibling directory that merely starts with it walks through.
-test('gate still denies a directory that only shares the temp prefix', () => {
-  const sid = session('gate-neighbour');
-  fs.rmSync(flagPath(sid), { force: true });
-  const file = `${os.tmpdir().replace(/[\\/]$/, '')}-neighbour/steps.ts`;
-  const out = JSON.parse(hook(GATE, { session_id: sid, tool_input: { file_path: file } }));
-  assert.equal(out.hookSpecificOutput.permissionDecision, 'deny');
-});
-
-test('gate ignores non-code and exempt paths', () => {
-  const sid = session('gate-exempt');
-  fs.rmSync(flagPath(sid), { force: true });
-  const files = [
-    '/Users/x/proj/notes.md', '/Users/x/.claude/hooks/thing.mjs', '/tmp/scratch.ts',
-    // Windows sends backslashes and a temp dir that is nowhere near /tmp. Without the
-    // normalize-and-prefix pass, none of these three is exempt and every edit is denied.
-    'C:\\Users\\x\\.claude\\hooks\\thing.mjs', 'C:\\Users\\x\\Desktop\\scratch.ts',
-    path.join(os.tmpdir(), 'scratch.ts'),
-  ];
-  for (const file of files) {
-    assert.equal(hook(GATE, { session_id: sid, tool_input: { file_path: file } }), '', file);
-  }
-});
-
-// Exempting only the `/.claude/` literal locks meta-work for anyone who moved their
-// config dir; exempting only the configured one locks a project's own .claude/.
-test('gate exempts the configured dir and a project-level .claude alike', () => {
-  const sid = session('gate-cfgdir');
-  fs.rmSync(flagPath(sid), { force: true });
+test('gate stands down without its rule, and inside a subagent', () => {
+  assert.equal(envHook(GATE, rootBash('rm x'), cfgFixture({ orchestrator: false })), '');
   const cfg = cfgFixture();
-  const payload = (file) => ({ session_id: sid, tool_input: { file_path: file } });
-  assert.equal(envHook(GATE, payload(path.join(cfg, 'hooks', 'thing.mjs')), cfg), '');
-  assert.equal(envHook(GATE, payload('/Users/x/proj/.claude/hooks/thing.mjs'), cfg), '');
-  const denied = JSON.parse(envHook(GATE, payload('/Users/x/proj/src/app.ts'), cfg));
-  assert.equal(denied.hookSpecificOutput.permissionDecision, 'deny');
-  assert.match(denied.hookSpecificOutput.permissionDecisionReason, new RegExp(path.join(cfg, 'rules', 'advisor-executor.md').replace(/[\\.]/g, '\\$&')));
+  assert.equal(envHook(GATE, { ...rootBash('rm -rf /'), agent_id: 'sub-1' }, cfg), '');
+});
+
+test('gate denies root writes to source and config', () => {
+  const cfg = cfgFixture();
+  for (const [file, tool] of [['/repo/src/a.ts', 'Edit'], ['/repo/tsconfig.json', 'Write'], ['/tmpfoo/x.ts', 'Write']]) {
+    assert.equal(decision(envHook(GATE, rootEdit(file, tool), cfg)), 'deny', file);
+  }
+});
+
+test('the deny reason names the roles that can do the work', () => {
+  const cfg = cfgFixture();
+  const out = JSON.parse(envHook(GATE, rootEdit('/repo/src/a.ts'), cfg));
+  const reason = out.hookSpecificOutput.permissionDecisionReason;
+  assert.match(reason, /worker/);
+  assert.match(reason, /tester/);
+});
+
+// The config dir, the plans a root does write, and both temp roots stay open. The
+// /tmpfoo case above is the reason the exemption carries a trailing separator.
+test('gate leaves the root its own files', () => {
+  const cfg = cfgFixture();
+  const allowed = [
+    [path.join(cfg, 'hooks', 'x.mjs'), 'Edit'],
+    ['/repo/plans/notes.md', 'Write'],
+    ['/tmp/scratch.mjs', 'Write'],
+    [path.join(os.tmpdir(), 'x.ts'), 'Write'],
+  ];
+  for (const [file, tool] of allowed) {
+    assert.equal(envHook(GATE, rootEdit(file, tool), cfg), '', file);
+  }
+});
+
+test('gate allows read-only root commands', () => {
+  const cfg = cfgFixture();
+  const allowed = [
+    'git diff',
+    'git -C /x status',
+    'git branch -a',
+    "git log --format='%h|%s'",
+    'cat a.ts | grep x',
+    "jq -e '.a | .b' f.json",
+    'grep "a>b" f.txt',
+    "echo '$(whoami)'",
+    'gh api repos/foo/bar',
+    'gh api --method GET repos/x',
+    'gh api -X GET repos/x',
+    // The word `tee` as an argument is not the command `tee`; only argv[0] decides.
+    'grep tee f.txt',
+    'grep -o x f.txt',
+    'git log --grep=eval',
+    'grep "a\\|b" f.txt',
+    "echo 'it\\'s'",
+  ];
+  for (const cmd of allowed) assert.equal(envHook(GATE, rootBash(cmd), cfg), '', cmd);
+});
+
+test('gate denies commands that write, spawn or expand', () => {
+  const cfg = cfgFixture();
+  const denied = [
+    'git commit -m x',
+    'git -c alias.status=!rm status',
+    'rm /tmp/x',
+    'echo hi > /tmp/x',
+    'cat a.ts | node -',
+    'gh api -X POST repos/foo',
+    'gh pr create --draft',
+    'find . -name x -delete',
+    'env FOO=1 rm -rf /',
+    'FOO=1 rm -rf /',
+    'echo "$(whoami)"',
+    'echo $(whoami)',
+    'sed -i s/a/b/ f.ts',
+    'bash -c "rm x"',
+    'node --check x.mjs',
+    'ls & rm x',
+    'ls\nrm -rf x',
+    // A backslash-escaped quote does not open a quoted span, so the mask must not treat
+    // the text after it as quoted — `rm` and the substitution below both really run.
+    'echo \\" ; rm x ; echo \\"',
+    "echo \\' ; rm x ; echo \\'",
+    "echo \\'$(whoami)\\'",
+    'gh api -XPOST repos/x',
+    'gh api --method=POST repos/x',
+    'gh api -ftitle=x repos/x',
+    'sort -o out.txt in.txt',
+    'sort --compress-program=sh in.txt',
+    'tree -o out.txt',
+    'git diff --output=out.patch',
+    'find . -fls out.txt',
+    'find . -fprintf out.txt %p',
+    'rg --pre cat x',
+    'sudo ls',
+    'tee f',
+    'xargs rm',
+    'eval ls',
+  ];
+  for (const cmd of denied) assert.equal(decision(envHook(GATE, rootBash(cmd), cfg)), 'deny', cmd);
+});
+
+test('gate denies a payload it cannot parse', () => {
+  const out = execFileSync(process.execPath, [GATE], {
+    input: 'not json', encoding: 'utf8',
+    env: { ...process.env, CLAUDE_CONFIG_DIR: cfgFixture() },
+  });
+  assert.equal(decision(out), 'deny');
+  assert.match(JSON.parse(out).hookSpecificOutput.permissionDecisionReason, /could not parse/i);
 });
 
 const UPDATE = path.join(ROOT, 'hooks', 'update-check.mjs');
@@ -235,38 +213,6 @@ test('update check stands down when it is told to, or has nothing to compare', (
   assert.equal(update(stale, { CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1' }).out, '');
   assert.equal(update(stale, { CONSIGLIERE_NO_UPDATE_CHECK: '1' }).out, '');
   assert.equal(update({ latest: 'v2.0.0', repo: '/x' }).out, '', 'no recorded version means nothing to compare');
-});
-
-const marked = (sid) => fs.existsSync(flagPath(sid));
-
-test('mark clears the gate on an advisor spawn and on a later SendMessage to it', () => {
-  // The rule spawns one named advisor per task and continues it with SendMessage, so a
-  // mark that only fired on Task would gate work that was in fact consulted.
-  const sid = session('mark-roster');
-  fs.rmSync(flagPath(sid), { force: true });
-  fs.rmSync(rosterPath(sid), { force: true });
-
-  hook(MARK, { session_id: sid, tool_input: { to: 'reviewer' } });
-  assert.equal(marked(sid), false, 'an unknown recipient is not a consult');
-
-  hook(MARK, { session_id: sid, tool_input: { subagent_type: 'advisor', name: 'reviewer' } });
-  assert.equal(marked(sid), true);
-
-  // The roster outlives the flag, which advisor-inject.mjs deletes on every new task prompt.
-  fs.rmSync(flagPath(sid), { force: true });
-  hook(MARK, { session_id: sid, tool_input: { to: 'reviewer' } });
-  assert.equal(marked(sid), true, 'a continuation of that advisor is a consult');
-
-  fs.rmSync(flagPath(sid), { force: true });
-  hook(MARK, { session_id: sid, tool_input: { to: 'some-other-agent' } });
-  assert.equal(marked(sid), false, 'talking to anyone else is not');
-});
-
-test('mark ignores a non-advisor subagent', () => {
-  const sid = session('mark-other-agent');
-  fs.rmSync(flagPath(sid), { force: true });
-  hook(MARK, { session_id: sid, tool_input: { subagent_type: 'general-purpose', name: 'helper' } });
-  assert.equal(marked(sid), false);
 });
 
 // Self-gated on rules/communication.md like the other two, so the cases below have to
@@ -363,12 +309,13 @@ test('language gate ignores commands that are not a commit or a PR', () => {
 const DISCIPLINE = path.join(ROOT, 'hooks', 'git-discipline.mjs');
 const RATIO = path.join(ROOT, 'hooks', 'comment-ratio.mjs');
 
-// Both hooks self-gate on the rule file they enforce, so every case points
+// These hooks self-gate on the rule file each enforces, so every case points
 // CLAUDE_CONFIG_DIR at a fixture carrying exactly the files it needs.
-function cfgFixture({ workflow = true, discipline = true, clean = true, communication = true } = {}) {
+function cfgFixture({ workflow = true, discipline = true, clean = true, communication = true, orchestrator = true } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'consigliere-cfg-'));
   homes.push(dir);
   fs.mkdirSync(path.join(dir, 'rules'), { recursive: true });
+  if (orchestrator) fs.writeFileSync(path.join(dir, 'rules', 'orchestrator.md'), '');
   if (workflow) fs.writeFileSync(path.join(dir, 'rules', 'workflow.md'), '');
   if (discipline) fs.writeFileSync(path.join(dir, 'rules', 'coding-discipline.md'), '');
   if (communication) fs.writeFileSync(path.join(dir, 'rules', 'communication.md'), '');
@@ -521,7 +468,7 @@ test('a subagent notification does not re-arm the handoff gate', () => {
   const shapes = [
     '[SYSTEM NOTIFICATION - NOT USER INPUT] the background job exited',
     '<task-notification>\n<task-id>bubvqt1pj</task-id>\n<status>completed</status>\n</task-notification>',
-    '<agent-message teammate_id="advisor" from="advisor">SHIP</agent-message>',
+    '<agent-message teammate_id="reviewer" from="reviewer">SHIP</agent-message>',
   ];
   for (const prompt of shapes) {
     const sid = session(`handoff-notify-${shapes.indexOf(prompt)}`);

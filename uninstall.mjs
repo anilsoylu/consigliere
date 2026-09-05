@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Consigliere uninstaller — removes the agent, hooks and rules it placed, and strips ONLY
+// Consigliere uninstaller — removes the agents, hooks and rules it placed, and strips ONLY
 // the consigliere hook entries from settings.json, leaving your other hooks untouched.
 // Backs up settings.json before editing. Your .consigliere.bak files are left in place.
 // A file is only deleted when it is still byte-identical to this repo's copy, so anything
@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { STATE_FILE, HOOK_FILES, OBSOLETE_HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, HANDOFF_FILES, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, OPTIMIZE_FILES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, claudeDir } from './manifest.mjs';
+import { STATE_FILE, HOOK_FILES, OBSOLETE_HOOK_FILES, OBSOLETE_AGENT_FILES, OBSOLETE_RULE_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, HANDOFF_FILES, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, OPTIMIZE_FILES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, claudeDir } from './manifest.mjs';
 
 const REPO = path.dirname(fileURLToPath(import.meta.url));
 const CLAUDE = claudeDir();
@@ -18,7 +18,7 @@ const SKILLS = path.join(CLAUDE, 'skills');
 const SETTINGS = path.join(CLAUDE, 'settings.json');
 
 const log = (...a) => console.log('[consigliere]', ...a);
-const ADVISOR = HOOK_FILES;
+const OURS = HOOK_FILES;
 const RULE_FILES = [...DEFAULT_RULES, WORKFLOW_RULE];
 
 // A file you edited is yours. For a hook, its settings.json entry still goes in step 2,
@@ -43,9 +43,9 @@ function removeUntouched(files, srcDir, destDir, { prune = false } = {}) {
 
 // --- 1. Remove the files this installer placed, untouched ones only ---
 // No prune for agents: ~/.claude/agents is the harness's directory, not one this
-// package created, so it stays even when removing advisor.md leaves it empty.
+// package created, so it stays even when removing our agent files leaves it empty.
 removeUntouched(AGENT_FILES, path.join(REPO, 'agents'), AGENTS);
-removeUntouched(ADVISOR, path.join(REPO, 'hooks'), HOOKS);
+removeUntouched(OURS, path.join(REPO, 'hooks'), HOOKS);
 removeUntouched(RULE_FILES, path.join(REPO, 'rules'), RULES);
 removeUntouched(['SKILL.md'], path.join(REPO, 'skills', 'ralph-protocol'), path.join(SKILLS, 'ralph-protocol'), { prune: true });
 for (const skill of HANDOFF_SKILLS) removeUntouched(HANDOFF_FILES, path.join(REPO, 'skills', skill), path.join(SKILLS, skill), { prune: true });
@@ -60,9 +60,11 @@ removeUntouched(SHADCN_FILES, path.join(REPO, 'skills', SHADCN_SKILL), path.join
 
 // Left by a version before this one. There is no repo copy left to compare against, so
 // the keep-what-you-edited rule cannot apply — an upgrade would have deleted it anyway.
-for (const f of OBSOLETE_HOOK_FILES) {
-  const stale = path.join(HOOKS, f);
-  if (fs.existsSync(stale)) { fs.rmSync(stale); log(`removed hooks/${f} — shipped by an earlier version`); }
+for (const [dir, obsolete] of [[HOOKS, OBSOLETE_HOOK_FILES], [AGENTS, OBSOLETE_AGENT_FILES], [RULES, OBSOLETE_RULE_FILES]]) {
+  for (const f of obsolete) {
+    const stale = path.join(dir, f);
+    if (fs.existsSync(stale)) { fs.rmSync(stale); log(`removed ${path.basename(dir)}/${f} — shipped by an earlier version`); }
+  }
 }
 
 // Machine state, not a file anyone edits, so the byte-identical rule does not apply.
@@ -77,19 +79,19 @@ if (fs.existsSync(SETTINGS)) {
   let s;
   try { s = JSON.parse(fs.readFileSync(SETTINGS, 'utf8')); }
   catch { log('settings.json is not valid JSON; left it alone.'); process.exit(0); }
-  const isAdvisor = (cmd) => ADVISOR.some((a) => (cmd || '').includes(a));
+  const isOurs = (cmd) => OURS.some((a) => (cmd || '').includes(a));
   for (const event of Object.keys(s.hooks || {})) {
     s.hooks[event] = (s.hooks[event] || [])
-      .map((block) => ({ ...block, hooks: (block.hooks || []).filter((h) => !isAdvisor(h.command)) }))
+      .map((block) => ({ ...block, hooks: (block.hooks || []).filter((h) => !isOurs(h.command)) }))
       .filter((block) => (block.hooks || []).length > 0);
     if (s.hooks[event].length === 0) delete s.hooks[event];
   }
   fs.writeFileSync(SETTINGS, JSON.stringify(s, null, 2) + '\n');
   log('stripped consigliere hook entries from settings.json (your other hooks kept)');
-  // The recommended env keys and the context-mode plugin entry are not reverted. Once
-  // written they read as your settings, not this package's — an installer that fills a
-  // gap has no way to tell later whether you kept the value on purpose.
-  log('left your env keys, other settings and any plugins alone; the backup above predates this run');
+  // The recommended env keys and the model setting are not reverted. Once written they
+  // read as your settings, not this package's — an installer that fills a gap has no way
+  // to tell later whether you kept the value on purpose.
+  log('left your env keys and other settings alone; the backup above predates this run');
 }
 
-log('done. Restart Claude Code so the agent, rules and hooks stop loading.');
+log('done. Restart Claude Code so the agents, rules and hooks stop loading.');

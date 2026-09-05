@@ -5,7 +5,7 @@ description: Use when encountering any bug, test failure, or unexpected behavior
 
 <!-- Vendored from https://github.com/obra/superpowers (MIT), edited: red-capable-command
      gate in Phase 1, tagged debug instrumentation, ranked multi-hypothesis in Phase 3,
-     and a Phase 4 escalation that routes through the advisor. Supporting files are
+     and a Phase 4 escalation that routes back to root. Supporting files are
      byte-identical. -->
 
 # Systematic Debugging
@@ -213,8 +213,9 @@ You MUST complete each phase before proceeding to the next.
    - STOP
    - Count: How many fixes have you tried?
    - If < 3: Return to Phase 1, re-analyze with new information
-   - `advisor-executor.md`: when the same error survives two fixes, re-consult the advisor
-     with the actual failing output before attempting a third
+   - `rules/orchestrator.md`: when the same error survives two fixes, root stops and
+     re-decides on the actual failing output — a new contract, or a `tester` to reproduce —
+     before a third attempt
    - **If ≥ 3: STOP and question the architecture (step 5 below)**
    - DON'T attempt Fix #4 without architectural discussion
 
@@ -230,7 +231,7 @@ You MUST complete each phase before proceeding to the next.
    - Are we "sticking with it through sheer inertia"?
    - Should we refactor architecture vs. continue fixing symptoms?
 
-   **Consult the advisor before attempting more fixes**, then surface the architecture
+   **Return to root to re-decide before attempting more fixes**, then surface the architecture
    question to your human partner — the call to rewrite is theirs, the analysis is not.
 
    This is NOT a failed hypothesis - this is a wrong architecture.
