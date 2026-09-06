@@ -87,7 +87,7 @@ if (/[`]|\$\(/.test(unexpanded)) deny('Root cannot use command substitution.');
 
 const READ_ONLY = new Set(['ls', 'cat', 'head', 'tail', 'wc', 'file', 'stat', 'du', 'df',
   'find', 'grep', 'rg', 'sort', 'uniq', 'cut', 'tr', 'echo', 'pwd', 'which', 'env', 'date',
-  'jq', 'tree', 'basename', 'dirname', 'realpath', 'readlink', 'diff', 'sed', 'awk']);
+  'jq', 'tree', 'basename', 'dirname', 'realpath', 'readlink', 'diff']);
 const GIT_READ = new Set(['status', 'diff', 'log', 'show', 'blame', 'ls-files', 'rev-parse',
   'merge-base', 'describe']);
 const GIT_PLUMBING = new Set(['add', 'commit', 'push', 'fetch', 'pull', 'checkout', 'switch',
@@ -99,7 +99,9 @@ const WIPES = {
   restore: (rest) => !rest.includes('--staged') || rest.some((a) => /^(-W|--worktree)$/.test(a)),
   // A pathspec turns checkout into a file restore; a branch name only moves HEAD.
   checkout: (rest, base) => rest.includes('--')
+    || rest.some((a) => /^(-f|--force|-B)$/.test(a))
     || rest.some((a) => !a.startsWith('-') && fs.existsSync(path.resolve(base, a))),
+  switch: (rest) => rest.some((a) => /^(-f|--force|--discard-changes|-C)$/.test(a)),
 };
 const GH_ALLOWED = {
   pr: ['view', 'list', 'diff', 'create', 'edit', 'ready', 'merge', 'comment', 'checks'],
@@ -112,7 +114,7 @@ const GH_ALLOWED = {
 // so `npm test` passes and `npm run build` does not.
 const VERIFIERS = [
   (a) => a[0] === 'node' && a[1] === '--test',
-  (a) => a[0] === 'node' && /\/\.claude\/hooks\/review-tier\.mjs$/.test(a[1] || ''),
+  (a) => a[0] === 'node' && path.resolve(a[1] || '') === path.join(cfgDir(), 'hooks', 'review-tier.mjs'),
   (a) => /^(npm|pnpm|yarn|bun)$/.test(a[0]) && (a[1] === 'test' || (a[1] === 'run' && /^test/.test(a[2] || ''))),
   (a) => a[0] === 'npx' && /^(vitest|jest|mocha|tap)$/.test(a[1] || ''),
   (a) => a[0] === 'pytest',
@@ -125,8 +127,6 @@ const FORBIDDEN_OPTS = {
   git: /^--output/,
   find: /^-f(ls|print0?|printf)$/,
   rg: /^--pre(=|$)/,
-  sed: /^(-i|--in-place)/,
-  awk: /^(-i|--in-place)/,
 };
 
 const segments = [];

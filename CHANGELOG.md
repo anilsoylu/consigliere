@@ -15,11 +15,12 @@ reconstructed from the tag history.
   subcommands (`add`, `commit`, `push`, `fetch`, `pull`, `checkout`, `switch`, `branch`,
   `tag`, `rebase`, `restore`, `reset`) join the read ones, minus the forms that overwrite
   the working tree: `reset --hard|--merge|--keep`, `restore` without `--staged`, and
-  `checkout` with `--` or an existing path. `gh` gains the verbs a handoff needs — `pr
+  `checkout` with `--`, `-f`, `-B` or an existing path, and `switch` with `-f`,
+  `--discard-changes` or `-C`. `gh` gains the verbs a handoff needs — `pr
   create`, `edit`, `ready`, `merge`, `comment`, `checks`, and `release view`/`release list`.
   A fixed set of test runners passes: `node --test`, `npm|pnpm|yarn|bun test`, `npx
-  vitest|jest|mocha|tap`, `pytest`, `go test`, `cargo test`, and `review-tier.mjs`. `sed`
-  and `awk` join the read-only programs, with `-i` denied. An output redirect passes when
+  vitest|jest|mocha|tap`, `pytest`, `go test`, `cargo test`, and `review-tier.mjs` resolved
+  through the config dir. An output redirect passes when
   every target sits under a temp dir, so a verifier can write the log the rules ask for.
   `node script.mjs`, `npm run build`, `cd`, input redirects and command substitution stay
   denied, and the root still writes no code.
