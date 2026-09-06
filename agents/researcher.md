@@ -17,6 +17,8 @@ authoritative answer, say that plainly rather than reasoning to a plausible one.
 
 ## Report
 
+At most 40 lines. Quote at most ten lines from a source; give the URL or path for the rest.
+
 - the answer, first, in one or two sentences
 - the source for it
 - the version/date it applies to

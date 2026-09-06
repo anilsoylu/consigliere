@@ -235,6 +235,11 @@ if (usableEnv && settings.env.CLAUDE_CODE_EFFORT_LEVEL !== undefined) {
   warn('settings.env.CLAUDE_CODE_EFFORT_LEVEL overrides the effort: line in every agent file.');
   warn('Remove it and set the root\'s effort with /effort instead.');
 }
+// Versions before this one filled it in, and nothing here removes a key you now own.
+if (usableEnv && /^(1|true|yes|on)$/i.test(settings.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS || '')) {
+  warn('settings.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS makes a named subagent a teammate, which costs the reviewer its fresh context.');
+  warn('Remove it and run `node doctor.mjs` for the rest of the reason.');
+}
 
 // --- 4. Version stamp for update-check.mjs ---
 // The installed side carries no manifest, so the hook has nothing to compare against

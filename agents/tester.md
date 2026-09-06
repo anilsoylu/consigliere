@@ -26,6 +26,13 @@ never chain `A && B`.
 
 ## Report
 
-- the command you ran and its exit code
-- pass/fail counts, and the actual failure output for anything red
-- what the failure proves about the code
+Five fields, at most 40 lines in total. No preamble, no restatement of the task.
+
+- **Changed** — the tests you wrote or ran, in one or two sentences
+- **Files** — the exact paths you touched, or "none" if you only ran
+- **Verifier** — the command, its exit code, and the pass/fail counts
+- **Confidence** — what the result proves about the code, and what it does not
+- **Out of scope** — what you did not cover, or "none"
+
+Failure output longer than ten lines belongs in `/tmp/<task>/<name>.log`; quote the lines
+that name the failure and give the path for the rest.
