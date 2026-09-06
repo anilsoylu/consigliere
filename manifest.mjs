@@ -71,6 +71,13 @@ export const UPGRADE_FILES = ['SKILL.md'];
 export const YAGNI_SKILL = 'yagni';
 export const YAGNI_FILES = ['SKILL.md'];
 
+// One bounded contract from implementation to a judged, verified result: SKILL.md tells the
+// root how to call it, the script beside it is what runs. Ships by default because the three
+// roles it spawns are default agents, and a prompt file plus a script costs nothing until a
+// Workflow call reads them.
+export const IMPLEMENT_SKILL = 'implement-review-verify';
+export const IMPLEMENT_FILES = ['SKILL.md', 'implement-review-verify.js'];
+
 // obra/superpowers's debugging process, plus the three techniques SKILL.md points at by
 // filename and the two scripts they reference. Model-invoked on any bug, so it ships by
 // default — the executor cannot ask for it if it is not there. See README for attribution.

@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import { runChecks, summarize, compareTags } from '../doctor.mjs';
-import { VERSION, STATE_FILE, HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, hookCommand } from '../manifest.mjs';
+import { VERSION, STATE_FILE, HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, hookCommand } from '../manifest.mjs';
 
 const DOCTOR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'doctor.mjs');
 const temps = [];
@@ -35,6 +35,7 @@ function makeRepoFixture() {
   for (const rule of DEFAULT_RULES) writeFile(path.join(repo, 'rules', rule), rule);
   for (const file of UPGRADE_FILES) writeFile(path.join(repo, 'skills', UPGRADE_SKILL, file), file);
   for (const file of YAGNI_FILES) writeFile(path.join(repo, 'skills', YAGNI_SKILL, file), file);
+  for (const file of IMPLEMENT_FILES) writeFile(path.join(repo, 'skills', IMPLEMENT_SKILL, file), file);
   for (const skill of GRILLING_SKILLS) for (const file of GRILLING_FILES) writeFile(path.join(repo, 'skills', skill, file), file);
   for (const file of WIZARD_FILES) writeFile(path.join(repo, 'skills', WIZARD_SKILL, file), file);
   for (const file of DEBUGGING_FILES) writeFile(path.join(repo, 'skills', DEBUGGING_SKILL, file), file);
@@ -68,6 +69,7 @@ function installDefaultFiles(home) {
   for (const rule of DEFAULT_RULES) writeFile(path.join(claude, 'rules', rule), rule);
   for (const file of UPGRADE_FILES) writeFile(path.join(claude, 'skills', UPGRADE_SKILL, file), file);
   for (const file of YAGNI_FILES) writeFile(path.join(claude, 'skills', YAGNI_SKILL, file), file);
+  for (const file of IMPLEMENT_FILES) writeFile(path.join(claude, 'skills', IMPLEMENT_SKILL, file), file);
   for (const skill of GRILLING_SKILLS) for (const file of GRILLING_FILES) writeFile(path.join(claude, 'skills', skill, file), file);
   for (const file of WIZARD_FILES) writeFile(path.join(claude, 'skills', WIZARD_SKILL, file), file);
   for (const file of DEBUGGING_FILES) writeFile(path.join(claude, 'skills', DEBUGGING_SKILL, file), file);
@@ -382,6 +384,30 @@ test('warns about a locally customized yagni skill instead of certifying it', ()
 
   assert.equal(skill.level, 'warn');
   assert.match(skill.detail, /customized locally.*SKILL\.md/);
+});
+
+// ships by default like yagni, and the script is the half that actually runs
+test('warns when the implement workflow was never installed', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+  fs.rmSync(path.join(home, '.claude', 'skills', IMPLEMENT_SKILL), { recursive: true });
+
+  const skill = check(run(home, makeRepoFixture()), 'implement-review-verify skill');
+
+  assert.equal(skill.level, 'warn');
+  assert.match(skill.detail, /not installed \(SKILL\.md, implement-review-verify\.js\)/);
+  assert.match(skill.detail, /ignore this if you removed it on purpose/);
+});
+
+test('warns about a locally customized implement workflow script instead of certifying it', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+  writeFile(path.join(home, '.claude', 'skills', IMPLEMENT_SKILL, 'implement-review-verify.js'), 'my own version');
+
+  const skill = check(run(home, makeRepoFixture()), 'implement-review-verify skill');
+
+  assert.equal(skill.level, 'warn');
+  assert.match(skill.detail, /customized locally.*implement-review-verify\.js/);
 });
 
 // the library, not SKILL.md, is what every generated wizard runs on
