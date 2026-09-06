@@ -286,4 +286,5 @@ if (fs.existsSync(watchdog)) {
   warn('Nothing here reads it, so it is inert — delete it by hand when you want it gone.');
 }
 
+log('Verify the gate\'s payload assumption against this Claude Code build: node doctor.mjs --probe');
 log('done. Restart Claude Code (plain `claude`) so the agents, rules and hooks load. See README for how the topology works.');

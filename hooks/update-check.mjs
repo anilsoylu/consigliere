@@ -56,6 +56,18 @@ if (process.argv[2] === '--child') {
       if (tags.length) write({ ...read(), latest: tags[tags.length - 1] });
     } catch {}
   }
+  // The gate probe is only as good as the build it ran against, and no env var carries the
+  // version into a hook, so the daily child is where asking costs nothing.
+  try {
+    // shell on Windows: `claude` is an npm .cmd shim, which CreateProcess cannot launch directly.
+    const version = execFileSync('claude', ['--version'], {
+      encoding: 'utf8', timeout: 20_000, stdio: ['ignore', 'pipe', 'ignore'], shell: process.platform === 'win32',
+    }).trim();
+    // Re-read, and only write over a state file that is still there: spreading a failed read
+    // would leave a file holding nothing but this version.
+    const fresh = read();
+    if (fresh) write({ ...fresh, claudeVersion: version });
+  } catch {}
   process.exit(0);
 }
 
@@ -82,8 +94,15 @@ if (Date.now() - (state.checkedAt || 0) > DAY) {
 let source = 'startup';
 try { source = JSON.parse(fs.readFileSync(0, 'utf8')).source ?? source; } catch {}
 
-if (state.latest && cmp(state.latest, state.version) > 0 && (source === 'startup' || source === 'clear')) {
-  process.stdout.write(JSON.stringify({
-    systemMessage: `consigliere ${state.latest} is available (${state.version} installed). Run /consig-upgrade.`,
-  }));
+const lines = [];
+if (state.latest && cmp(state.latest, state.version) > 0) {
+  lines.push(`consigliere ${state.latest} is available (${state.version} installed). Run /consig-upgrade.`);
+}
+// Silent when the probe never ran: doctor already warns about that, and this line is about
+// a verdict that has gone stale under a Claude Code the probe never saw.
+if (state.probe?.claudeVersion && state.claudeVersion && state.claudeVersion !== state.probe.claudeVersion) {
+  lines.push(`Claude Code ${state.claudeVersion} installed since the gate probe ran on ${state.probe.claudeVersion}. Run \`node doctor.mjs --probe\`.`);
+}
+if (lines.length && (source === 'startup' || source === 'clear')) {
+  process.stdout.write(JSON.stringify({ systemMessage: lines.join('\n') }));
 }
