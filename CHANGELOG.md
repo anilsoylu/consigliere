@@ -4,7 +4,7 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
-## Unreleased
+## 2.2.0 — 2026-09-06
 
 ### Added
 - `--with-release-permissions`, an opt-in installer flag. It appends eight release allow
