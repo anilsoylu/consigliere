@@ -126,6 +126,18 @@ export const RECOMMENDED_SETTINGS = {
   subagentPromptCacheTtl: '1h',
 };
 
+// Auto mode denies push, merge and tag from workers without these; opt-in via --with-release-permissions.
+export const RELEASE_PERMISSIONS = [
+  'Bash(git push:*)',
+  'Bash(git tag:*)',
+  'Bash(gh pr create:*)',
+  'Bash(gh pr ready:*)',
+  'Bash(gh pr edit:*)',
+  'Bash(gh pr merge:*)',
+  'Bash(gh pr reopen:*)',
+  'Bash(gh release create:*)',
+];
+
 // [event, matcher, script] — matcher null means the block carries no matcher.
 // orchestrator-gate, git-discipline and comment-ratio register unconditionally but
 // self-gate at runtime on the rule file they enforce (orchestrator.md / workflow.md /

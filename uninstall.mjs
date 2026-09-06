@@ -91,7 +91,8 @@ if (fs.existsSync(SETTINGS)) {
   log('stripped consigliere hook entries from settings.json (your other hooks kept)');
   // The recommended env keys and the model setting are not reverted. Once written they
   // read as your settings, not this package's — an installer that fills a gap has no way
-  // to tell later whether you kept the value on purpose.
+  // to tell later whether you kept the value on purpose. permissions.allow stays for that
+  // reason too, and because dropping an entry takes a capability away without saying so.
   log('left your env keys and other settings alone; the backup above predates this run');
 }
 

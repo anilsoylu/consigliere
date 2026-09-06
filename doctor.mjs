@@ -5,7 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { STATE_FILE, HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, claudeDir as resolveClaudeDir, hookCommand, hasRalphLoop } from './manifest.mjs';
+import { STATE_FILE, HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RELEASE_PERMISSIONS, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, claudeDir as resolveClaudeDir, hookCommand, hasRalphLoop } from './manifest.mjs';
 
 const REPO = path.dirname(fileURLToPath(import.meta.url));
 const USAGE = `Usage: node doctor.mjs [--json]
@@ -337,8 +337,9 @@ export function runChecks(options = {}) {
   // The same comparison update-check.mjs makes, for anyone who does not want the hook — or
   // cannot have it, since it stands down under CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC.
   // Blocking is fine in a CLI, so this one asks upstream directly instead of a cache.
-  let installed = null;
-  try { installed = JSON.parse(fs.readFileSync(path.join(claudeDir, STATE_FILE), 'utf8')).version; } catch {}
+  let state = {};
+  try { state = JSON.parse(fs.readFileSync(path.join(claudeDir, STATE_FILE), 'utf8')); } catch {}
+  const installed = state.version || null;
   const latest = installed ? latestTag(repo) : null;
   checks.push(
     !installed
@@ -349,6 +350,24 @@ export function runChecks(options = {}) {
           ? status('warn', 'version', `${latest} is out, ${installed} installed — cd ${repo} && git pull && node install.mjs`)
           : status('pass', 'version', `${installed} installed, up to date with ${repo}`)
   );
+
+  // Only for someone who asked the installer for them, and only when one is gone: the list
+  // is yours to edit once written, so a complete one is not worth a line of output. An absent
+  // or unparseable settings.json is already its own check, so it reports no rule as missing.
+  if (isObject(settings) && (state.flags || []).includes('--with-release-permissions')) {
+    const perms = cfg.permissions;
+    // The installer skips a block of another shape, so reporting the rules as missing would
+    // send you to a rerun that cannot add them.
+    const badShape = perms !== undefined && !isObject(perms)
+      ? 'settings.permissions is not an object'
+      : isObject(perms) && perms.allow !== undefined && !Array.isArray(perms.allow)
+        ? 'settings.permissions.allow is not an array'
+        : null;
+    const allow = Array.isArray(perms?.allow) ? perms.allow : [];
+    const absent = RELEASE_PERMISSIONS.filter((rule) => !allow.includes(rule));
+    if (badShape) checks.push(status('warn', 'release permissions', `${badShape}, so the installer leaves it alone; fix the shape by hand, then rerun node install.mjs --with-release-permissions`));
+    else if (absent.length) checks.push(status('warn', 'release permissions', `missing from settings.permissions.allow: ${list(absent)}; an unattended release stalls on the first denied command, so rerun node install.mjs --with-release-permissions`));
+  }
 
   // Reported, never repaired: the old tree may hold hooks and skills of your own, and
   // this command writes nothing. Left alone it is only confusing, not harmful.
