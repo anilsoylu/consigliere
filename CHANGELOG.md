@@ -4,6 +4,22 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
+## Unreleased
+
+### Added
+- `--with-release-permissions`, an opt-in installer flag. It appends eight release allow
+  rules to `settings.permissions.allow` in your `settings.json`: `git push`, `git tag`,
+  `gh pr create/ready/edit/merge/reopen` and `gh release create`. Entries already in the
+  list keep their place and nothing is ever removed, and without the flag the installer
+  writes no `permissions` block at all. Recorded in the state file like the other opt-ins,
+  so an upgrade with no flags keeps it. `doctor.mjs` warns when a rule you opted into is
+  no longer in the list; `uninstall.mjs` leaves the list alone.
+
+### Changed
+- `rules/workflow.md` and `agents/worker.md` now say what a denial from the auto-mode
+  classifier means. A classifier denial is reported once with the exact command; only the
+  user adds the allow rule.
+
 ## 2.1.0 — 2026-09-06
 
 ### Added
