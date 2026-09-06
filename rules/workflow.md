@@ -10,7 +10,7 @@
 - Write only inside the current project. The boundary is the repo, not the working directory — in a monorepo, sibling `packages/*` and `apps/*` are in scope even from a nested cwd. A *different* repo is never in scope by implication: ask first, even for a one-line fix, even to undo your own change.
 
 ## Delegation
-Match the primitive to the task. Small work needs no agents; deterministic steps belong in scripts. Reserve subagents for research and parallel exploration that would otherwise pollute main context — one focused task each. If one subagent can complete the task, use one rather than several, and keep spawn counts low. Never spawn a subagent to verify or double-check your own work — independent review comes from a fresh `reviewer` spawn, not self-checks.
+Match the primitive to the task. Deterministic steps belong in scripts. Implementation goes to a `fork`: it starts with root's context, so there is no discovery pass and no restated contract. A cold `worker` is for independent parallel work, or a job whose output should stay out of root's context. Root runs the verifier itself instead of spawning a tester for it. Reserve cold subagents for research and parallel exploration that would otherwise pollute main context — one focused task each. If one subagent can complete the task, use one rather than several, and keep spawn counts low. Never spawn a subagent to verify or double-check your own work — independent review comes from the one handoff review.
 
 ## Continuation loops
 For work with a verifiable exit criterion, use exactly one runtime continuation mechanism: `/goal` or Ralph, never both. Before presenting or starting any `/ralph-loop`, read the `ralph-protocol` skill.
@@ -44,22 +44,28 @@ For multi-step implementation work, keep `tasks/todo.md` with checkable items an
 Update it in batches, not per checkbox. A tick is a full tool round-trip that re-reads the context to change one character, so a plan file rewritten after every item costs more than the tracking is worth. Write it once when a group of items lands, when the plan itself changes, or before you stop.
 
 ## Git & PR
-- Handoff order is `clean` → review → `pr-update`. Clean rewrites the diff, so a review
-  that ran before it judged code that no longer exists. If clean's diff read shows the
-  diff adds or materially changes a compute-heavy routine (data loops, math kernels,
-  parsers, media processing), run `optimize` on it before the review; otherwise skip
-  silently.
-- The review step starts with the tier. The root cannot run `node`, so a `worker` runs
-  `node ~/.claude/hooks/review-tier.mjs <repo> "$(git merge-base origin/main HEAD)"` and
-  reports what it prints: `none | medium | high | xhigh`. Always pass the merge-base: a
-  committed branch leaves a clean tree and the bare form reads the working tree only.
-  `none` means no source changed and needs no review. `medium` and `high` spawn
-  `reviewer` fresh with the diff and no rationale. `xhigh` runs `/merge-readiness`
-  instead. The printed tier is a floor: escalate with a stated reason, never downgrade.
-  A repo raises the floor for its own paths with a `.review-tiers` file at the root,
-  one `<xhigh|high> <regex>` rule per line.
-- Never `cpr`: it fuses clean and pr-update with no gap for the review. Only a `none`
-  tier — no source changed — earns the single pass.
+- Handoff is one pass per PR: verifier green → tier → at most one review → `cpr`, which
+  runs `clean` then `pr-update` with no gap. No step runs twice.
+- Tier: root runs `git merge-base origin/main HEAD`, then pastes the sha (the gate denies
+  `$(…)`):
+
+      node ~/.claude/hooks/review-tier.mjs . <sha>
+
+  It prints `none | medium | high | xhigh`. Always pass the merge-base; the bare form reads
+  the working tree only. `none` and `medium` get no reviewer: the verifier and root's own
+  diff read cover them. `high` and `xhigh` spawn `reviewer` fresh, once, with the diff and
+  the tier named in the prompt and no rationale — a judge that has read the justification
+  anchors to it. Escalate the tier with a stated reason, never downgrade it. A repo can
+  raise the floor for its own paths with a `.review-tiers` file at the root, one
+  `<xhigh|high> <regex>` rule per line.
+- Findings: a fork fixes every `[ADOPT]`, root re-runs the verifier, and a green run closes
+  the finding. Nothing re-reviews the fix. Relay the other findings to the user. A branch
+  whose whole diff came out of one `implement-review-verify` run is already reviewed.
+  `/merge-readiness` runs only when the user asks for it.
+- `clean` is one read of the diff before the PR exists, not a round. `clean` and
+  `pr-update` alone are for a diff that is not ready to ship yet. If that read shows a
+  compute-heavy routine (data loops, math kernels, parsers, media processing) was added or
+  materially changed, run `optimize` before it; otherwise skip silently.
 - `pr-ready` is not part of that chain. It unblocks an already-open PR (stale base, red
   CI, open threads).
 - One branch per task: `feat/ fix/ chore/ refactor/` + kebab-case summary. Never commit straight to `main`.

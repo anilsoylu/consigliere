@@ -2,7 +2,7 @@
 // PreToolUse(Bash|Skill) + PostToolUse(Bash) + UserPromptSubmit + SessionStart: enforce the
 // rules of rules/workflow.md at the moments they are machine-visible — a commit on
 // main/master, a non-conventional subject, a bare --force, a poll, a filtered verifier, and a
-// PR opened without the /clean → review → /pr-update handoff. The prose alone did not hold; a
+// PR opened without the review → /cpr handoff. The prose alone did not hold; a
 // rule with no detectable moment gets sampled, not obeyed.
 //
 // Self-gated on ~/.claude/rules/workflow.md: a default install (no --with-workflow)
@@ -33,7 +33,7 @@ const clear = () => {
 // prompt carrying `<command-name>/clean</command-name>` — never as a Skill call.
 // Only the chain skills open the gate: optimize/perf run before it, and the rule still
 // requires /clean after them, so marking on those would open the gate a step early.
-const CHAIN = ['clean', 'pr-update', 'pr-ready'];
+const CHAIN = ['cpr', 'clean', 'pr-update', 'pr-ready'];
 const PR_CREATE = /(?:^|[;&|\n]|\$\()\s*gh\s+pr\s+create\b/;
 // Reported, not swallowed: a failed write shows up later as the gate blocking a handoff
 // whose /clean already ran, with nothing in the transcript to explain it.
@@ -53,7 +53,7 @@ if (payload.hook_event_name === 'SessionStart') {
         hookEventName: 'SessionStart',
         additionalContext: [
           'WORKFLOW RULES (re-stated: the context was rebuilt, and these are what a summary drops).',
-          'Handoff: /clean → review → /pr-update opens a PR. One chain per PR, not per session.',
+          'Handoff: verifier → tier → one review at most → /cpr (clean + pr-update) opens a PR. Nothing runs twice.',
           'Branches: one per task, feat/ fix/ chore/ refactor/ + kebab. Never commit to main/master.',
           'Commits: conventional subjects — feat: / fix: / refactor: / test: / chore: / docs:.',
           'Verifiers: never pipe one through tail/head/grep — the filter\'s exit status hides a red run.',
@@ -204,7 +204,7 @@ if (PR_CREATE.test(cmd)
   && !fs.existsSync(flag)) {
   deny(
     'HANDOFF GATE: no handoff skill has run this session. rules/workflow.md orders '
-    + '/clean → review → /pr-update before a PR opens; /pr-update itself creates the PR. '
+    + 'review → /cpr before a PR opens; /cpr runs /clean then /pr-update, which creates the PR. '
     + 'Run /optimize first instead when the diff adds a compute-heavy routine. '
     + 'Start the chain now — the gate opens on the first chain skill. If this deny arrives '
     + 'again right after /clean or /pr-update ran, the hook is broken rather than '

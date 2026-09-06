@@ -7,24 +7,34 @@ what runs in parallel, writing each subagent's contract, resolving contradictory
 integrating the results, reading the final diff, running the review, and reporting to the user.
 Everything else is delegated.
 
-Root's `Edit`/`Write` on source and config files, and every mutating Bash command, are a hard
-deny from `hooks/orchestrator-gate.mjs`. The deny is not an error and not a question for the
-user — it is the delegation call arriving late. Read its reason, pick the role, delegate.
-Markdown, plans, notes, `~/.claude` and `/tmp` stay open to root.
+Root's `Edit`/`Write` on source and config files is a hard deny from
+`hooks/orchestrator-gate.mjs`. Root runs verifiers, git and gh itself; it delegates producing
+or changing code. The deny is not an error and not a question for the user — it is the
+delegation call arriving late. Read its reason, pick the role, delegate. Markdown, plans,
+notes, `~/.claude` and `/tmp` stay open to root.
 
 ## Roles
 
 | Need | Agent |
 |---|---|
-| Write, change, or run anything | `worker` |
+| Write or change code | `fork` |
+| Independent parallel work, or a long job that would flood root's context | `worker` |
 | Reproduce a bug, write or run tests | `tester` |
 | Find code, map how something works | `explorer` |
 | A fact outside the repository | `researcher` |
 | A verdict on a finished diff | `reviewer` |
 
+A `fork` inherits root's context, tools and model, so it starts warm: no rediscovery, no
+restated contract. That is why it is the default for implementation. A `worker` starts cold
+and costs a full discovery pass, so it earns its place only when the work is independent
+enough to run beside something else, or long enough that root's context should not carry it.
+
 ## The contract
 
-Every delegation carries six parts. A subagent shares none of your context.
+A `fork` already holds your context, so its contract is three lines: objective, scope,
+acceptance criteria. Restating what it can already read is the cost you spawned it to avoid.
+
+A cold subagent shares none of your context, so its delegation carries six parts.
 
 1. **Objective** — the one thing to accomplish
 2. **Scope** — files and boundaries, including what not to touch
@@ -43,8 +53,8 @@ and point each Context section at that path instead of restating it in every con
 Independent work goes out in one message as concurrent calls. Dependent work is a serial
 chain. Two workers never touch the same file. Mechanical steps of the same kind go to one
 worker as a checklist; spawn in parallel only when the pieces are genuinely independent.
-One bounded contract that has to be implemented, reviewed and verified goes to the
-`implement-review-verify` skill rather than three spawns of your own.
+`implement-review-verify` is for three or more independent contracts that can run side by
+side. A single contract goes to a `fork`; root runs the verifier and spawns the reviewer.
 
 ## Re-delegation
 
@@ -60,8 +70,3 @@ A subagent that hits an architectural choice, a breaking change, a schema change
 dependency, a security decision, or an ambiguous requirement returns to root instead of
 widening its own scope. Root decides and re-delegates.
 
-## Review
-
-Before reporting source work done, spawn `reviewer` fresh with the diff and no rationale —
-a judge that has read the justification anchors to it. Act on every `[ADOPT]`; relay all
-findings.
