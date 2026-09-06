@@ -72,6 +72,8 @@ Claude Code puts an `agent_id` in the hook payload only when the hook fires insi
 
 This cannot be a `permissions.deny` rule. Deny rules apply to subagents too, so the same entry that stopped the root would stop every worker it delegates to.
 
+The field belongs to Claude Code, and its hooks documentation says only that `agent_id` is present when the hook fires inside a subagent — no promise that it stays that way. Renamed, the gate would deny every worker, which you would notice within a minute. Set on the main thread, it would stand aside for the root silently, which is the failure that put the tools back in the deciding loop in v1. `node doctor.mjs --probe` is what turns the second case loud: one short headless `claude -p` run makes a Bash call on the main thread and another inside a subagent, records the payload the gate would have read each time, and fails when `agent_id` is set on the root call or absent from the subagent's.
+
 On `Edit`, `Write` and `MultiEdit` the gate denies files ending in a source or config extension: `ts tsx js jsx mjs cjs py go rs rb php java kt swift c h cpp hpp cc vue svelte sql sh json yaml yml toml`. Markdown, plain text and everything else pass, as does any path inside the config directory, the OS temp directory, `/tmp`, `~/Desktop`, or any `/.claude/` — so plans, notes and scratch work stay open to the root.
 
 On `Bash` it fails closed: a command it cannot parse is denied, because a restriction that waves through what it does not understand is not a restriction. Denied unconditionally are redirects (`>`, `<`), command substitution (backticks and `$(…)`), and an inline variable assignment before the command. Then each segment of the command — split on `;`, `&&`, `||`, `|`, `&` and newlines, with quoted spans masked so `jq '.a | .b'` stays one segment — has to name an allowed program:
@@ -162,6 +164,14 @@ node doctor.mjs
 The doctor byte-compares the installed agents and hooks against this repo's copies — an existing but edited hook is not the hook you think is running — and checks the default rules, the `settings.json` hook entries, the recommended settings, the root model, and the yagni, shadcn, wizard, grilling and upgrade skills. A file you customized is reported, not flagged. It exits non-zero only for hard failures such as an unusable `settings.json` or missing repo assets; incomplete installs are warnings you fix by re-running the installer.
 
 A missing agent file is called out specifically, because the gate denies the root's source edits and names those roles as the way through: installed without them, you have a lock with no key.
+
+To check that against the Claude Code you actually have:
+
+```bash
+node doctor.mjs --probe
+```
+
+This is the one thing here that spends a model run — a few seconds of Haiku (two-minute cap), once per Claude Code version. The verdict and the version it was reached on go into the state file, so a plain `node doctor.mjs` reports it afterwards, and `update-check.mjs` says one line when a newer Claude Code has been installed since.
 
 For machine-readable output:
 
