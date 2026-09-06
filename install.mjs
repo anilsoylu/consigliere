@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Consigliere installer — OS-agnostic (macOS / Linux / Windows).
-// Copies the five subagents, the hooks and the rules into $CLAUDE_CONFIG_DIR (default
+// Copies the six subagents, the hooks and the rules into $CLAUDE_CONFIG_DIR (default
 // ~/.claude), and idempotently merges the hook entries into settings.json (never
 // clobbers your existing hooks).
 // Safe to re-run: a second run changes nothing. Backs up any file it edits.
@@ -75,7 +75,7 @@ if (withWorkflow && !hasRalphLoop(CLAUDE)) {
 
 // --- 2. Copy the agents, the hooks and the rules ---
 // The agents are not optional: orchestrator-gate.mjs blocks the root's source edits and
-// names these five roles as the way through, so a gate without them is a lock with no key.
+// names these six roles as the way through, so a gate without them is a lock with no key.
 copyAll(AGENT_FILES, path.join(REPO, 'agents'), AGENTS);
 copyAll(HOOK_FILES, path.join(REPO, 'hooks'), HOOKS);
 const RULE_FILES = [...DEFAULT_RULES];

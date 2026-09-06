@@ -2,7 +2,7 @@
 name: explorer
 description: Read-only codebase reconnaissance. Use to locate code, map how something works, or answer "where does X happen" before the root commits to an approach.
 tools: Read, Grep, Glob
-model: opus
+model: sonnet
 effort: medium
 ---
 

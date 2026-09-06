@@ -18,9 +18,12 @@ read a neighbouring file before inventing a shape.
 Out of scope unless the contract names it: refactoring adjacent code, reformatting,
 renaming, upgrading dependencies, adding tests beyond what the criteria ask for.
 
-Every turn costs a full round-trip, so spend as few as the work allows. Collect the hunks
-for one file into a single `MultiEdit` instead of editing it a hunk at a time, and search
-with `Grep` and `Glob` rather than shelling out to `cat`, `sed` and `grep`.
+Every turn costs a full round-trip, so spend as few as the work allows. Read a file once
+with `Read`, whole, instead of slicing it with `cat`, `sed` or `grep` across several turns.
+Collect the hunks for one file into a single `MultiEdit` instead of editing it a hunk at a
+time, search with `Grep` and `Glob`, and send independent tool calls in one turn. A task
+that is heading past about 40 turns is too wide for one contract: stop, report what is
+done, and let the root split the rest.
 
 ## Escalate instead of deciding
 

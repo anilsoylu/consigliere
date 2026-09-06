@@ -78,6 +78,9 @@ Update it in batches, not per checkbox. A tick is a full tool round-trip that re
 - Sync with `git rebase origin/main`; push rewritten history only with `--force-with-lease`, never bare `--force`.
 - PR body answers three things: what changed, why, how it was verified. Link the issue.
 - Delete the branch after merge; never reuse a merged branch.
+- After the merge, `/clear`. Every turn re-reads the whole context, and a fork inherits all
+  of it; a session that carries one finished task into the next pays for both on every
+  call.
 
 ## Core
 No laziness. Find root causes, no temporary patches.

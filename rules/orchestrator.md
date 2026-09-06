@@ -21,6 +21,7 @@ notes, `~/.claude` and `/tmp` stay open to root.
 | Independent parallel work, or a long job that would flood root's context | `worker` |
 | Reproduce a bug, write or run tests | `tester` |
 | Find code, map how something works | `explorer` |
+| Read a large file, or extract a few facts from it | `reader` |
 | A fact outside the repository | `researcher` |
 | A verdict on a finished diff | `reviewer` |
 
@@ -44,6 +45,10 @@ A cold subagent shares none of your context, so its delegation carries six parts
 6. **Acceptance criteria** — what makes it done, as something a command can settle
 
 A contract you cannot finish writing means the decision is not made yet. Make it first.
+
+Size a contract to about 40 subagent turns. Every turn re-reads the subagent's whole
+context, so a 600-turn worker costs more than fifteen 40-turn ones and drifts further from
+the contract. Split anything bigger before spawning.
 
 When more than one subagent needs the same context, write it once to `/tmp/<task>/brief.md`
 and point each Context section at that path instead of restating it in every contract.

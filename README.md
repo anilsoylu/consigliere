@@ -33,7 +33,8 @@ Everything installs under `~/.claude` — or wherever `CLAUDE_CONFIG_DIR` points
 | --- | --- | --- | --- | --- |
 | `worker` | opus | medium | Read, Write, Edit, MultiEdit, Bash, Grep, Glob, Skill | yes |
 | `tester` | opus | medium | Read, Edit, Bash, Grep, Glob | tests only |
-| `explorer` | opus | medium | Read, Grep, Glob | no |
+| `explorer` | sonnet | medium | Read, Grep, Glob | no |
+| `reader` | haiku | low | Read, Grep, Glob | no |
 | `researcher` | opus | medium | Read, Grep, Glob, WebFetch, WebSearch | no |
 | `reviewer` | fable | medium | Read, Grep, Glob | no |
 
@@ -49,13 +50,14 @@ Every report is capped at 40 lines. `worker` and `tester` return five fields: wh
 - `review-tier.mjs` — reads a diff and prints the review effort tier: `none`, `medium`, `high`, `xhigh`.
 - `update-check.mjs` — one line at session start when a newer tag exists upstream.
 - `commit-language.mjs` — blocks a `git commit` or `gh pr create` whose message reads as Turkish.
+- `read-gate.mjs` — denies the root a `Read` of a file over 350 lines (`READ_GATE_MAX_LINES`) unless `limit` is set, and a `cat`, `less`, `more` or unbounded `head`/`tail` of one. A file the root reads is re-read on every later turn and inherited by every fork, so the gate routes the question to `reader` instead. Subagents pass; parse errors and unreadable paths pass, because this is a cost guard and not a safety one.
 - `git-discipline.mjs` — the branch, the conventional subject, the review → `/cpr` order, leased force-pushes, unfiltered verifiers, and the rules again after a compaction.
 - `comment-ratio.mjs` — nudges when an edit lands more comment lines than code.
 - `plan-capture.mjs` — copies an approved plan-mode plan into `plans/`, numbered and indexed as an `improve` plan.
 
 **The rules**
 
-- `orchestrator.md` — the behavioral spec Claude reads every session: what root owns, the six roles, the six-part contract, parallelism, escalation.
+- `orchestrator.md` — the behavioral spec Claude reads every session: what root owns, the seven roles, the six-part contract, parallelism, escalation.
 - `coding-discipline.md` — minimum code, surgical edits, comments as a last resort, plain repo prose.
 
 **The skills**
