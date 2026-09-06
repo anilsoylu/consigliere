@@ -4,6 +4,39 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
+## 2.4.0 — 2026-09-07
+
+### Added
+- `/cpr`, the last step of the handoff: `clean` then `pr-update` in one pass. It opens the
+  `git-discipline.mjs` PR gate like the other handoff skills.
+
+### Changed
+- `orchestrator-gate.mjs` lets the root run the plumbing itself. The git plumbing
+  subcommands (`add`, `commit`, `push`, `fetch`, `pull`, `checkout`, `switch`, `branch`,
+  `tag`, `rebase`, `restore`, `reset`) join the read ones, minus the forms that overwrite
+  the working tree: `reset --hard|--merge|--keep`, `restore` without `--staged`, and
+  `checkout` with `--` or an existing path. `gh` gains the verbs a handoff needs — `pr
+  create`, `edit`, `ready`, `merge`, `comment`, `checks`, and `release view`/`release list`.
+  A fixed set of test runners passes: `node --test`, `npm|pnpm|yarn|bun test`, `npx
+  vitest|jest|mocha|tap`, `pytest`, `go test`, `cargo test`, and `review-tier.mjs`. `sed`
+  and `awk` join the read-only programs, with `-i` denied. An output redirect passes when
+  every target sits under a temp dir, so a verifier can write the log the rules ask for.
+  `node script.mjs`, `npm run build`, `cd`, input redirects and command substitution stay
+  denied, and the root still writes no code.
+- Implementation goes to a `fork` of the root, which inherits its context and prompt
+  cache; `worker` is for parallel or context-heavy work. A fork's contract is three lines.
+  `worker` and `tester` run at `effort: medium`, and the worker is told to batch hunks
+  into one `MultiEdit` and search with `Grep`/`Glob`. Measured on the same ten-file
+  change: 552 s for a cold worker, 132 s for a fork.
+- One pass per PR. `rules/workflow.md` orders verifier, tier, at most one `reviewer` on
+  `high` and `xhigh`, then `cpr`. A fix for an `[ADOPT]` finding is closed by a green
+  verifier, not by a second review. `clean` moves to right before `pr-update`. The "never
+  cpr" rule is gone, and so is the `## Review` section of `rules/orchestrator.md`.
+  `agents/reviewer.md` says what each tier means for how deep it reads.
+- `/merge-readiness` runs only when you ask for it. No tier routes to it any more.
+- `implement-review-verify` is for three or more independent contracts; a single one goes
+  to a fork.
+
 ## 2.3.0 — 2026-09-06
 
 ### Added
