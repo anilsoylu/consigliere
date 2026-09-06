@@ -64,6 +64,7 @@ Every report is capped at 40 lines. `worker` and `tester` return five fields: wh
 - `/yagni` — a deletion pass: make the code smaller without making it do less.
 - `/wizard` — writes a bash script for the steps only a human can take.
 - `systematic-debugging` — four phases, and no fix proposed before the root cause is found.
+- `implement-review-verify` — one bounded contract as a graph: worker, then reviewer and tester at once, then one fix round.
 
 ## The gate
 
@@ -197,6 +198,16 @@ Two rules hold it up. **The judge is never weaker than the author:** tier 1 is t
 The verdict on whether the tree is sound comes from your own verifier's exit code, not from a model's opinion — if the baseline is already red, the run stops instead of reviewing a broken tree. Nothing in the graph writes code; every judging node is schema-bound to return a verdict, and fixes happen afterwards in a worker where you can see them.
 
 It costs up to 13 agents a run, so `review-tier.mjs` only routes `xhigh` here; routine diffs stay on a single `reviewer` spawn. Reach for it by hand on a `high` diff when it's big enough that one reviewer will miss something and you can say why.
+
+### The implement-review-verify workflow
+
+Ships by default, no flag. An implement task normally costs the root four turns: spawn the worker, wait, spawn the reviewer, wait, spawn the tester, wait, then decide. Every wait re-reads the whole root context to advance one step, and the reviewer and the tester never overlap even though neither needs the other's answer.
+
+Hand the contract to this skill instead. A `worker` carries it out, a `reviewer` and a `tester` judge the result at one barrier, and a single fix round closes the ADOPT findings and a red verifier. Five agents at most. The fix round never repeats: two failed attempts on the same error mean the approach is wrong, and that is the root's call rather than the graph's.
+
+Every stage names an `agentType` instead of a model and an effort, so each one runs the role as your agent files define it. Change `worker.md`'s `effort:` line and the skill follows without being edited. The reviewer has no shell, so the worker writes the diff to a patch file and the reviewer judges that, plus the changed files for context and nothing else from the worker's report.
+
+Reach for it when the work is one delegable change whose contract is already written. It is not the handoff chain and it opens no PR: `clean`, the review tier and `pr-update` still run over the whole branch in the main loop.
 
 ## Auto mode
 
