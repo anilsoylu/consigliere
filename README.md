@@ -55,7 +55,7 @@ Every report is capped at 40 lines. `worker` and `tester` return five fields: wh
 
 **The rules**
 
-- `orchestrator.md` — the behavioral spec Claude reads every session: what root owns, the five roles, the six-part contract, parallelism, escalation.
+- `orchestrator.md` — the behavioral spec Claude reads every session: what root owns, the six roles, the six-part contract, parallelism, escalation.
 - `coding-discipline.md` — minimum code, surgical edits, comments as a last resort, plain repo prose.
 
 **The skills**
@@ -80,12 +80,12 @@ On `Edit`, `Write` and `MultiEdit` the gate denies files ending in a source or c
 
 On `Bash` it fails closed: a command it cannot parse is denied, because a restriction that waves through what it does not understand is not a restriction. Denied unconditionally are input redirects (`<`), command substitution (backticks and `$(…)`), `cd`, and an inline variable assignment before the command. An output redirect passes only when every target sits under `/tmp` or the OS temp dir, so a verifier can write the log the rules ask for. Then each segment of the command — split on `;`, `&&`, `||`, `|`, `&` and newlines, with quoted spans masked so `jq '.a | .b'` stays one segment — has to name an allowed program:
 
-- `ls cat head tail wc file stat du df find grep rg sort uniq cut tr echo pwd which env date jq tree basename dirname realpath readlink diff sed awk`
-- `git status diff log show blame ls-files rev-parse merge-base describe` and the plumbing `add commit push fetch pull checkout switch branch tag rebase restore reset`, minus the forms that overwrite the working tree: `reset --hard|--merge|--keep`, `restore` without `--staged`, and `checkout` with `--` or an existing path
+- `ls cat head tail wc file stat du df find grep rg sort uniq cut tr echo pwd which env date jq tree basename dirname realpath readlink diff`
+- `git status diff log show blame ls-files rev-parse merge-base describe` and the plumbing `add commit push fetch pull checkout switch branch tag rebase restore reset`, minus the forms that overwrite the working tree: `reset --hard|--merge|--keep`, `restore` without `--staged`, `checkout` with `--`, `-f`, `-B` or an existing path, and `switch` with `-f`, `--discard-changes` or `-C`
 - `gh pr view|list|diff|create|edit|ready|merge|comment|checks`, `gh issue view|list`, `gh repo view`, `gh run view|list`, `gh release view|list`, and `gh api` only without a request body and only with `GET`
 - the verifiers: `node --test`, `npm|pnpm|yarn|bun test` and `run test*`, `npx vitest|jest|mocha|tap`, `pytest`, `go test`, `cargo test`, and `node ~/.claude/hooks/review-tier.mjs`
 
-Options that turn an allowed command into a writer or a launcher are denied by name: `sort -o`/`--output`/`--compress-program`, `tree -o`, `git --output`, `find -fls`/`-fprint`/`-fprintf`, `rg --pre`, `find -exec`/`-execdir`/`-delete`/`-ok`/`-okdir`, `sed -i`/`awk -i`, and `env` used to run a program rather than print the environment.
+Options that turn an allowed command into a writer or a launcher are denied by name: `sort -o`/`--output`/`--compress-program`, `tree -o`, `git --output`, `find -fls`/`-fprint`/`-fprintf`, `rg --pre`, `find -exec`/`-execdir`/`-delete`/`-ok`/`-okdir`, and `env` used to run a program rather than print the environment.
 
 Deleting `rules/orchestrator.md` turns the gate off. It checks for that file before it reads the payload, so a disabled gate never denies anything.
 

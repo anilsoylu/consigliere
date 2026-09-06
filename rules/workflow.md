@@ -62,8 +62,8 @@ Update it in batches, not per checkbox. A tick is a full tool round-trip that re
   the finding. Nothing re-reviews the fix. Relay the other findings to the user. A branch
   whose whole diff came out of one `implement-review-verify` run is already reviewed.
   `/merge-readiness` runs only when the user asks for it.
-- `clean` is one read of the diff before the PR exists, not a round. `clean` and
-  `pr-update` alone are for a diff that is not ready to ship yet. If that read shows a
+- `clean` is one read of the diff before the PR exists, not a round. Use `clean` or
+  `pr-update` on their own only when the diff is not being shipped yet. If that read shows a
   compute-heavy routine (data loops, math kernels, parsers, media processing) was added or
   materially changed, run `optimize` before it; otherwise skip silently.
 - `pr-ready` is not part of that chain. It unblocks an already-open PR (stale base, red

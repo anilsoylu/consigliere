@@ -27,7 +27,7 @@ export const OBSOLETE_RULE_FILES = ['advisor-executor.md'];
 export const DEFAULT_RULES = ['orchestrator.md', 'coding-discipline.md'];
 export const WORKFLOW_RULE = 'workflow.md';
 
-// The five roles, as Claude Code subagent definitions. orchestrator-gate.mjs blocks the
+// Five of the six roles, as subagent definitions; `fork` is built in. orchestrator-gate.mjs blocks the
 // root's source edits and names these roles as the way through, so a gate installed
 // without the agents is a lock with no key. Same missing/modified treatment as a hook.
 export const AGENT_FILES = ['worker.md', 'tester.md', 'explorer.md', 'researcher.md', 'reviewer.md'];

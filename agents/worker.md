@@ -1,6 +1,6 @@
 ---
 name: worker
-description: Implementation subagent. Use for every code change, file mutation, and shell command the root delegates. Receives a bounded contract and returns a change report.
+description: Implementation subagent for independent parallel work or long jobs; receives a bounded contract and returns a change report.
 tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, Skill
 model: opus
 effort: medium
