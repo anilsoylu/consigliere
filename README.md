@@ -199,6 +199,14 @@ The verdict on whether the tree is sound comes from your own verifier's exit cod
 
 It costs up to 13 agents a run, so `review-tier.mjs` only routes `xhigh` here; routine diffs stay on a single `reviewer` spawn. Reach for it by hand on a `high` diff when it's big enough that one reviewer will miss something and you can say why.
 
+### Optional: the release allow rules
+
+```bash
+node install.mjs --with-release-permissions
+```
+
+Adds eight `Bash(...)` entries to `permissions.allow` in your `settings.json` so an unattended release is not stopped by the auto-mode classifier at its first push. See [Auto mode](#auto-mode) for what it writes and why it is off by default.
+
 ### The implement-review-verify workflow
 
 Ships by default, no flag. An implement task normally costs the root four turns: spawn the worker, wait, spawn the reviewer, wait, spawn the tester, wait, then decide. Every wait re-reads the whole root context to advance one step, and the reviewer and the tester never overlap even though neither needs the other's answer.
@@ -223,6 +231,8 @@ What the rules genuinely cannot express is your infrastructure, and that is your
 
 `claude auto-mode defaults` prints the built-in rules, `config` prints what you actually get, and `critique` reads your own entries back and names the ambiguous ones.
 
+Release commands are the one case where `allow` earns its place, and `node install.mjs --with-release-permissions` is how you take it. It appends `Bash(git push:*)`, `Bash(git tag:*)`, `Bash(gh pr create:*)`, `Bash(gh pr ready:*)`, `Bash(gh pr edit:*)`, `Bash(gh pr merge:*)`, `Bash(gh pr reopen:*)` and `Bash(gh release create:*)` to `permissions.allow`, keeping every entry already there. Without the flag the installer writes no `permissions` block at all, because an allow entry is a mandatory exception that overrides matching soft denies and that is your call to make, not this package's. What it buys is an unattended release that finishes: a classifier denial mid-run leaves a branch pushed and a tag not. What it does not buy is a free hand with git. `git-discipline.mjs` still blocks bare `--force` and commits straight to master underneath it, in every thread, because a hook reads the command rather than asking a model about it. The uninstaller leaves the entries alone once written.
+
 ## Updating
 
 ```bash
@@ -231,7 +241,7 @@ cd consigliere && git pull && node install.mjs
 
 Or type `/consig-upgrade`, which runs exactly that in the clone the state file records, then the doctor, and reports what changed.
 
-Re-running the installer is the whole update — no flags needed the second time. The optional assets you opted into are recorded in the state file and reinstalled on every run; to drop one, run `node uninstall.mjs`; leaving the flag off does nothing. You don't have to notice on your own: releases are plain `git tag v<major>.<minor>.<patch>`, `install.mjs` records the version it wrote into `~/.claude/.consigliere-state.json`, and `update-check.mjs` compares the two.
+Re-running the installer is the whole update — no flags needed the second time. The optional assets you opted into are recorded in the state file and reinstalled on every run; to drop one, run `node uninstall.mjs`; leaving the flag off does nothing. The exception is `--with-release-permissions`, whose entries the uninstaller leaves in `settings.permissions.allow` for you to remove by hand. You don't have to notice on your own: releases are plain `git tag v<major>.<minor>.<patch>`, `install.mjs` records the version it wrote into `~/.claude/.consigliere-state.json`, and `update-check.mjs` compares the two.
 
 The check never blocks and never runs in the foreground. At session start the hook reads a cached answer and exits; at most once a day it hands the network work to a detached child that runs `git ls-remote --tags origin` in the clone you installed from and writes the result for the *next* session. Offline costs nothing, a fork checks its own origin rather than this one, and the clock advances whether or not the lookup succeeded — a failing check waits out the day like a successful one.
 
@@ -267,6 +277,7 @@ The Sol version — the advisor as Codex GPT-5.6 driven over the Codex plugin by
 - **The gate is a boundary, not a sandbox.** It reads the command text, so it stops the root's mistakes rather than a determined bypass; a worker holds every tool the root gave up.
 - **Two skills still need a POSIX shell:** `wizard` generates bash scripts around `template.sh`, and `systematic-debugging` bisects test pollution with `find-polluter.sh`. Nothing in the hook chain does — on Windows, run those two under Git Bash or WSL.
 - **`--with-merge-readiness`:** the skill drives Claude Code's Workflow tool, so nothing fires automatically — you run `/merge-readiness` and Claude asks before spawning the graph. Its tier-2 judge pins Fable for the same reason the reviewer does, with the same fallback.
+- **The auto-mode classifier can still deny a push, merge or tag from a worker.** The worker reports the command and the run stops until the user adds the allow rules, which `--with-release-permissions` writes.
 
 ## License
 
