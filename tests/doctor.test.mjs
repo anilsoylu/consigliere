@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import { runChecks, summarize, compareTags } from '../doctor.mjs';
-import { VERSION, STATE_FILE, HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, hookCommand } from '../manifest.mjs';
+import { VERSION, STATE_FILE, HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RELEASE_PERMISSIONS, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, hookCommand } from '../manifest.mjs';
 
 const DOCTOR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'doctor.mjs');
 const temps = [];
@@ -307,6 +307,67 @@ test('fails when the repo itself is missing a subagent', () => {
 
   assert.equal(assets.level, 'fail');
   assert.match(assets.detail, new RegExp(`agents/${AGENT_FILES[0]}`));
+});
+
+// what --with-release-permissions leaves on both sides: the flag in the state file, the
+// rules in settings.json
+function recordReleasePermissions(home, permissions) {
+  const claude = path.join(home, '.claude');
+  const state = JSON.parse(fs.readFileSync(path.join(claude, STATE_FILE), 'utf8'));
+  writeFile(path.join(claude, STATE_FILE), JSON.stringify({ ...state, flags: ['--with-release-permissions'] }));
+  const settings = JSON.parse(fs.readFileSync(path.join(claude, 'settings.json'), 'utf8'));
+  writeFile(path.join(claude, 'settings.json'), JSON.stringify({ ...settings, permissions }));
+}
+
+test('warns when a rule you opted into is no longer in settings.permissions.allow', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+  recordReleasePermissions(home, { allow: RELEASE_PERMISSIONS.slice(1) });
+
+  const permissions = check(run(home, makeRepoFixture()), 'release permissions');
+
+  assert.equal(permissions.level, 'warn');
+  assert.ok(permissions.detail.includes(RELEASE_PERMISSIONS[0]));
+});
+
+// Listing the eight as missing would point at a rerun that skips this file too.
+test('names the unusable shape instead of calling every rule missing', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+  recordReleasePermissions(home, { allow: 'Bash(git push:*)' });
+
+  const permissions = check(run(home, makeRepoFixture()), 'release permissions');
+
+  assert.equal(permissions.level, 'warn');
+  assert.match(permissions.detail, /settings\.permissions\.allow is not an array/);
+  assert.equal(permissions.detail.includes(RELEASE_PERMISSIONS[1]), false, 'and lists no rule as missing');
+});
+
+test('says nothing when every rule you opted into is there', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+  recordReleasePermissions(home, { allow: RELEASE_PERMISSIONS });
+
+  assert.equal(check(run(home, makeRepoFixture()), 'release permissions'), undefined);
+});
+
+// settings.json has its own check; naming all eight on top of it points at a rerun that
+// would only recreate the file.
+test('says nothing about release permissions when there is no settings.json to read', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+  recordReleasePermissions(home, { allow: RELEASE_PERMISSIONS });
+  fs.rmSync(path.join(home, '.claude', 'settings.json'));
+
+  assert.equal(check(run(home, makeRepoFixture()), 'release permissions'), undefined);
+});
+
+// Not opting in is a decision, and an allow list of your own is none of this tool's business.
+test('says nothing about release permissions when the flag was never passed', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+
+  assert.equal(check(run(home, makeRepoFixture()), 'release permissions'), undefined);
 });
 
 // the skill is optional, so the check only exists once the directory is there

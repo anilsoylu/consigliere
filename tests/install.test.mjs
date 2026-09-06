@@ -5,10 +5,10 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { STATE_FILE, HOOK_FILES, OBSOLETE_HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, hookCommand } from '../manifest.mjs';
+import { STATE_FILE, HOOK_FILES, OBSOLETE_HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RELEASE_PERMISSIONS, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, hookCommand } from '../manifest.mjs';
 
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const INSTALL = path.join(REPO, 'install.mjs');
@@ -148,13 +148,18 @@ test('--with-workflow ships the rule together with every skill it names', () => 
 // Upgrading is `git pull && node install.mjs` with no flags, so a flag that only lived in
 // argv would drop the optional assets on the first upgrade and leave them to go stale.
 test('remembers the optional assets you opted into and reinstalls them without the flag', () => {
-  const home = install(null, ['--with-workflow']);
+  const home = install(null, ['--with-workflow', '--with-release-permissions']);
+  const settingsPath = path.join(home, '.claude', 'settings.json');
+  const settings = JSON.parse(read(settingsPath));
+  settings.permissions.allow = settings.permissions.allow.filter((rule) => rule !== RELEASE_PERMISSIONS[0]);
+  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
   install(home);
 
   const state = JSON.parse(read(path.join(home, '.claude', STATE_FILE)));
-  assert.deepEqual(state.flags, ['--with-workflow']);
+  assert.deepEqual(state.flags, ['--with-workflow', '--with-release-permissions']);
   assert.ok(fs.existsSync(rulePath(home, WORKFLOW_RULE)), 'the workflow rule must survive a plain reinstall');
+  assert.ok(JSON.parse(read(settingsPath)).permissions.allow.includes(RELEASE_PERMISSIONS[0]), 'and a rule removed by hand comes back');
 });
 
 test('a default install ships neither the workflow rule nor the skills it names', () => {
@@ -241,6 +246,57 @@ test('a default install ships the debugging skill with every file it references'
       `skills/${DEBUGGING_SKILL}/${f} must match this repo byte for byte`
     );
   }
+});
+
+test('--with-release-permissions writes every release allow rule into settings.json', () => {
+  const home = install(null, ['--with-release-permissions']);
+
+  const settings = JSON.parse(read(path.join(home, '.claude', 'settings.json')));
+  assert.deepEqual(settings.permissions.allow, RELEASE_PERMISSIONS);
+});
+
+// The list is the user's file once written: rewriting it would drop entries nobody here
+// knows the reason for.
+test('adds only the missing release allow rules and keeps the ones you had', () => {
+  const home = install();
+  const settingsPath = path.join(home, '.claude', 'settings.json');
+  const settings = JSON.parse(read(settingsPath));
+  settings.permissions = { allow: ['Bash(rsync:*)', RELEASE_PERMISSIONS[1]] };
+  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+
+  install(home, ['--with-release-permissions']);
+
+  const { allow } = JSON.parse(read(settingsPath)).permissions;
+  assert.deepEqual(allow.slice(0, 2), ['Bash(rsync:*)', RELEASE_PERMISSIONS[1]], 'your entries keep their place');
+  assert.deepEqual([...new Set(allow)], allow, 'and nothing is added twice');
+  for (const rule of RELEASE_PERMISSIONS) assert.ok(allow.includes(rule), `${rule} should be there`);
+});
+
+// Rewriting a shape this installer does not know would destroy whatever you meant by it,
+// so the run says so and moves on rather than guessing.
+test('skips a permissions block of another shape and leaves settings.json as it was', () => {
+  const home = install();
+  const settingsPath = path.join(home, '.claude', 'settings.json');
+  const settings = JSON.parse(read(settingsPath));
+  settings.permissions = { allow: 'Bash(git push:*)' };
+  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
+  const before = read(settingsPath);
+
+  const run = spawnSync(process.execPath, [INSTALL, '--with-release-permissions'], {
+    env: { ...process.env, HOME: home, USERPROFILE: home, CLAUDE_CONFIG_DIR: '' },
+    encoding: 'utf8',
+  });
+
+  assert.equal(run.status, 0, 'the rest of the install must still finish');
+  assert.match(run.stderr, /"permissions" block this installer does not recognize/);
+  assert.equal(read(settingsPath), before, 'and the file must be byte for byte what you wrote');
+});
+
+test('a default install writes no permissions block at all', () => {
+  const home = install();
+
+  const settings = JSON.parse(read(path.join(home, '.claude', 'settings.json')));
+  assert.equal('permissions' in settings, false);
 });
 
 test('fills in the recommended settings and never overwrites a value of yours', () => {

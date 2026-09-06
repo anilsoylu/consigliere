@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { VERSION, STATE_FILE, HOOK_FILES, OBSOLETE_HOOK_FILES, OBSOLETE_AGENT_FILES, OBSOLETE_RULE_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, HANDOFF_FILES, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, OPTIMIZE_FILES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, claudeDir, hookCommand, hasRalphLoop } from './manifest.mjs';
+import { VERSION, STATE_FILE, HOOK_FILES, OBSOLETE_HOOK_FILES, OBSOLETE_AGENT_FILES, OBSOLETE_RULE_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, HANDOFF_FILES, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, OPTIMIZE_FILES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RELEASE_PERMISSIONS, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, claudeDir, hookCommand, hasRalphLoop } from './manifest.mjs';
 
 const REPO = path.dirname(fileURLToPath(import.meta.url));
 const CLAUDE = claudeDir();
@@ -20,6 +20,7 @@ const statePath = path.join(CLAUDE, STATE_FILE);
 
 const log = (...a) => console.log('[consigliere]', ...a);
 const warn = (...a) => console.warn('[consigliere] WARN:', ...a);
+const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 
 let state = {};
 try { state = JSON.parse(fs.readFileSync(statePath, 'utf8')); } catch {
@@ -30,11 +31,12 @@ try { state = JSON.parse(fs.readFileSync(statePath, 'utf8')); } catch {
 // Opting into an optional asset is a decision, not a per-run argument: a plain
 // `node install.mjs` on upgrade would otherwise skip what it installed last time and leave
 // it to drift out of date. Union, so the flags only ever add — uninstall.mjs takes away.
-const OPTIONAL_FLAGS = ['--with-workflow', '--with-merge-readiness'];
+const OPTIONAL_FLAGS = ['--with-workflow', '--with-merge-readiness', '--with-release-permissions'];
 const argv = process.argv.slice(2);
 const flags = OPTIONAL_FLAGS.filter((f) => (state.flags || []).includes(f) || argv.includes(f));
 const withWorkflow = flags.includes('--with-workflow');
 const withMergeReadiness = flags.includes('--with-merge-readiness');
+const withReleasePermissions = flags.includes('--with-release-permissions');
 // A typo used to cost one run; now it also leaves you believing the opt-in was remembered.
 for (const a of argv.filter((a) => a.startsWith('--') && !OPTIONAL_FLAGS.includes(a))) {
   warn(`unknown option ${a} — did you mean one of ${OPTIONAL_FLAGS.join(', ')}?`);
@@ -215,12 +217,29 @@ const stale = pruneStale();
 // an env that is not an object is yours to fix — writing into it would throw, and
 // replacing it would destroy whatever you meant by it
 settings.env ??= {};
-const usableEnv = settings.env !== null && typeof settings.env === 'object' && !Array.isArray(settings.env);
+const usableEnv = isObject(settings.env);
 if (!usableEnv) warn('settings.json has an "env" that is not an object; left it alone and skipped the recommended env keys.');
 const filled = [
   ...(usableEnv ? fillDefaults(settings.env, RECOMMENDED_ENV, 'env.') : []),
   ...fillDefaults(settings, RECOMMENDED_SETTINGS, ''),
 ];
+// Only on the flag, and only ever additive: an allow entry is a mandatory exception that
+// overrides matching soft denies, so the list stays as you wrote it. A permissions block of
+// another shape is yours: writing into it would throw, or destroy what you meant by it.
+const usablePermissions = settings.permissions === undefined
+  || (isObject(settings.permissions) && (settings.permissions.allow === undefined || Array.isArray(settings.permissions.allow)));
+const allowAdded = [];
+if (withReleasePermissions && !usablePermissions) {
+  warn('settings.json has a "permissions" block this installer does not recognize; left it alone and skipped the release allow rules.');
+} else if (withReleasePermissions) {
+  settings.permissions ??= {};
+  settings.permissions.allow ??= [];
+  for (const rule of RELEASE_PERMISSIONS) {
+    if (settings.permissions.allow.includes(rule)) continue;
+    settings.permissions.allow.push(rule);
+    allowAdded.push(rule);
+  }
+}
 const merged = JSON.stringify(settings, null, 2) + '\n';
 // Only on a real change: a run that merges nothing would otherwise replace your
 // pre-install settings with a copy of themselves.
@@ -234,6 +253,11 @@ if (filled.length) {
 } else {
   log('settings.json already had every recommended env key and setting (no change)');
 }
+log(!withReleasePermissions
+  ? 'skipped the release allow rules for git push, gh pr and git tag. Add them with:  node install.mjs --with-release-permissions'
+  : allowAdded.length
+    ? `added ${allowAdded.length} release allow rule${allowAdded.length === 1 ? '' : 's'} to settings.permissions.allow: ${allowAdded.join(', ')}`
+    : 'settings.permissions.allow already had every release allow rule (no change)');
 // Not filled by us, so it survives fillDefaults: it applies to every model at once and
 // overrides the per-role `effort:` in each agent file.
 if (usableEnv && settings.env.CLAUDE_CODE_EFFORT_LEVEL !== undefined) {

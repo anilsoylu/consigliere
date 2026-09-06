@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { HOOK_FILES, OBSOLETE_HOOK_FILES, AGENT_FILES, DEFAULT_RULES, HANDOFF_SKILLS, GRILLING_SKILLS, OPTIMIZE_SKILLS, UPGRADE_SKILL, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, WIZARD_SKILL, DEBUGGING_SKILL, SHADCN_SKILL, hookCommand } from '../manifest.mjs';
+import { HOOK_FILES, OBSOLETE_HOOK_FILES, AGENT_FILES, DEFAULT_RULES, HANDOFF_SKILLS, GRILLING_SKILLS, OPTIMIZE_SKILLS, UPGRADE_SKILL, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, WIZARD_SKILL, DEBUGGING_SKILL, SHADCN_SKILL, RELEASE_PERMISSIONS, hookCommand } from '../manifest.mjs';
 
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const INSTALL = path.join(REPO, 'install.mjs');
@@ -135,6 +135,17 @@ test('strips only its own hook entries and leaves an unrelated hook in the same 
   for (const f of HOOK_FILES) assert.equal(commands.includes(f), false, `${f} should no longer be registered`);
   assert.equal('UserPromptSubmit' in (after.hooks ?? {}), false, 'an event left empty must be dropped, not kept as []');
   assert.equal(after.hooks.PreToolUse.length, 1, 'blocks left empty must be dropped too');
+});
+
+// The rules are yours once written, and the uninstaller opens settings.json anyway to
+// strip its hook entries.
+test('leaves the release permissions it installed behind in settings.json', () => {
+  const home = installed(['--with-release-permissions']);
+
+  run(UNINSTALL, home);
+
+  const allow = readSettings(home).permissions?.allow ?? [];
+  for (const rule of RELEASE_PERMISSIONS) assert.ok(allow.includes(rule), `${rule} should survive the uninstall`);
 });
 
 test('leaves an invalid settings.json byte-identical and still exits clean', () => {

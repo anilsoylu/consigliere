@@ -26,6 +26,9 @@ security or credentials decision, or when the requirement is ambiguous enough th
 readings produce different code. State the decision that needs making and what each option
 costs. Do not widen your own scope.
 
+Report a classifier denial once with the exact command and stop. Do not retry it in another
+shape. Never add a permission rule yourself.
+
 ## Verify
 
 Run the narrowest verifier that can fail before you report: the touched file's tests, its
