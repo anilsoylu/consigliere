@@ -6,7 +6,7 @@ import path from 'node:path';
 // Releases are `git tag v<VERSION>`; update-check.mjs and doctor.mjs both compare against
 // that tag list, so bumping this without tagging makes an installed copy look ahead of
 // upstream. Only vN.N.N sorts — the old `v1-sol` tag is deliberately unsortable.
-export const VERSION = '2.3.0';
+export const VERSION = '2.4.0';
 export const STATE_FILE = '.consigliere-state.json';
 
 export const HOOK_FILES = [
@@ -27,7 +27,7 @@ export const OBSOLETE_RULE_FILES = ['advisor-executor.md'];
 export const DEFAULT_RULES = ['orchestrator.md', 'coding-discipline.md'];
 export const WORKFLOW_RULE = 'workflow.md';
 
-// The five roles, as Claude Code subagent definitions. orchestrator-gate.mjs blocks the
+// Five of the six roles, as subagent definitions; `fork` is built in. orchestrator-gate.mjs blocks the
 // root's source edits and names these roles as the way through, so a gate installed
 // without the agents is a lock with no key. Same missing/modified treatment as a hook.
 export const AGENT_FILES = ['worker.md', 'tester.md', 'explorer.md', 'researcher.md', 'reviewer.md'];
@@ -41,8 +41,8 @@ export const MERGE_READINESS_FILES = ['SKILL.md', 'merge-readiness.js'];
 // unblock a stuck one. They share ralph-protocol's --with-workflow gate, because the rule
 // that names them is on that flag and a rule naming an absent skill is the same dangling
 // reference as a gate with no agent. Upstream is brooklyn-skills; see the attribution in
-// README.md. `cpr` is deliberately absent: the rule tells you never to run it.
-export const HANDOFF_SKILLS = ['clean', 'pr-update', 'pr-ready'];
+// README.md. `cpr` is the handoff's last step: clean then pr-update in one pass.
+export const HANDOFF_SKILLS = ['cpr', 'clean', 'pr-update', 'pr-ready'];
 export const HANDOFF_FILES = ['SKILL.md'];
 
 // mattpocock's grilling interview, shipped as its upstream pair: `grilling` carries the

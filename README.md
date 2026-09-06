@@ -2,7 +2,7 @@
 
 An orchestrator/worker topology for Claude Code: **Fable 5.1 decides, Claude Opus executes.**
 
-The root session plans the work, decomposes it, and writes a contract for each piece. It never edits a file and never runs a command. Every code change, shell command and remote action happens in an Opus subagent. A hook enforces the split rather than trusting it.
+The root session plans the work, decomposes it, and writes a contract for each piece. It produces no code: every code change happens in an Opus subagent. It runs the plumbing around that itself — verifiers, git, gh. A hook enforces the split rather than trusting it.
 
 It runs entirely inside Claude Code. No second vendor, no API key, no plugin, no login.
 
@@ -18,8 +18,10 @@ Version 2 inverts that. The most capable model holds the decisions and the weake
 your prompt
    → the root decomposes it and writes a contract per piece   ← Fable 5.1, decides only
    → explorer and researcher answer what the decision needs   ← read-only
-   → worker and tester carry out each contract                ← Opus, holds every tool
+   → a fork of the root writes the code; a worker only for parallel or long jobs
+   → the root runs the verifier, git and gh itself
    → reviewer reads the diff on a fresh context               ← Fable 5.1, no rationale
+   → /cpr cleans the diff and opens the PR
    → done
 ```
 
@@ -29,8 +31,8 @@ Everything installs under `~/.claude` — or wherever `CLAUDE_CONFIG_DIR` points
 
 | Role | Model | Effort | Tools | Writes |
 | --- | --- | --- | --- | --- |
-| `worker` | opus | high | Read, Write, Edit, MultiEdit, Bash, Grep, Glob, Skill | yes |
-| `tester` | opus | high | Read, Edit, Bash, Grep, Glob | tests only |
+| `worker` | opus | medium | Read, Write, Edit, MultiEdit, Bash, Grep, Glob, Skill | yes |
+| `tester` | opus | medium | Read, Edit, Bash, Grep, Glob | tests only |
 | `explorer` | opus | medium | Read, Grep, Glob | no |
 | `researcher` | opus | medium | Read, Grep, Glob, WebFetch, WebSearch | no |
 | `reviewer` | fable | medium | Read, Grep, Glob | no |
@@ -43,17 +45,17 @@ Every report is capped at 40 lines. `worker` and `tester` return five fields: wh
 
 **The hooks**
 
-- `orchestrator-gate.mjs` — denies the root's source edits and every mutating command.
+- `orchestrator-gate.mjs` — denies the root's source edits and every command outside the read-only, verifier, git and gh allow-lists.
 - `review-tier.mjs` — reads a diff and prints the review effort tier: `none`, `medium`, `high`, `xhigh`.
 - `update-check.mjs` — one line at session start when a newer tag exists upstream.
 - `commit-language.mjs` — blocks a `git commit` or `gh pr create` whose message reads as Turkish.
-- `git-discipline.mjs` — the branch, the conventional subject, the `/clean` → review → `/pr-update` order, leased force-pushes, unfiltered verifiers, and the rules again after a compaction.
+- `git-discipline.mjs` — the branch, the conventional subject, the review → `/cpr` order, leased force-pushes, unfiltered verifiers, and the rules again after a compaction.
 - `comment-ratio.mjs` — nudges when an edit lands more comment lines than code.
 - `plan-capture.mjs` — copies an approved plan-mode plan into `plans/`, numbered and indexed as an `improve` plan.
 
 **The rules**
 
-- `orchestrator.md` — the behavioral spec Claude reads every session: what root owns, the five roles, the six-part contract, parallelism, escalation, review.
+- `orchestrator.md` — the behavioral spec Claude reads every session: what root owns, the six roles, the six-part contract, parallelism, escalation.
 - `coding-discipline.md` — minimum code, surgical edits, comments as a last resort, plain repo prose.
 
 **The skills**
@@ -76,11 +78,12 @@ The field belongs to Claude Code, and its hooks documentation says only that `ag
 
 On `Edit`, `Write` and `MultiEdit` the gate denies files ending in a source or config extension: `ts tsx js jsx mjs cjs py go rs rb php java kt swift c h cpp hpp cc vue svelte sql sh json yaml yml toml`. Markdown, plain text and everything else pass, as does any path inside the config directory, the OS temp directory, `/tmp`, `~/Desktop`, or any `/.claude/` — so plans, notes and scratch work stay open to the root.
 
-On `Bash` it fails closed: a command it cannot parse is denied, because a restriction that waves through what it does not understand is not a restriction. Denied unconditionally are redirects (`>`, `<`), command substitution (backticks and `$(…)`), and an inline variable assignment before the command. Then each segment of the command — split on `;`, `&&`, `||`, `|`, `&` and newlines, with quoted spans masked so `jq '.a | .b'` stays one segment — has to name an allowed program:
+On `Bash` it fails closed: a command it cannot parse is denied, because a restriction that waves through what it does not understand is not a restriction. Denied unconditionally are input redirects (`<`), command substitution (backticks and `$(…)`), `cd`, and an inline variable assignment before the command. An output redirect passes only when every target sits under `/tmp` or the OS temp dir, so a verifier can write the log the rules ask for. Then each segment of the command — split on `;`, `&&`, `||`, `|`, `&` and newlines, with quoted spans masked so `jq '.a | .b'` stays one segment — has to name an allowed program:
 
 - `ls cat head tail wc file stat du df find grep rg sort uniq cut tr echo pwd which env date jq tree basename dirname realpath readlink diff`
-- `git status diff log show blame ls-files rev-parse merge-base describe`, plus `git branch`/`git tag` when every argument is a listing flag and `git stash list`/`git stash show`
-- `gh pr view|list|diff`, `gh issue view|list`, `gh repo view`, `gh run view|list`, and `gh api` only without a request body and only with `GET`
+- `git status diff log show blame ls-files rev-parse merge-base describe` and the plumbing `add commit push fetch pull checkout switch branch tag rebase restore reset`, minus the forms that overwrite the working tree: `reset --hard|--merge|--keep`, `restore` without `--staged`, `checkout` with `--`, `-f`, `-B` or an existing path, and `switch` with `-f`, `--discard-changes` or `-C`
+- `gh pr view|list|diff|create|edit|ready|merge|comment|checks`, `gh issue view|list`, `gh repo view`, `gh run view|list`, `gh release view|list`, and `gh api` only without a request body and only with `GET`
+- the verifiers: `node --test`, `npm|pnpm|yarn|bun test` and `run test*`, `npx vitest|jest|mocha|tap`, `pytest`, `go test`, `cargo test`, and `node ~/.claude/hooks/review-tier.mjs`
 
 Options that turn an allowed command into a writer or a launcher are denied by name: `sort -o`/`--output`/`--compress-program`, `tree -o`, `git --output`, `find -fls`/`-fprint`/`-fprintf`, `rg --pre`, `find -exec`/`-execdir`/`-delete`/`-ok`/`-okdir`, and `env` used to run a program rather than print the environment.
 
@@ -189,7 +192,7 @@ This adds a third rule, `workflow.md`, plus the `ralph-protocol` skill it defers
 
 The rule stays short on purpose — the entry conditions, iteration discipline, verifier hierarchy, and stop conditions live in the skill, which Claude loads when Ralph actually comes up instead of on every session.
 
-The same flag ships the three skills the rule names for the git handoff: `/clean` polishes your own diff by hand, `/pr-update` opens or refreshes the PR, `/pr-ready` unblocks one that's already open. What the rule adds is their order — clean, *then* the review, *then* the PR — because cleaning rewrites the diff, so a review that ran before it judged code that no longer exists. It also tells you never to run the `cpr` shortcut, which fuses the polish and the PR into one pass and leaves no gap for the review; that skill is not shipped here. Upstream is [brooklyn-skills](https://github.com/OutThisLife/brooklyn-skills) (MIT) — the copies here drop the handoffs to sibling skills this package doesn't install.
+The same flag ships the four skills the rule names for the git handoff: `/clean` polishes your own diff by hand, `/pr-update` opens or refreshes the PR, `/cpr` runs those two back to back, `/pr-ready` unblocks a PR that's already open. The handoff is one pass per PR: verifier green, the review tier, at most one `reviewer` on `high` and `xhigh`, then `/cpr`. A finding is closed by a fork's fix and a green verifier, not by a second review. Upstream is [brooklyn-skills](https://github.com/OutThisLife/brooklyn-skills) (MIT) — the copies here drop the handoffs to sibling skills this package doesn't install.
 
 It also ships the optimization pair the rule wires into that order. `/optimize` is an exact-parity speed rewrite of a named routine: characterization test first, baseline timing, then shorter and faster with bitwise-identical behavior, and before/after numbers are required. It fires unprompted when clean's diff read surfaces a compute-heavy routine — data loops, math kernels, parsers, media processing. Detection rides the read clean already does, so it costs no extra pass. Unattended runs are bitwise-only: if parity can't hold, the rewrite is reverted rather than shipped with a tolerance nobody approved. `/perf` covers the other direction, "why is this slow" with no known target: baseline, profile, fix the real hot path, re-measure. Each routes the other's case to it by name, so they install together. perf's upstream is brooklyn-skills (MIT); optimize is original here.
 
@@ -207,7 +210,7 @@ Two rules hold it up. **The judge is never weaker than the author:** tier 1 is t
 
 The verdict on whether the tree is sound comes from your own verifier's exit code, not from a model's opinion — if the baseline is already red, the run stops instead of reviewing a broken tree. Nothing in the graph writes code; every judging node is schema-bound to return a verdict, and fixes happen afterwards in a worker where you can see them.
 
-It costs up to 13 agents a run, so `review-tier.mjs` only routes `xhigh` here; routine diffs stay on a single `reviewer` spawn. Reach for it by hand on a `high` diff when it's big enough that one reviewer will miss something and you can say why.
+It costs up to 13 agents a run, so nothing routes here on its own: every tier goes to the single `reviewer` spawn, and this runs only when you ask for it.
 
 ### Optional: the release allow rules
 
@@ -225,7 +228,7 @@ Hand the contract to this skill instead. A `worker` carries it out, a `reviewer`
 
 Every stage names an `agentType` instead of a model and an effort, so each one runs the role as your agent files define it. Change `worker.md`'s `effort:` line and the skill follows without being edited. The reviewer has no shell, so the worker writes the diff to a patch file and the reviewer judges that, plus the changed files for context and nothing else from the worker's report.
 
-Reach for it when the work is one delegable change whose contract is already written. It is not the handoff chain and it opens no PR: `clean`, the review tier and `pr-update` still run over the whole branch in the main loop.
+Reach for it when three or more independent contracts can run side by side; a single contract goes to a fork, and the root runs the verifier and spawns the reviewer. It is not the handoff chain and it opens no PR: the review tier and `cpr` still run over the whole branch in the main loop.
 
 ## Auto mode
 
@@ -287,7 +290,7 @@ The Sol version — the advisor as Codex GPT-5.6 driven over the Codex plugin by
 - **The gate is a boundary, not a sandbox.** It reads the command text, so it stops the root's mistakes rather than a determined bypass; a worker holds every tool the root gave up.
 - **Two skills still need a POSIX shell:** `wizard` generates bash scripts around `template.sh`, and `systematic-debugging` bisects test pollution with `find-polluter.sh`. Nothing in the hook chain does — on Windows, run those two under Git Bash or WSL.
 - **`--with-merge-readiness`:** the skill drives Claude Code's Workflow tool, so nothing fires automatically — you run `/merge-readiness` and Claude asks before spawning the graph. Its tier-2 judge pins Fable for the same reason the reviewer does, with the same fallback.
-- **The auto-mode classifier can still deny a push, merge or tag from a worker.** The worker reports the command and the run stops until the user adds the allow rules, which `--with-release-permissions` writes.
+- **The auto-mode classifier can still deny a push, merge or tag.** The gate allowing it is not the classifier allowing it: the command is reported and the run stops until the user adds the allow rules, which `--with-release-permissions` writes.
 
 ## License
 
@@ -298,7 +301,7 @@ Bundled skills and what changed in them:
 | Skill | Upstream | What changed here |
 | --- | --- | --- |
 | `shadcn` | [shadcn-ui/ui](https://github.com/shadcn-ui/ui), MIT | the files under its `rules/` are modified |
-| `clean`, `pr-update`, `pr-ready`, `perf` | [OutThisLife/brooklyn-skills](https://github.com/OutThisLife/brooklyn-skills), MIT | dropped references to sibling skills this package doesn't ship; `perf` gained the routing line to `/optimize` |
+| `clean`, `cpr`, `pr-update`, `pr-ready`, `perf` | [OutThisLife/brooklyn-skills](https://github.com/OutThisLife/brooklyn-skills), MIT | dropped references to sibling skills this package doesn't ship; `perf` gained the routing line to `/optimize` |
 | `grilling`, `grill-me` | [mattpocock/skills](https://github.com/mattpocock/skills), MIT | a plain-markdown question format, and the handoff into the delegation contract |
 | `wizard` | [mattpocock/skills](https://github.com/mattpocock/skills), MIT | three places: one paragraph on what may be handed to a human at all, a step 1 that reads key names instead of live secrets, and a `template.sh` that single-quotes values into `.env` and unquotes them back out |
 | `systematic-debugging` | [obra/superpowers](https://github.com/obra/superpowers), MIT | four places: a Phase 1 that demands a failing-then-passing command before any Phase 2, grep-tagged debug instrumentation, a ranked 3-5 hypothesis Phase 3, and a Phase 4 that sends the same error back to the root after two failed fixes; plus two `superpowers:*` references swapped for the equivalent `coding-discipline.md` rules |

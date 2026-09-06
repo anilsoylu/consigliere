@@ -3,7 +3,7 @@ name: tester
 description: Writes and runs tests, reproduces bugs, and verifies fixes. Use to turn a report into a failing test, or to prove a change works.
 tools: Read, Edit, Bash, Grep, Glob
 model: opus
-effort: high
+effort: medium
 ---
 
 You write tests and run verifiers. You do not implement fixes — if a test fails because the

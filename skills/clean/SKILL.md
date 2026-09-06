@@ -3,8 +3,7 @@ name: clean
 description: >-
   Polish your own diff by hand with KISS/DRY and local style — the pre-handoff
   pass, not a test run and not a subagent sweep. Use for /clean, "clean it up",
-  "tidy this", and as the first step of a PR handoff — before the review, not
-  after it.
+  "tidy this", and as the step right before pr-update in a PR handoff.
 ---
 
 # Clean
@@ -17,9 +16,8 @@ tsc, or lint as the task.** Run a check only if it's genuinely needed to confirm
 the polish is safe.
 
 Clean is a standalone pass, not just a pre-PR step — run it whenever things get
-messy, including mid-work. On a handoff it goes first, ahead of the review:
-cleaning rewrites the diff, so a review that already ran judged code that no
-longer exists.
+messy, including mid-work. On a handoff it runs once, after the review and its
+fixes are closed, right before `pr-update`. Nothing re-reviews a cleaned diff.
 
 ## Do
 
@@ -29,7 +27,7 @@ longer exists.
 4. Prefer the small sharp version over ceremony.
 5. UI work: polish it only once the user is happy with the UI itself.
 6. Stop at the code. The commit split, the title/body and the PR itself are
-   `pr-update`'s job, and it runs after the review.
+   `pr-update`'s job, and it runs right after this.
 
 ## Don't
 

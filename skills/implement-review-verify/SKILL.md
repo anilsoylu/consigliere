@@ -1,6 +1,6 @@
 ---
 name: implement-review-verify
-description: "Run one bounded contract end to end in a single call: a worker implements it, then a reviewer and a tester judge the result at the same time, then one fix round closes the ADOPT findings and a red verifier. Use for a delegable change whose contract is already written, instead of spawning and waiting three times from the root."
+description: "Run one bounded contract end to end in a single call: a worker implements it, then a reviewer and a tester judge the result at the same time, then one fix round closes the ADOPT findings and a red verifier. Use for three or more independent contracts that run side by side; a single contract goes to a fork, with root running the verifier and spawning the reviewer."
 ---
 
 # Implement, review, verify

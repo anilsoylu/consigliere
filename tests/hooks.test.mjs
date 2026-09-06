@@ -78,10 +78,28 @@ test('gate leaves the root its own files', () => {
   }
 });
 
-test('gate allows read-only root commands', () => {
+test('gate allows read-only root commands, the plumbing and the verifiers', () => {
   const cfg = cfgFixture();
   const allowed = [
     'git diff',
+    'git commit -m x',
+    'git push -u origin b',
+    'git checkout -b b',
+    'git tag -a v1 -m m',
+    'git rebase origin/main',
+    // `--` is a pathspec separator on a read and inside a message; only checkout wipes with it.
+    'git diff HEAD -- src/',
+    'git log --oneline -- hooks/',
+    'git add -- .',
+    'git commit -m "a -- b"',
+    'gh pr create --draft',
+    'gh pr merge 5 --squash',
+    'gh pr ready 5',
+    'node --test tests/*.test.mjs > /tmp/t.log 2>&1',
+    'npm test',
+    'pytest -q',
+    `node ${cfg}/hooks/review-tier.mjs . abc`,
+    'echo hi > /tmp/x',
     'git -C /x status',
     'git branch -a',
     "git log --format='%h|%s'",
@@ -105,19 +123,36 @@ test('gate allows read-only root commands', () => {
 test('gate denies commands that write, spawn or expand', () => {
   const cfg = cfgFixture();
   const denied = [
-    'git commit -m x',
+    'git reset --hard',
+    'git reset --merge',
+    'git restore .',
+    'git checkout .',
+    'git checkout -- file.ts',
+    'git checkout -f main',
+    'git checkout -B b',
+    'git switch -f b',
+    'git switch --discard-changes b',
+    'git switch -C b',
+    'node /Users/x/.claude/hooks/review-tier.mjs . abc',
+    'echo x > /tmp/../etc/passwd',
     'git -c alias.status=!rm status',
     'rm /tmp/x',
-    'echo hi > /tmp/x',
+    'node script.mjs',
+    'npm run build',
+    'node --test > out.log',
+    'cat < x',
+    'echo x > file.txt',
+    'gh release create v1',
     'cat a.ts | node -',
     'gh api -X POST repos/foo',
-    'gh pr create --draft',
     'find . -name x -delete',
     'env FOO=1 rm -rf /',
     'FOO=1 rm -rf /',
     'echo "$(whoami)"',
     'echo $(whoami)',
-    'sed -i s/a/b/ f.ts',
+    // sed and awk take a program that can write or exec, and the mask hides it inside quotes.
+    'sed -n p x',
+    'awk 1 x',
     'bash -c "rm x"',
     'node --check x.mjs',
     'ls & rm x',
@@ -143,6 +178,10 @@ test('gate denies commands that write, spawn or expand', () => {
     'eval ls',
   ];
   for (const cmd of denied) assert.equal(decision(envHook(GATE, rootBash(cmd), cfg)), 'deny', cmd);
+  // A checkout operand that names an existing file is a pathspec, so it is resolved against
+  // the session cwd rather than read as a branch.
+  const pathspec = { ...rootBash('git checkout HEAD~1 manifest.mjs'), cwd: ROOT };
+  assert.equal(decision(envHook(GATE, pathspec, cfg)), 'deny');
 });
 
 const PROBE = path.join(ROOT, 'hooks', 'payload-probe.mjs');
@@ -497,6 +536,15 @@ test('a user-typed slash command opens the handoff gate too', () => {
   assert.equal(envHook(DISCIPLINE, pr, cfg), '');
 });
 
+test('/cpr opens the handoff gate', () => {
+  const cfg = cfgFixture();
+  const sid = session('handoff-cpr');
+  const pr = bash(sid, repo('feat/x'), 'gh pr create --fill');
+  assert.match(denyReason(envHook(DISCIPLINE, pr, cfg)), /HANDOFF GATE/);
+  envHook(DISCIPLINE, { tool_name: 'Skill', session_id: sid, tool_input: { skill: 'cpr' } }, cfg);
+  assert.equal(envHook(DISCIPLINE, pr, cfg), '');
+});
+
 test('a prompt that merely mentions /clean does not open the handoff gate', () => {
   const cfg = cfgFixture();
   const sid = session('handoff-mention');
@@ -557,6 +605,16 @@ test('the handoff gate re-arms once the PR has actually opened', () => {
   assert.match(denyReason(envHook(DISCIPLINE, pr, cfg)), /HANDOFF GATE/);
 });
 
+// The root opens the PR itself, so one payload has to clear both hooks.
+test('a root gh pr create after /clean passes the gate and the discipline hook', () => {
+  const cfg = cfgFixture();
+  const sid = session('handoff-root');
+  const pr = bash(sid, repo('feat/x'), 'gh pr create --fill');
+  envHook(DISCIPLINE, { session_id: sid, prompt: '/clean' }, cfg);
+  assert.equal(envHook(GATE, pr, cfg), '');
+  assert.equal(envHook(DISCIPLINE, pr, cfg), '');
+});
+
 test('force gate denies a bare --force and passes the leased forms', () => {
   const cfg = cfgFixture();
   const feat = repo('feat/x');
@@ -602,7 +660,7 @@ test('session start re-states the rules only where the context was rebuilt', () 
   for (const source of ['compact', 'resume']) {
     const out = JSON.parse(start(source)).hookSpecificOutput;
     assert.equal(out.hookEventName, 'SessionStart', source);
-    assert.match(out.additionalContext, /\/clean → review → \/pr-update/, source);
+    assert.match(out.additionalContext, /one review at most → \/cpr/, source);
   }
   for (const source of ['startup', 'clear']) assert.equal(start(source), '', source);
   assert.equal(envHook(DISCIPLINE, { hook_event_name: 'SessionStart', source: 'compact' },
