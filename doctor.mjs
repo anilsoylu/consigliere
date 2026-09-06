@@ -5,7 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { STATE_FILE, HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, claudeDir as resolveClaudeDir, hookCommand, hasRalphLoop } from './manifest.mjs';
+import { STATE_FILE, HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, claudeDir as resolveClaudeDir, hookCommand, hasRalphLoop } from './manifest.mjs';
 
 const REPO = path.dirname(fileURLToPath(import.meta.url));
 const USAGE = `Usage: node doctor.mjs [--json]
@@ -152,6 +152,17 @@ export function runChecks(options = {}) {
       : yagni.modified.length
         ? status('warn', 'yagni skill', `customized locally, no longer this repo's: ${list(yagni.modified)}`)
         : status('pass', 'yagni skill', 'the yagni deletion pass is installed and matches this repo')
+  );
+
+  // Default like yagni, and the pair is one feature: SKILL.md tells the root to pass the
+  // script beside it, so either half alone is a dangling reference.
+  const implement = compare(IMPLEMENT_FILES, path.join(repo, 'skills', IMPLEMENT_SKILL), path.join(skillsDir, IMPLEMENT_SKILL));
+  checks.push(
+    implement.missing.length
+      ? status('warn', 'implement-review-verify skill', `not installed (${list(implement.missing)}); rerun node install.mjs to restore, or ignore this if you removed it on purpose`)
+      : implement.modified.length
+        ? status('warn', 'implement-review-verify skill', `customized locally, no longer this repo's: ${list(implement.modified)}`)
+        : status('pass', 'implement-review-verify skill', 'the implement/review/verify workflow and its script are installed and match this repo')
   );
 
   // Default like yagni: a prompt file with no runtime cost, inert until it is invoked.

@@ -6,7 +6,7 @@ import path from 'node:path';
 // Releases are `git tag v<VERSION>`; update-check.mjs and doctor.mjs both compare against
 // that tag list, so bumping this without tagging makes an installed copy look ahead of
 // upstream. Only vN.N.N sorts — the old `v1-sol` tag is deliberately unsortable.
-export const VERSION = '2.0.0';
+export const VERSION = '2.1.0';
 export const STATE_FILE = '.consigliere-state.json';
 
 export const HOOK_FILES = [
@@ -70,6 +70,13 @@ export const UPGRADE_FILES = ['SKILL.md'];
 // rather than behind a flag — inert until you run /yagni.
 export const YAGNI_SKILL = 'yagni';
 export const YAGNI_FILES = ['SKILL.md'];
+
+// One bounded contract from implementation to a judged, verified result: SKILL.md tells the
+// root how to call it, the script beside it is what runs. Ships by default because the three
+// roles it spawns are default agents, and a prompt file plus a script costs nothing until a
+// Workflow call reads them.
+export const IMPLEMENT_SKILL = 'implement-review-verify';
+export const IMPLEMENT_FILES = ['SKILL.md', 'implement-review-verify.js'];
 
 // obra/superpowers's debugging process, plus the three techniques SKILL.md points at by
 // filename and the two scripts they reference. Model-invoked on any bug, so it ships by

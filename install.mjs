@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { VERSION, STATE_FILE, HOOK_FILES, OBSOLETE_HOOK_FILES, OBSOLETE_AGENT_FILES, OBSOLETE_RULE_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, HANDOFF_FILES, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, OPTIMIZE_FILES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, claudeDir, hookCommand, hasRalphLoop } from './manifest.mjs';
+import { VERSION, STATE_FILE, HOOK_FILES, OBSOLETE_HOOK_FILES, OBSOLETE_AGENT_FILES, OBSOLETE_RULE_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, HANDOFF_FILES, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, OPTIMIZE_FILES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, claudeDir, hookCommand, hasRalphLoop } from './manifest.mjs';
 
 const REPO = path.dirname(fileURLToPath(import.meta.url));
 const CLAUDE = claudeDir();
@@ -134,6 +134,11 @@ log(`copied skills/${UPGRADE_SKILL} → ${SKILLS} (run it with /${UPGRADE_SKILL}
 // default rule, and it costs nothing until you run /yagni.
 copyAll(YAGNI_FILES, path.join(REPO, 'skills', YAGNI_SKILL), path.join(SKILLS, YAGNI_SKILL));
 log(`copied skills/${YAGNI_SKILL} → ${SKILLS} (run it with /${YAGNI_SKILL} once Claude Code restarts)`);
+
+// No flag: the roles it spawns are default agents, and it is inert until a Workflow call
+// reads the script beside its SKILL.md.
+copyAll(IMPLEMENT_FILES, path.join(REPO, 'skills', IMPLEMENT_SKILL), path.join(SKILLS, IMPLEMENT_SKILL));
+log(`copied skills/${IMPLEMENT_SKILL} → ${SKILLS} (one worker, then a reviewer and a tester at once)`);
 
 // No flag: it is model-invoked on any bug, so a missing one cannot be asked for.
 copyAll(DEBUGGING_FILES, path.join(REPO, 'skills', DEBUGGING_SKILL), path.join(SKILLS, DEBUGGING_SKILL));

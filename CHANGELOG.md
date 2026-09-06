@@ -4,7 +4,15 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
-## Unreleased
+## 2.1.0 — 2026-09-06
+
+### Added
+- `skills/implement-review-verify`, a SKILL.md and the Workflow script beside it. One bounded
+  contract runs as a graph: a `worker` implements it, a `reviewer` and a `tester` judge the
+  result at one barrier, and a single fix round closes the ADOPT findings and a red verifier.
+  Five agents at most, and the fix round never repeats. Every stage names an `agentType`, so
+  it runs the installed role instead of restating a model and an effort. Ships by default,
+  wired like yagni through `manifest.mjs`, the installer, the uninstaller and the doctor.
 
 ### Changed
 - `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is no longer a recommended env key. With it set, a

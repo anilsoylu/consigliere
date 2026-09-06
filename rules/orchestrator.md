@@ -43,6 +43,8 @@ and point each Context section at that path instead of restating it in every con
 Independent work goes out in one message as concurrent calls. Dependent work is a serial
 chain. Two workers never touch the same file. Mechanical steps of the same kind go to one
 worker as a checklist; spawn in parallel only when the pieces are genuinely independent.
+One bounded contract that has to be implemented, reviewed and verified goes to the
+`implement-review-verify` skill rather than three spawns of your own.
 
 ## Re-delegation
 
