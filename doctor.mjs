@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Read-only Consigliere installation diagnostics. Reads files, writes none.
+// Consigliere installation diagnostics. Reads files and writes none, except the one result
+// --probe records in the state file.
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -8,11 +9,15 @@ import { execFileSync } from 'node:child_process';
 import { STATE_FILE, HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RELEASE_PERMISSIONS, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, claudeDir as resolveClaudeDir, hookCommand, hasRalphLoop } from './manifest.mjs';
 
 const REPO = path.dirname(fileURLToPath(import.meta.url));
-const USAGE = `Usage: node doctor.mjs [--json]
+const USAGE = `Usage: node doctor.mjs [--json] [--probe]
 
-Read-only check of a Consigliere install. Exits non-zero only on hard failures
-(missing repo assets, unusable settings.json); an incomplete install is a
-warning — fix it by re-running node install.mjs.`;
+Checks a Consigliere install; --probe also records its result. Exits non-zero
+only on hard failures (missing repo assets, unusable settings.json); an
+incomplete install is a warning — fix it by re-running node install.mjs.
+
+--probe additionally spends one short headless \`claude -p\` run to check that the
+payload orchestrator-gate.mjs keys on still carries agent_id inside a subagent and
+not on the main thread, and records the answer for later runs.`;
 
 const exists = (p) => fs.existsSync(p);
 const status = (level, name, detail) => ({ level, name, detail });
@@ -30,6 +35,13 @@ function compare(files, srcDir, destDir) {
     else if (!sameBytes(path.join(srcDir, f), dest)) modified.push(f);
   }
   return { missing, modified };
+}
+
+// A missing state file is an install that has not run yet; one that exists and will not parse
+// is a file the probe result must not be written over.
+function readState(statePath) {
+  try { return { state: JSON.parse(fs.readFileSync(statePath, 'utf8')) }; }
+  catch (error) { return error.code === 'ENOENT' ? { state: {}, missing: true } : { state: {}, unreadable: true }; }
 }
 
 function parseSettings(settingsPath) {
@@ -337,19 +349,58 @@ export function runChecks(options = {}) {
   // The same comparison update-check.mjs makes, for anyone who does not want the hook — or
   // cannot have it, since it stands down under CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC.
   // Blocking is fine in a CLI, so this one asks upstream directly instead of a cache.
-  let state = {};
-  try { state = JSON.parse(fs.readFileSync(path.join(claudeDir, STATE_FILE), 'utf8')); } catch {}
+  const statePath = path.join(claudeDir, STATE_FILE);
+  const { state, unreadable } = readState(statePath);
   const installed = state.version || null;
   const latest = installed ? latestTag(repo) : null;
   checks.push(
     !installed
-      ? status('warn', 'version', `no version recorded in ${path.join(claudeDir, STATE_FILE)}; rerun node install.mjs`)
+      ? status('warn', 'version', `no version recorded in ${statePath}; rerun node install.mjs`)
       : !latest
         ? status('pass', 'version', `${installed} installed; this clone's origin was unreachable, so nothing to compare`)
         : compareTags(latest, installed) > 0
           ? status('warn', 'version', `${latest} is out, ${installed} installed — cd ${repo} && git pull && node install.mjs`)
           : status('pass', 'version', `${installed} installed, up to date with ${repo}`)
   );
+
+  // agent_id belongs to Claude Code, not to this repo, and every other check here would stay
+  // green if it moved. --probe is the only one that reads the field off a running build.
+  if (options.probe) {
+    try {
+      const { records, claudeVersion } = options.probe();
+      const result = assessProbe(records);
+      // Re-read: the `claude -p` run takes up to two minutes, and update-check's daily child
+      // writes this same file. What it holds now is what this result has to merge into.
+      const fresh = unreadable ? { unreadable: true } : readState(statePath);
+      const note = fresh.unreadable
+        ? ' (state file unreadable, result not recorded)'
+        : fresh.missing ? ' (state file missing, run node install.mjs first; result not recorded)' : '';
+      if (!note) {
+        const next = { ...fresh.state, claudeVersion };
+        // A failed probe has to retire the passing record it contradicts, or the next plain
+        // run reports the verdict this one just disproved.
+        if (result.ok) next.probe = { at: new Date().toISOString(), claudeVersion };
+        else delete next.probe;
+        fs.writeFileSync(statePath, JSON.stringify(next, null, 2) + '\n');
+      }
+      checks.push(result.ok
+        ? status('pass', 'gate payload probe', `${result.detail} on ${claudeVersion}${note}`)
+        : status('fail', 'gate payload probe', `${result.detail}${note}`));
+    } catch (error) {
+      checks.push(status('fail', 'gate payload probe', error.message));
+    }
+  } else {
+    const recorded = state.probe?.claudeVersion;
+    const verifiedOn = () => `${recorded} verified on ${String(state.probe?.at || '').slice(0, 10)}`;
+    const current = recorded ? currentClaudeVersion(shellEnv) : null;
+    checks.push(
+      !recorded
+        ? status('warn', 'gate payload probe', 'not run against this Claude Code build; run node doctor.mjs --probe')
+        : current && current !== recorded
+          ? status('warn', 'gate payload probe', `${verifiedOn()}, ${current} installed; rerun node doctor.mjs --probe`)
+          : status('pass', 'gate payload probe', verifiedOn())
+    );
+  }
 
   // Only for someone who asked the installer for them, and only when one is gone: the list
   // is yours to edit once written, so a complete one is not worth a line of output. An absent
@@ -398,6 +449,70 @@ function latestTag(repo) {
   } catch { return null; }
 }
 
+// What the probe has to see for the gate to mean what it says: nothing on the root call,
+// an agent_id on the subagent one. Pure, so every failing shape is a test rather than a run.
+export function assessProbe(records) {
+  if (records.some((r) => r.parse_error)) return { ok: false, detail: 'the hook could not parse a payload; its shape has changed' };
+  const marked = (marker) => records.filter((r) => String(r.command || '').includes(marker));
+  const root = marked('consig-root-probe')[0];
+  if (!root) return { ok: false, detail: 'root call not observed; the probe run did not reach Bash' };
+  const set = (r) => typeof r.agent_id === 'string' && Boolean(r.agent_id);
+  if (set(root)) return { ok: false, detail: 'agent_id is set on the main thread; the gate would step aside for the root' };
+  // A model that echoes the subagent marker on the main thread too would otherwise answer
+  // the subagent question with the root's payload, inverting the verdict.
+  const subs = marked('consig-sub-probe').filter((r) => r !== root);
+  if (subs.some(set)) return { ok: true, detail: 'agent_id is absent on the main thread and set inside a subagent' };
+  if (subs.length) return { ok: false, detail: 'agent_id is absent inside a subagent; the gate would deny every worker' };
+  return { ok: false, detail: 'subagent call not observed; the probe run did not reach the Agent tool' };
+}
+
+// shell on Windows: `claude` is an npm .cmd shim, which CreateProcess cannot launch directly.
+const versionOptions = (env) => ({ env, encoding: 'utf8', timeout: 20_000, stdio: ['ignore', 'pipe', 'ignore'], shell: process.platform === 'win32' });
+
+// No `claude` on PATH is not a finding: the recorded verdict is all this run can say.
+function currentClaudeVersion(env) {
+  try { return execFileSync('claude', ['--version'], versionOptions(env)).trim(); }
+  catch { return null; }
+}
+
+const PROBE_PROMPT = 'Run `echo consig-root-probe` with Bash. Then use the Agent tool with subagent_type general-purpose and this exact task: run `echo consig-sub-probe` with Bash and reply done. Then reply done.';
+
+export const probeArgs = (settingsPath) => [
+  '-p', PROBE_PROMPT, '--setting-sources', '', '--settings', settingsPath,
+  '--allowedTools', 'Bash(echo:*),Agent', '--max-turns', '8', '--model', 'haiku', '--output-format', 'json',
+];
+
+// `--setting-sources ''` rather than --bare, which keeps your own hooks and CLAUDE.md out of
+// the run the same way but refuses OAuth, so it would need an API key nobody has to have.
+function runProbe() {
+  // Asked before the run rather than after it: the version is what the verdict is about,
+  // and a `claude` that cannot even report one is not worth two minutes of `-p`.
+  const claudeVersion = execFileSync('claude', ['--version'], versionOptions(process.env)).trim();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'consigliere-probe-'));
+  const log = path.join(dir, 'probe.log');
+  const settings = path.join(dir, 'settings.json');
+  const command = `node "${path.join(REPO, 'hooks', 'payload-probe.mjs')}" "${log}"`;
+  fs.writeFileSync(settings, JSON.stringify({ hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command }] }] } }));
+  try {
+    const options = { cwd: dir, encoding: 'utf8', timeout: 120_000, stdio: ['ignore', 'pipe', 'pipe'] };
+    try {
+      // The .cmd shim needs a shell on Windows, and under one Node passes the args through
+      // unquoted: the prompt would split into tokens and the empty '' would disappear, handing
+      // --setting-sources the settings path.
+      if (process.platform === 'win32') execFileSync(['claude', ...probeArgs(settings)].map((a) => `"${a}"`).join(' '), [], { ...options, shell: true });
+      else execFileSync('claude', probeArgs(settings), options);
+    } catch (error) {
+      throw new Error(`claude -p did not complete: ${String(error.stderr || error.message).trim().split('\n')[0]}`);
+    }
+    // A line torn by two hooks appending at once is the same signal as an unparseable payload.
+    const parse = (line) => { try { return JSON.parse(line); } catch { return { parse_error: true }; } };
+    const records = exists(log) ? fs.readFileSync(log, 'utf8').split('\n').filter(Boolean).map(parse) : [];
+    return { records, claudeVersion };
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 export function summarize(checks) {
   return {
     pass: checks.filter((c) => c.level === 'pass').length,
@@ -418,7 +533,7 @@ function print(checks, json) {
 
 if (process.argv[1] && path.resolve(fileURLToPath(import.meta.url)) === path.resolve(process.argv[1])) {
   const flags = process.argv.slice(2);
-  const unknown = flags.filter((f) => !['--json', '--help', '-h'].includes(f));
+  const unknown = flags.filter((f) => !['--json', '--probe', '--help', '-h'].includes(f));
   if (unknown.length) {
     console.error(`unknown flag: ${list(unknown)}\n\n${USAGE}`);
     process.exit(2);
@@ -427,7 +542,7 @@ if (process.argv[1] && path.resolve(fileURLToPath(import.meta.url)) === path.res
     console.log(USAGE);
     process.exit(0);
   }
-  const checks = runChecks();
+  const checks = runChecks(flags.includes('--probe') ? { probe: runProbe } : {});
   print(checks, flags.includes('--json'));
   process.exit(summarize(checks).fail > 0 ? 1 : 0);
 }

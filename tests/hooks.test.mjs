@@ -39,6 +39,15 @@ test('gate stands down without its rule, and inside a subagent', () => {
   assert.equal(envHook(GATE, { ...rootBash('rm -rf /'), agent_id: 'sub-1' }, cfg), '');
 });
 
+// The field is Claude Code's, so a shape change is a real failure mode: anything but a
+// non-empty string has to read as the root rather than waving the call through.
+test('gate reads agent_id as a non-empty string, not as truthiness', () => {
+  const cfg = cfgFixture();
+  for (const agentId of [123, '', true]) {
+    assert.equal(decision(envHook(GATE, { ...rootBash('rm -rf /'), agent_id: agentId }, cfg)), 'deny', String(agentId));
+  }
+});
+
 test('gate denies root writes to source and config', () => {
   const cfg = cfgFixture();
   for (const [file, tool] of [['/repo/src/a.ts', 'Edit'], ['/repo/tsconfig.json', 'Write'], ['/tmpfoo/x.ts', 'Write']]) {
@@ -136,6 +145,24 @@ test('gate denies commands that write, spawn or expand', () => {
   for (const cmd of denied) assert.equal(decision(envHook(GATE, rootBash(cmd), cfg)), 'deny', cmd);
 });
 
+const PROBE = path.join(ROOT, 'hooks', 'payload-probe.mjs');
+
+test('payload probe appends what the gate would read, and marks a payload it cannot parse', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'consigliere-probe-'));
+  homes.push(dir);
+  const log = path.join(dir, 'probe.log');
+  const probe = (input) => execFileSync(process.execPath, [PROBE, log], { input, encoding: 'utf8' });
+
+  assert.equal(probe(JSON.stringify({ agent_id: 'sub-1', agent_type: 'general-purpose', ...rootBash('echo consig-sub-probe') })), '');
+  assert.equal(probe('not json'), '');
+
+  const records = fs.readFileSync(log, 'utf8').trim().split('\n').map((line) => JSON.parse(line));
+  assert.deepEqual(records, [
+    { agent_id: 'sub-1', agent_type: 'general-purpose', tool_name: 'Bash', command: 'echo consig-sub-probe' },
+    { parse_error: true },
+  ]);
+});
+
 test('gate denies a payload it cannot parse', () => {
   const out = execFileSync(process.execPath, [GATE], {
     input: 'not json', encoding: 'utf8',
@@ -182,6 +209,45 @@ test('update check announces a newer tag and stays quiet otherwise', () => {
   // install.mjs records VERSION without the `v` that the tags carry.
   assert.match(update({ version: '1.0.0', latest: 'v1.1.0', repo: '/x', checkedAt: fresh() }).out, /v1\.1\.0 is available/);
   assert.equal(update({ version: '1.1.0', latest: 'v1.1.0', repo: '/x', checkedAt: fresh() }).out, '');
+});
+
+// The probe's verdict is only about the build it ran against, so a newer Claude Code makes it
+// stale — and nothing else in a session would say so.
+test('update check reports a Claude Code installed since the gate probe ran', () => {
+  const probe = { at: '2026-01-01T00:00:00.000Z', claudeVersion: '2.1.263 (Claude Code)' };
+  const base = { version: '1.0.0', repo: '/x', checkedAt: Date.now(), probe };
+
+  const drifted = update({ ...base, claudeVersion: '2.2.0 (Claude Code)' }).out;
+  assert.match(JSON.parse(drifted).systemMessage, /Claude Code 2\.2\.0 \(Claude Code\) installed since the gate probe ran on 2\.1\.263 \(Claude Code\)/);
+
+  assert.equal(update({ ...base, claudeVersion: probe.claudeVersion }).out, '', 'the same build needs no re-probe');
+  assert.equal(update({ ...base, claudeVersion: '2.2.0 (Claude Code)', probe: undefined }).out, '', 'a probe that never ran is the doctor\'s warning, not a session banner');
+});
+
+// The child asks for the version the probe verdict is about. It merges into a state file it
+// re-read, so a file removed meanwhile must not come back holding only a version string.
+test('the update-check child records the Claude Code version onto a state file that is still there', { skip: process.platform === 'win32' && 'the stub on PATH is a shell script' }, () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'consigliere-update-'));
+  homes.push(home);
+  fs.mkdirSync(path.join(home, '.claude'), { recursive: true });
+  const bin = path.join(home, 'bin');
+  fs.mkdirSync(bin);
+  fs.writeFileSync(path.join(bin, 'claude'), '#!/bin/sh\necho "9.9.9 (Claude Code)"\n');
+  fs.chmodSync(path.join(bin, 'claude'), 0o755);
+  const statePath = path.join(home, '.claude', '.consigliere-state.json');
+  // No repo key, so the child never reaches `git ls-remote`.
+  const child = () => execFileSync(process.execPath, [UPDATE, '--child'], {
+    encoding: 'utf8', env: { PATH: bin, HOME: home, USERPROFILE: home },
+  });
+
+  child();
+  assert.equal(fs.existsSync(statePath), false, 'a read that found nothing must not become a write');
+
+  fs.writeFileSync(statePath, JSON.stringify({ version: '1.0.0' }));
+  child();
+  const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+  assert.equal(state.claudeVersion, '9.9.9 (Claude Code)');
+  assert.equal(state.version, '1.0.0', 'the rest of the state file survives the write');
 });
 
 // Only the user can run the command, so the notice has to reach the user directly rather
