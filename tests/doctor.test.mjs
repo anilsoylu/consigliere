@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { runChecks, summarize, compareTags } from '../doctor.mjs';
+import { runChecks, summarize, compareTags, assessProbe, probeArgs } from '../doctor.mjs';
 import { VERSION, STATE_FILE, HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RELEASE_PERMISSIONS, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, hookCommand } from '../manifest.mjs';
 
 const DOCTOR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'doctor.mjs');
@@ -77,7 +77,21 @@ function installDefaultFiles(home) {
   writeFile(path.join(claude, 'settings.json'), settingsFor(home));
   // The repo fixture is not a git clone, so `git ls-remote` fails and the check reports
   // the installed version without a comparison — which is the offline path, exercised free.
-  writeFile(path.join(claude, STATE_FILE), JSON.stringify({ version: VERSION, repo: path.join(home, 'repo') }));
+  writeFile(path.join(claude, STATE_FILE), JSON.stringify({ version: VERSION, repo: path.join(home, 'repo'), probe: PROBE }));
+}
+
+// The two calls a probe run has to produce, and the verdict a complete install carries.
+const ROOT_CALL = { tool_name: 'Bash', command: 'echo consig-root-probe' };
+const SUB_CALL = { agent_id: 'sub-1', agent_type: 'general-purpose', tool_name: 'Bash', command: 'echo consig-sub-probe' };
+const PROBE = { at: '2026-09-06T00:00:00.000Z', claudeVersion: '2.1.263 (Claude Code)' };
+
+// A `claude` on PATH that answers --version and nothing else.
+function stubClaude(version) {
+  const bin = temp('consigliere-bin-');
+  const file = path.join(bin, 'claude');
+  writeFile(file, `#!/bin/sh\necho "${version}"\n`);
+  fs.chmodSync(file, 0o755);
+  return { ...process.env, PATH: bin };
 }
 
 // what --with-workflow adds on both sides at once: the rule plus every skill it names
@@ -673,6 +687,148 @@ test('reads the disable key as a flag, so "0" still warns', () => {
   writeFile(settingsPath, JSON.stringify(settings));
 
   assert.equal(check(run(home, makeRepoFixture()), 'root model').level, 'warn');
+});
+
+test('the probe verdict names the way the gate would break', () => {
+  assert.equal(assessProbe([ROOT_CALL, SUB_CALL]).ok, true);
+
+  assert.match(assessProbe([{ parse_error: true }, ROOT_CALL, SUB_CALL]).detail, /could not parse/);
+  assert.match(assessProbe([SUB_CALL]).detail, /root call not observed/);
+  assert.match(assessProbe([{ ...ROOT_CALL, agent_id: 'root-1' }, SUB_CALL]).detail, /set on the main thread/);
+  assert.match(assessProbe([ROOT_CALL]).detail, /subagent call not observed/);
+  assert.match(assessProbe([ROOT_CALL, { ...SUB_CALL, agent_id: undefined }]).detail, /absent inside a subagent/);
+  assert.match(assessProbe([ROOT_CALL, { ...SUB_CALL, agent_id: 123 }]).detail, /absent inside a subagent/);
+
+  // A model that echoes the subagent marker on the main thread first must not have that
+  // record answer for the subagent, in either direction.
+  const echoedOnRoot = { tool_name: 'Bash', command: 'echo consig-root-probe consig-sub-probe' };
+  assert.equal(assessProbe([echoedOnRoot, SUB_CALL]).ok, true);
+  assert.match(assessProbe([echoedOnRoot]).detail, /subagent call not observed/);
+});
+
+test('a passing probe is recorded, and a later run reads the record back', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+  const statePath = path.join(home, '.claude', STATE_FILE);
+  writeFile(statePath, JSON.stringify({ version: VERSION, repo: path.join(home, 'repo') }));
+
+  assert.equal(check(run(home, makeRepoFixture()), 'gate payload probe').level, 'warn');
+
+  // The `claude -p` run lasts long enough for update-check's child to write; the result
+  // merges into what the file holds by then, not what it held when the run started.
+  const probe = () => {
+    writeFile(statePath, JSON.stringify({ version: VERSION, repo: path.join(home, 'repo'), latest: 'v9.9.9' }));
+    return { records: [ROOT_CALL, SUB_CALL], claudeVersion: '2.1.263 (Claude Code)' };
+  };
+  assert.equal(check(runChecks({ home, repo: makeRepoFixture(), probe }), 'gate payload probe').level, 'pass');
+
+  const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+  assert.equal(state.probe.claudeVersion, '2.1.263 (Claude Code)');
+  assert.equal(state.claudeVersion, '2.1.263 (Claude Code)', 'update-check compares its drift against this');
+  assert.equal(state.latest, 'v9.9.9', 'a write that landed during the run survives');
+  assert.equal(state.version, VERSION, 'the rest of the state file survives the write');
+
+  const later = check(run(home, makeRepoFixture()), 'gate payload probe');
+  assert.equal(later.level, 'pass');
+  assert.match(later.detail, /2\.1\.263/);
+});
+
+// A broken assumption has to end the run non-zero: a warning is what an incomplete install
+// gets, and this one means the gate is no longer holding the root back.
+test('a probe the gate would not survive fails the run', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+  const probe = () => ({ records: [{ ...ROOT_CALL, agent_id: 'root-1' }, SUB_CALL], claudeVersion: '2.1.263 (Claude Code)' });
+
+  const checks = runChecks({ home, repo: makeRepoFixture(), probe });
+  assert.equal(check(checks, 'gate payload probe').level, 'fail');
+  assert.ok(summarize(checks).fail > 0);
+
+  // installDefaultFiles recorded a passing verdict; this run disproved it.
+  const state = JSON.parse(fs.readFileSync(path.join(home, '.claude', STATE_FILE), 'utf8'));
+  assert.equal(state.probe, undefined);
+  assert.equal(state.version, VERSION, 'the rest of the state file survives the write');
+  assert.equal(check(run(home, makeRepoFixture()), 'gate payload probe').level, 'warn');
+
+  const failing = () => { throw new Error('claude -p did not complete: spawnSync claude ENOENT'); };
+  assert.match(check(runChecks({ home, repo: makeRepoFixture(), probe: failing }), 'gate payload probe').detail, /did not complete/);
+});
+
+// Writing the result would mean writing over a file whose contents could not be read.
+test('a state file that will not parse keeps the probe result unrecorded', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+  const statePath = path.join(home, '.claude', STATE_FILE);
+  writeFile(statePath, '{ not json');
+  const probe = () => ({ records: [ROOT_CALL, SUB_CALL], claudeVersion: '2.1.263 (Claude Code)' });
+
+  const result = check(runChecks({ home, repo: makeRepoFixture(), probe }), 'gate payload probe');
+  assert.equal(result.level, 'pass');
+  assert.match(result.detail, /state file unreadable, result not recorded/);
+  assert.equal(fs.readFileSync(statePath, 'utf8'), '{ not json');
+});
+
+// The argv is built once and quoted by hand on Windows, where a shell is unavoidable: a
+// prompt that split into tokens, or a dropped '', would hand --setting-sources the path.
+test('the probe run keeps its own settings file and its own prompt in one argv', () => {
+  const args = probeArgs('/tmp/probe/settings.json');
+
+  assert.equal(args[0], '-p');
+  assert.match(args[1], /consig-root-probe(.|\n)*consig-sub-probe/);
+  assert.deepEqual(args.slice(2, 6), ['--setting-sources', '', '--settings', '/tmp/probe/settings.json']);
+  assert.deepEqual(args.slice(6, 8), ['--allowedTools', 'Bash(echo:*),Agent']);
+});
+
+// A state file that went away mid-run is not one this result can merge into, and the doctor
+// is not the command that creates it.
+test('a state file removed during the probe is not recreated', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+  const statePath = path.join(home, '.claude', STATE_FILE);
+  const probe = () => {
+    fs.rmSync(statePath);
+    return { records: [ROOT_CALL, SUB_CALL], claudeVersion: '2.1.263 (Claude Code)' };
+  };
+
+  const result = check(runChecks({ home, repo: makeRepoFixture(), probe }), 'gate payload probe');
+  assert.equal(result.level, 'pass');
+  assert.match(result.detail, /state file missing, run node install\.mjs first; result not recorded/);
+  assert.equal(fs.existsSync(statePath), false);
+});
+
+test('the recorded verdict goes stale when another Claude Code is installed', { skip: process.platform === 'win32' && 'the stub on PATH is a shell script' }, () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+
+  assert.equal(check(run(home, makeRepoFixture(), stubClaude(PROBE.claudeVersion)), 'gate payload probe').level, 'pass');
+
+  const stale = check(run(home, makeRepoFixture(), stubClaude('9.9.9 (Claude Code)')), 'gate payload probe');
+  assert.equal(stale.level, 'warn');
+  assert.match(stale.detail, /2\.1\.263 \(Claude Code\) verified on 2026-09-06, 9\.9\.9 \(Claude Code\) installed; rerun node doctor\.mjs --probe/);
+});
+
+test('a half-written probe record reports instead of throwing', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+  const statePath = path.join(home, '.claude', STATE_FILE);
+
+  writeFile(statePath, JSON.stringify({ version: VERSION, probe: { claudeVersion: '2.1.263 (Claude Code)' } }));
+  assert.match(check(run(home, makeRepoFixture()), 'gate payload probe').detail, /2\.1\.263 \(Claude Code\) verified on/);
+
+  writeFile(statePath, JSON.stringify({ version: VERSION, probe: { at: PROBE.at } }));
+  assert.equal(check(run(home, makeRepoFixture()), 'gate payload probe').level, 'warn');
+});
+
+test('--probe is accepted and fails when claude is not on PATH', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+  assert.throws(
+    () => execFileSync(process.execPath, [DOCTOR, '--probe'], {
+      encoding: 'utf8', stdio: 'pipe',
+      env: { ...process.env, PATH: temp('consigliere-nopath-'), CLAUDE_CONFIG_DIR: path.join(home, '.claude') },
+    }),
+    (error) => error.status === 1 && /\[FAIL\] gate payload probe/.test(error.stdout)
+  );
 });
 
 test('--json prints a summary and --help exits clean', () => {

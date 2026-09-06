@@ -4,6 +4,26 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
+## 2.3.0 — 2026-09-06
+
+### Added
+- `node doctor.mjs --probe`, which checks the assumption `orchestrator-gate.mjs` rests on
+  against the Claude Code you have installed. It runs one short headless `claude -p` that
+  makes a Bash call on the main thread and another inside a subagent, and fails when
+  `agent_id` is set on the root call or absent from the subagent's — the silent case, where
+  the gate would stand aside for the root. The verdict and the `claude --version` it was
+  reached on go into the state file, so a plain `node doctor.mjs` reports them afterwards
+  and warns while no probe has run, or once a different Claude Code is installed.
+- `hooks/payload-probe.mjs`, the `PreToolUse` hook that records those payloads. It is not
+  installed: it stays in the repo and runs only during `doctor.mjs --probe`, registered by
+  that run's own `--settings` file and never in your `settings.json`.
+- `update-check.mjs` records `claude --version` in its daily child and says one line at
+  session start when Claude Code has moved on since the gate probe ran.
+
+### Changed
+- `orchestrator-gate.mjs` reads `agent_id` as a non-empty string instead of testing it for
+  truthiness, so a field that changes shape upstream cannot read as a subagent.
+
 ## 2.2.0 — 2026-09-06
 
 ### Added

@@ -2,6 +2,8 @@
 // Restricts the root session to deciding and delegating. agent_id is present only when a
 // hook fires inside a subagent, so its absence identifies the orchestrator's own thread —
 // which is why this cannot be a permissions.deny rule: those apply to workers too.
+// The field belongs to Claude Code, not to this repo; `node doctor.mjs --probe` verifies it
+// against the installed build.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -28,7 +30,8 @@ if (!fs.existsSync(path.join(cfgDir(), 'rules', 'orchestrator.md'))) process.exi
 let payload = {};
 try { payload = JSON.parse(fs.readFileSync(0, 'utf8')); } catch { deny('Root gate could not parse the hook payload.'); }
 
-if (payload.agent_id) process.exit(0);
+// Typed, not truthy: a field that changed shape must not read as a subagent.
+if (typeof payload.agent_id === 'string' && payload.agent_id) process.exit(0);
 
 const norm = (p) => p.replace(/\\/g, '/').toLowerCase();
 // The trailing separator is deliberate: a bare prefix would also exempt /tmpfoo/x.ts.
