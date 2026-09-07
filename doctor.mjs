@@ -125,7 +125,7 @@ export function runChecks(options = {}) {
       ? status('warn', 'agents', `missing: ${list(agents.missing)}; orchestrator-gate.mjs will block the root's source edits naming subagents that do not exist — rerun node install.mjs`)
       : agents.modified.length
         ? status('warn', 'agents', `customized locally, no longer this repo's: ${list(agents.modified)}`)
-        : status('pass', 'agents', 'the five subagents are installed and match this repo')
+        : status('pass', 'agents', 'the six subagents are installed and match this repo')
   );
 
   const hooks = compare(HOOK_FILES, path.join(repo, 'hooks'), hooksDir);

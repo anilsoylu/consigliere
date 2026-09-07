@@ -4,6 +4,26 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
+## 2.5.0 — 2026-09-07
+
+### Added
+- `read-gate.mjs`, a PreToolUse hook on `Read` and `Bash`. The root cannot `Read` a file over
+  350 lines without `limit`, or run `cat` or an unbounded `head`/`tail` on one; the deny
+  names the file and points at `reader`. `READ_GATE_MAX_LINES` moves the threshold.
+  Subagents pass, and so does anything the hook cannot parse or stat: it is a cost guard,
+  not a safety guard. The pattern is the size gate from Spotify's "Portal cut my Claude Code
+  token usage by 90%" post, with a subagent in place of their external runtime.
+- `agents/reader.md`, the sixth subagent: `model: haiku`, `effort: low`, read-only. It
+  answers one question about named files with `path:line` bullets so the files stay out of
+  the caller's context. `rules/orchestrator.md` lists it in the role table.
+
+### Changed
+- `agents/explorer.md` runs on `sonnet`. Reconnaissance is I/O-bound.
+- `agents/worker.md` and `agents/tester.md` tell the subagent to read a file once with
+  `Read`, whole, rather than slicing it across turns. The worker also stops at about 40
+  turns, and `rules/orchestrator.md` sizes a contract to the same number. `rules/workflow.md`
+  says to `/clear` after a merge.
+
 ## 2.4.0 — 2026-09-07
 
 ### Added

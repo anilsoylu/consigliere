@@ -65,9 +65,9 @@ test('removes a stale entry it once wrote and keeps a hook of yours on the same 
   const settings = JSON.parse(read(settingsPath));
   // exactly what the previous release registered, next to two entries that must survive:
   // a hook of the user's own, and a wrapper of theirs around one of our scripts
-  // `Read` because the fixture has to sit on a matcher the manifest does not claim
+  // `Glob` because the fixture has to sit on a matcher the manifest does not claim
   settings.hooks.PreToolUse.push({
-    matcher: 'Read',
+    matcher: 'Glob',
     hooks: [
       { type: 'command', command: hookCommand(hooks, 'orchestrator-gate.mjs') },
       { type: 'command', command: 'node /somewhere/else/my-own-hook.mjs' },
@@ -79,7 +79,7 @@ test('removes a stale entry it once wrote and keeps a hook of yours on the same 
   install(home);
 
   const after = JSON.parse(read(settingsPath));
-  const block = after.hooks.PreToolUse.find((b) => b.matcher === 'Read');
+  const block = after.hooks.PreToolUse.find((b) => b.matcher === 'Glob');
   const commands = block.hooks.map((h) => h.command);
   assert.equal(commands.includes(hookCommand(hooks, 'orchestrator-gate.mjs')), false, 'the stale entry must be gone');
   assert.equal(commands.length, 2, 'both of the user\'s entries must survive');
@@ -105,13 +105,13 @@ test('leaves a block empty of our entries out of settings.json entirely', () => 
   const settingsPath = path.join(home, '.claude', 'settings.json');
   const hooks = path.join(home, '.claude', 'hooks');
   const settings = JSON.parse(read(settingsPath));
-  settings.hooks.PreToolUse.push({ matcher: 'Read', hooks: [{ type: 'command', command: hookCommand(hooks, 'orchestrator-gate.mjs') }] });
+  settings.hooks.PreToolUse.push({ matcher: 'Glob', hooks: [{ type: 'command', command: hookCommand(hooks, 'orchestrator-gate.mjs') }] });
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
   install(home);
 
   const after = JSON.parse(read(settingsPath));
-  assert.equal(after.hooks.PreToolUse.some((b) => b.matcher === 'Read'), false, 'no {matcher, hooks: []} litter');
+  assert.equal(after.hooks.PreToolUse.some((b) => b.matcher === 'Glob'), false, 'no {matcher, hooks: []} litter');
 });
 
 // copyAll() used to create the destination directory once, which is enough for a flat

@@ -17,6 +17,10 @@ reason. A test that passes on the unfixed code has not reproduced anything.
 Follow the repository's existing test framework, layout and naming. Test behavior at the
 boundary the caller cares about, not implementation details.
 
+Every turn costs a full round-trip. Read a file once with `Read`, whole, instead of slicing
+it with `cat`, `sed` or `grep`; send independent tool calls in one turn; edit a file in one
+`Edit` per hunk group, not one per line.
+
 ## Running verifiers
 
 Narrowest first: the touched file's suite, then its package. Never pipe a verifier through

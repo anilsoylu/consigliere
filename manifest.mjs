@@ -6,7 +6,7 @@ import path from 'node:path';
 // Releases are `git tag v<VERSION>`; update-check.mjs and doctor.mjs both compare against
 // that tag list, so bumping this without tagging makes an installed copy look ahead of
 // upstream. Only vN.N.N sorts — the old `v1-sol` tag is deliberately unsortable.
-export const VERSION = '2.4.0';
+export const VERSION = '2.5.0';
 export const STATE_FILE = '.consigliere-state.json';
 
 export const HOOK_FILES = [
@@ -14,7 +14,7 @@ export const HOOK_FILES = [
   // hooks, and copying them after their importers leaves an upgrade window where an import throws.
   'config-dir.mjs', 'approval.mjs',
   'orchestrator-gate.mjs', 'commit-language.mjs',
-  'update-check.mjs', 'review-tier.mjs', 'git-discipline.mjs', 'comment-ratio.mjs',
+  'update-check.mjs', 'review-tier.mjs', 'git-discipline.mjs', 'read-gate.mjs', 'comment-ratio.mjs',
   'plan-capture.mjs',
 ];
 // Files an earlier version installed and this one does not. Dropping a name from
@@ -27,10 +27,10 @@ export const OBSOLETE_RULE_FILES = ['advisor-executor.md'];
 export const DEFAULT_RULES = ['orchestrator.md', 'coding-discipline.md'];
 export const WORKFLOW_RULE = 'workflow.md';
 
-// Five of the six roles, as subagent definitions; `fork` is built in. orchestrator-gate.mjs blocks the
+// Six of the seven roles, as subagent definitions; `fork` is built in. orchestrator-gate.mjs blocks the
 // root's source edits and names these roles as the way through, so a gate installed
 // without the agents is a lock with no key. Same missing/modified treatment as a hook.
-export const AGENT_FILES = ['worker.md', 'tester.md', 'explorer.md', 'researcher.md', 'reviewer.md'];
+export const AGENT_FILES = ['worker.md', 'tester.md', 'explorer.md', 'reader.md', 'researcher.md', 'reviewer.md'];
 
 // The merge-readiness skill and the Workflow script it invokes are one feature: the
 // skill reads the script from beside it, so either one alone is a dangling reference.
@@ -151,6 +151,8 @@ export const HOOK_ENTRIES = [
   ['PreToolUse', 'Bash', 'orchestrator-gate.mjs'],
   ['PreToolUse', 'Bash', 'commit-language.mjs'],
   ['PreToolUse', 'Bash', 'git-discipline.mjs'],
+  ['PreToolUse', 'Read', 'read-gate.mjs'],
+  ['PreToolUse', 'Bash', 'read-gate.mjs'],
   ['PreToolUse', 'Skill', 'git-discipline.mjs'],
   ['PostToolUse', 'Bash', 'git-discipline.mjs'],
   ['SessionStart', null, 'git-discipline.mjs'],

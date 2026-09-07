@@ -586,7 +586,7 @@ test('warns when the root is not on the recommended model', () => {
   assert.match(check(run(home, makeRepoFixture()), 'root model').detail, /model is unset/);
 });
 
-// One env var that outranks the effort: line in all five agent files at once.
+// One env var that outranks the effort: line in all six agent files at once.
 test('warns when a global effort level overrides the agent files', () => {
   const home = temp('consigliere-doctor-');
   installDefaultFiles(home);
@@ -597,7 +597,7 @@ test('warns when a global effort level overrides the agent files', () => {
   assert.match(model.detail, /CLAUDE_CODE_EFFORT_LEVEL/);
 });
 
-// Each agent file carries its own model:, so either of these silently flattens all five
+// Each agent file carries its own model:, so either of these silently flattens all six
 // to one model — a value of your own does not make that acceptable.
 test('warns when either subagent model key overrides the agent files', () => {
   const home = temp('consigliere-doctor-');
