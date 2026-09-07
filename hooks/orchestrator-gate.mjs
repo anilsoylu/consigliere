@@ -73,8 +73,12 @@ for (const m of masked.matchAll(REDIRECT)) {
   const target = cmd.slice(m.index, m.index + m[0].length)
     .replace(/^(?:&>>?|\d?>>?|\d?<)\s*/, '').replace(/^["']|["']$/g, '');
   // Resolved before the prefix test, or `/tmp/../repo/src/a.ts` would read as a temp path.
+  // On Windows path.resolve turns `/tmp/x` into `d:/tmp/x`, so a posix-normalised `/tmp/` is
+  // accepted as well; normalize still collapses the `..` traversal.
   const ok = !m[0].includes('<')
-    && (/^&\d+$/.test(target) || tmpRoots.some((p) => norm(path.resolve(cwd, target)).startsWith(p)));
+    && (/^&\d+$/.test(target)
+      || tmpRoots.some((p) => norm(path.resolve(cwd, target)).startsWith(p))
+      || path.posix.normalize(norm(target)).startsWith('/tmp/'));
   if (!ok) deny('Root cannot redirect (`>`, `<`).');
   redirects.push([m.index, m[0].length]);
 }

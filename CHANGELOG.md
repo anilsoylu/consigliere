@@ -24,6 +24,11 @@ reconstructed from the tag history.
   turns, and `rules/orchestrator.md` sizes a contract to the same number. `rules/workflow.md`
   says to `/clear` after a merge.
 
+### Fixed
+- `orchestrator-gate.mjs` denied a `> /tmp/x.log` redirect on Windows since 2.4.0:
+  `path.resolve` turned the target into `d:/tmp/x.log`, which missed the `/tmp/` prefix.
+  A posix-normalised target under `/tmp/` now passes too.
+
 ## 2.4.0 — 2026-09-07
 
 ### Added
