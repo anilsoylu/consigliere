@@ -28,8 +28,10 @@ if (typeof payload.agent_id === 'string' && payload.agent_id) process.exit(0);
 
 function lines(file) {
   try {
-    if (!fs.statSync(file).isFile()) return 0;
-    return fs.readFileSync(file, 'utf8').split('\n').length;
+    const st = fs.statSync(file);
+    if (!st.isFile()) return 0;
+    if (st.size > 100 * 1024 * 1024) return Infinity;
+    return fs.readFileSync(file, 'utf8').replace(/\n$/, '').split('\n').length;
   } catch { return 0; }
 }
 
@@ -47,13 +49,14 @@ const cwd = payload.cwd || '.';
 for (const seg of (payload.tool_input?.command || '').split(/;|&&|\|\||\||&|\r|\n/)) {
   const argv = seg.trim().split(/\s+/).filter(Boolean);
   const root = path.basename(argv[0] || '');
-  if (!/^(cat|less|more|head|tail)$/.test(root)) continue;
+  if (!/^(cat|head|tail)$/.test(root)) continue;
   if (/^(head|tail)$/.test(root)) {
-    const bound = argv.slice(1).map((a, i, arr) => {
-      const m = a.match(/^-(?:n|c)(?:=?(\d+))?$|^-(\d+)$|^--(?:lines|bytes)=(\d+)$/);
-      return m ? Number(m[1] ?? m[2] ?? m[3] ?? arr[i + 1]) : NaN;
-    }).find((b) => !Number.isNaN(b));
-    if (bound !== undefined && bound <= MAX) continue;
+    // Default output is 10 lines. `+N` and `-N` counts read to the end and are unbounded.
+    const count = argv.slice(1).map((a, i, arr) => {
+      const m = a.match(/^-(?:n|c)=?([+-]?\d+)?$|^-(\d+)$|^--(?:lines|bytes)=([+-]?\d+)$/);
+      return m ? (m[1] ?? m[2] ?? m[3] ?? arr[i + 1] ?? '') : null;
+    }).find((c) => c !== null) ?? '10';
+    if (/^\d+$/.test(count) && Number(count) <= MAX) continue;
   }
   for (const arg of argv.slice(1).filter((a) => !a.startsWith('-'))) {
     const n = lines(path.resolve(cwd, arg));

@@ -50,7 +50,7 @@ Every report is capped at 40 lines. `worker` and `tester` return five fields: wh
 - `review-tier.mjs` — reads a diff and prints the review effort tier: `none`, `medium`, `high`, `xhigh`.
 - `update-check.mjs` — one line at session start when a newer tag exists upstream.
 - `commit-language.mjs` — blocks a `git commit` or `gh pr create` whose message reads as Turkish.
-- `read-gate.mjs` — denies the root a `Read` of a file over 350 lines (`READ_GATE_MAX_LINES`) unless `limit` is set, and a `cat`, `less`, `more` or unbounded `head`/`tail` of one. A file the root reads is re-read on every later turn and inherited by every fork, so the gate routes the question to `reader` instead. Subagents pass; parse errors and unreadable paths pass, because this is a cost guard and not a safety one.
+- `read-gate.mjs` — denies the root a `Read` of a file over 350 lines (`READ_GATE_MAX_LINES`) unless `limit` is set, and a `cat` or unbounded `head`/`tail` of one. A file the root reads is re-read on every later turn and inherited by every fork, so the gate routes the question to `reader` instead. Subagents pass; parse errors and unreadable paths pass, because this is a cost guard and not a safety one.
 - `git-discipline.mjs` — the branch, the conventional subject, the review → `/cpr` order, leased force-pushes, unfiltered verifiers, and the rules again after a compaction.
 - `comment-ratio.mjs` — nudges when an edit lands more comment lines than code.
 - `plan-capture.mjs` — copies an approved plan-mode plan into `plans/`, numbered and indexed as an `improve` plan.
@@ -127,7 +127,7 @@ Or hand the repo to Claude Code and say: *"run `node install.mjs` in this repo."
 
 The installer is idempotent — re-running it changes nothing. It backs up `settings.json` and any agent, rule, hook, or skill file it would overwrite (`.consigliere.bak`), and merges its hooks without touching your existing ones.
 
-Restart Claude Code (plain `claude`) afterward. This is not optional on a fresh install or an upgrade from v1: the agent registry is read at startup, so the five roles do not exist until the next `claude` and a delegation names a subagent that is not there. Hooks and rules are read per invocation and take effect immediately.
+Restart Claude Code (plain `claude`) afterward. This is not optional on a fresh install or an upgrade from v1: the agent registry is read at startup, so the six roles do not exist until the next `claude` and a delegation names a subagent that is not there. Hooks and rules are read per invocation and take effect immediately.
 
 ### What it writes into settings.json
 
