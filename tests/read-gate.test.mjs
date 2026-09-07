@@ -13,19 +13,25 @@ const big = path.join(dir, 'big.ts');
 const small = path.join(dir, 'small.ts');
 const exact = path.join(dir, 'exact.ts');
 const png = path.join(dir, 'big.png');
+// The gate self-gates on rules/orchestrator.md, so every case points CLAUDE_CONFIG_DIR at a
+// fixture carrying that rule; CI has no ~/.claude.
+const cfg = fs.mkdtempSync(path.join(os.tmpdir(), 'read-gate-cfg-'));
+const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'read-gate-bare-'));
 
 before(() => {
   fs.writeFileSync(big, 'x\n'.repeat(400));
   fs.writeFileSync(small, 'x\n'.repeat(20));
   fs.writeFileSync(exact, 'x\n'.repeat(350));
   fs.writeFileSync(png, 'x\n'.repeat(400));
+  fs.mkdirSync(path.join(cfg, 'rules'));
+  fs.writeFileSync(path.join(cfg, 'rules', 'orchestrator.md'), '');
 });
-after(() => fs.rmSync(dir, { recursive: true, force: true }));
+after(() => [dir, cfg, bare].forEach((d) => fs.rmSync(d, { recursive: true, force: true })));
 
 const run = (payload, env = {}) => {
   const r = spawnSync('node', [hook], {
     input: JSON.stringify({ cwd: dir, ...payload }),
-    env: { ...process.env, ...env },
+    env: { ...process.env, CLAUDE_CONFIG_DIR: cfg, ...env },
     encoding: 'utf8',
   });
   assert.equal(r.status, 0, r.stderr);
@@ -42,6 +48,7 @@ test('Read of a file at the threshold passes', () => assert.equal(read({ file_pa
 test('Read of an image passes', () => assert.equal(read({ file_path: png }), ''));
 test('Read with limit passes', () => assert.equal(read({ file_path: big, limit: 100 }), ''));
 test('subagent Read passes', () => assert.equal(read({ file_path: big }, { agent_id: 'x' }), ''));
+test('gate stands down without its rule', () => assert.equal(bash(`cat ${big}`, { CLAUDE_CONFIG_DIR: bare }), ''));
 test('cat big is denied', () => assert.ok(denied(bash(`cat ${big}`))));
 test('head big passes', () => assert.equal(bash(`head ${big}`), ''));
 test('head -n 50 big passes', () => assert.equal(bash(`head -n 50 ${big}`), ''));
