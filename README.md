@@ -15,22 +15,26 @@ Version 2 inverts that. The most capable model holds the decisions and the weake
 ## How it works
 
 ```
-your prompt
-     │
-     ▼
-root / orchestrator ─── Fable 5.1, decides only
-     │                  orchestrator-gate.mjs denies it every source edit
-     │
-     ├── explorer     sonnet     read-only    where does X happen
-     ├── reader       haiku      read-only    one question about named files
-     ├── researcher   opus       read-only    a fact outside the repo
-     ├── fork         inherits   writes       the default for implementation
-     ├── worker       opus       writes       independent or long jobs
-     ├── tester       opus       tests only   reproduce a bug, verify a fix
-     └── reviewer     fable      read-only    fresh context, no rationale
-     │
-     ▼
-root runs the verifier, git and gh itself
+                        Fable 5.1
+                    root / orchestrator
+                             |
+    +-----------+-----------+-----------+-----------+
+    |           |           |           |           |
+explorer     reader    researcher     fork       worker
+ Sonnet       Haiku       Opus      inherits      Opus
+read-only   read-only   read-only    writes      writes
+    |           |           |           |           |
+    +-----------+-----------+-----------+-----------+
+                             |
+                          tester
+                           Opus
+                             |
+                         reviewer
+                          Fable
+                             |
+                             v
+                        Fable 5.1
+                    integrate + verify
 ```
 
 That tree is not a convention the root is asked to follow. It cannot write source at all, so the only path from a decision to the repository runs through one of those roles.
@@ -111,10 +115,6 @@ On `Bash` it fails closed: a command it cannot parse is denied, because a restri
 Options that turn an allowed command into a writer or a launcher are denied by name: `sort -o`/`--output`/`--compress-program`, `tree -o`, `git --output`, `find -fls`/`-fprint`/`-fprintf`, `rg --pre`, `find -exec`/`-execdir`/`-delete`/`-ok`/`-okdir`, and `env` used to run a program rather than print the environment.
 
 Deleting `rules/orchestrator.md` turns the gate off. It checks for that file before it reads the payload, so a disabled gate never denies anything.
-
-## Where the topology comes from
-
-The shape follows [donvito/codex-astra-luna-orchestrator](https://github.com/donvito/codex-astra-luna-orchestrator), which does the same thing for Codex. One difference is deliberate: upstream reviews with Astra on low reasoning in a read-only sandbox, and here the reviewer is Fable. Verdict quality is the one place the strongest model pays for itself, and the fresh context is what keeps it honest — a reviewer spawned with the diff and no rationale cannot anchor on the plan that produced it.
 
 ## Keeping plan-mode plans
 

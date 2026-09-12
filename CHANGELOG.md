@@ -220,10 +220,8 @@ decides and delegates; every code change, shell command and remote action runs i
   still works; nothing here depends on it either way.
 
 ### Changed
-- The topology follows [donvito/codex-astra-luna-orchestrator](https://github.com/donvito/codex-astra-luna-orchestrator),
-  which does the same for Codex. One deliberate divergence: upstream reviews with its weakest
-  model on low reasoning in a read-only sandbox, and the reviewer here is Fable, because a
-  verdict is where capability pays for itself.
+- The reviewer runs on Fable rather than a cheaper model: a verdict is where capability pays
+  for itself, and a fresh context with no rationale is what keeps it honest.
 - `review-tier.mjs` routes `medium` and `high` to a fresh `reviewer` spawn instead of an
   advisor consult. `xhigh` still routes to `/merge-readiness`; the tiers themselves are
   unchanged.
