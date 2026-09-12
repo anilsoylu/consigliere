@@ -307,7 +307,7 @@ The Sol version — the advisor as Codex GPT-5.6 driven over the Codex plugin by
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). The vendored skills below keep their upstream MIT terms.
 
 Bundled skills and what changed in them:
 
