@@ -60,7 +60,7 @@ if (payload.tool_name !== 'Bash') {
   const exempt = [os.tmpdir(), '/tmp', cfgDir(), path.join(os.homedir(), 'Desktop')]
     .map((p) => prefix(canon(p)));
   // A project-local .claude/ is the root's too, wherever it sits.
-  if (exempt.some((p) => file.startsWith(p)) || /\/\.claude\/|^\/tmp\//.test(file)) process.exit(0);
+  if (exempt.some((p) => file.startsWith(p)) || /\/\.claude\//.test(file)) process.exit(0);
   if (/\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|rb|php|java|kt|swift|c|h|cpp|hpp|cc|vue|svelte|sql|sh|json|ya?ml|toml)$/.test(file)) {
     deny(`Root cannot write source or config (${path.basename(file)}).`);
   }
