@@ -16,6 +16,27 @@ Version 2 inverts that. The most capable model holds the decisions and the weake
 
 ```
 your prompt
+     │
+     ▼
+root / orchestrator ─── Fable 5.1, decides only
+     │                  orchestrator-gate.mjs denies it every source edit
+     │
+     ├── explorer     sonnet     read-only    where does X happen
+     ├── reader       haiku      read-only    one question about named files
+     ├── researcher   opus       read-only    a fact outside the repo
+     ├── fork         inherits   writes       the default for implementation
+     ├── worker       opus       writes       independent or long jobs
+     ├── tester       opus       tests only   reproduce a bug, verify a fix
+     └── reviewer     fable      read-only    fresh context, no rationale
+     │
+     ▼
+root runs the verifier, git and gh itself
+```
+
+That tree is not a convention the root is asked to follow. It cannot write source at all, so the only path from a decision to the repository runs through one of those roles.
+
+```
+your prompt
    → the root decomposes it and writes a contract per piece   ← Fable 5.1, decides only
    → explorer and researcher answer what the decision needs   ← read-only
    → a fork of the root writes the code; a worker only for parallel or long jobs
