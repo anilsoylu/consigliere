@@ -38,12 +38,28 @@ if (typeof payload.agent_id === 'string' && payload.agent_id) process.exit(0);
 const norm = (p) => p.replace(/\\/g, '/').toLowerCase();
 // The trailing separator is deliberate: a bare prefix would also exempt /tmpfoo/x.ts.
 const prefix = (p) => `${norm(p).replace(/\/$/, '')}/`;
+// The prefix test is a string compare, so both spellings of a macOS temp dir have to collapse
+// to one, and a symlink out of a temp root must not carry a write with it. Paths that do not
+// exist yet resolve through their nearest existing parent.
+const canon = (p) => {
+  let head = path.resolve(p);
+  const tail = [];
+  for (;;) {
+    try { return path.join(fs.realpathSync(head), ...tail); } catch { /* not created yet */ }
+    const up = path.dirname(head);
+    if (up === head) return path.resolve(p);
+    tail.unshift(path.basename(head));
+    head = up;
+  }
+};
 
 if (payload.tool_name !== 'Bash') {
-  const file = norm(payload.tool_input?.file_path || '');
-  if (!file) process.exit(0);
-  const exempt = [os.tmpdir(), cfgDir(), path.join(os.homedir(), 'Desktop')].map(prefix);
-  // os.tmpdir() is /var/folders/... on macOS, so /tmp needs naming separately.
+  const raw = payload.tool_input?.file_path || '';
+  if (!raw) process.exit(0);
+  const file = norm(canon(raw));
+  const exempt = [os.tmpdir(), '/tmp', cfgDir(), path.join(os.homedir(), 'Desktop')]
+    .map((p) => prefix(canon(p)));
+  // A project-local .claude/ is the root's too, wherever it sits.
   if (exempt.some((p) => file.startsWith(p)) || /\/\.claude\/|^\/tmp\//.test(file)) process.exit(0);
   if (/\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|rb|php|java|kt|swift|c|h|cpp|hpp|cc|vue|svelte|sql|sh|json|ya?ml|toml)$/.test(file)) {
     deny(`Root cannot write source or config (${path.basename(file)}).`);
@@ -67,18 +83,18 @@ const unexpanded = cmd.replace(/\\.|'[^']*'/gs, blank);
 // every other target, plus any input redirect, does not. The spans are blanked afterwards so
 // the segment split below never reads the `&` in `2>&1` as a separator.
 const REDIRECT = /(?:&>>?|\d?>>?|\d?<)\s*(?:&\d+|[^\s;|&<>]*)/g;
-const tmpRoots = ['/tmp/', prefix(os.tmpdir())];
+const tmpRoots = [os.tmpdir(), '/tmp'].map((p) => prefix(canon(p)));
 const redirects = [];
 for (const m of masked.matchAll(REDIRECT)) {
   const target = cmd.slice(m.index, m.index + m[0].length)
     .replace(/^(?:&>>?|\d?>>?|\d?<)\s*/, '').replace(/^["']|["']$/g, '');
   // Resolved before the prefix test, or `/tmp/../repo/src/a.ts` would read as a temp path.
-  // On Windows path.resolve turns `/tmp/x` into `d:/tmp/x`, so a posix-normalised `/tmp/` is
-  // accepted as well; normalize still collapses the `..` traversal.
+  // The posix spelling only applies where path.resolve picks a drive (#61); on POSIX it would
+  // skip the realpath and let a symlink out of /tmp through.
   const ok = !m[0].includes('<')
     && (/^&\d+$/.test(target)
-      || tmpRoots.some((p) => norm(path.resolve(cwd, target)).startsWith(p))
-      || path.posix.normalize(norm(target)).startsWith('/tmp/'));
+      || tmpRoots.some((p) => norm(canon(path.resolve(cwd, target))).startsWith(p))
+      || (process.platform === 'win32' && path.posix.normalize(norm(target)).startsWith('/tmp/')));
   if (!ok) deny('Root cannot redirect (`>`, `<`).');
   redirects.push([m.index, m[0].length]);
 }

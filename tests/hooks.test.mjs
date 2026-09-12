@@ -78,6 +78,37 @@ test('gate leaves the root its own files', () => {
   }
 });
 
+// Every spelling of a temp root this OS offers. On macOS os.tmpdir() and /tmp are both
+// symlinks into /private, and a path a tool hands the root arrives already resolved.
+function tempSpellings() {
+  const out = [os.tmpdir(), fs.realpathSync(os.tmpdir())];
+  try { out.push('/tmp', fs.realpathSync('/tmp')); } catch { /* no /tmp on Windows */ }
+  return [...new Set(out)];
+}
+
+test('gate leaves the root a temp path under either spelling of the root', () => {
+  const cfg = cfgFixture();
+  for (const root of tempSpellings()) {
+    const file = path.join(root, 'a.ts');
+    assert.equal(envHook(GATE, rootEdit(file, 'Write'), cfg), '', file);
+    const target = path.join(root, 't.log').replace(/\\/g, '/');
+    assert.equal(envHook(GATE, rootBash(`echo hi > ${target}`), cfg), '', target);
+  }
+});
+
+// The prefix test is a string compare, so a symlink under a temp root used to carry a write
+// straight out of it — the failure mode a fail-closed gate cannot have.
+test('gate denies a write a symlink routes out of a temp root', { skip: process.platform === 'win32' && 'symlinks need elevation on Windows' }, () => {
+  const cfg = cfgFixture();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'consigliere-link-'));
+  homes.push(dir);
+  const link = path.join(dir, 'escape');
+  fs.symlinkSync(path.join(ROOT, 'hooks'), link);
+  const target = path.join(link, 'orchestrator-gate.mjs');
+  assert.equal(decision(envHook(GATE, rootEdit(target, 'Write'), cfg)), 'deny', target);
+  assert.equal(decision(envHook(GATE, rootBash(`echo x > ${target}`), cfg)), 'deny', target);
+});
+
 test('gate allows read-only root commands, the plumbing and the verifiers', () => {
   const cfg = cfgFixture();
   const allowed = [
