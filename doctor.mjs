@@ -25,16 +25,18 @@ const list = (files) => files.join(', ');
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const sameBytes = (a, b) => exists(a) && exists(b) && fs.readFileSync(a).equals(fs.readFileSync(b));
 
-// A file that exists but no longer matches this repo is not the file you think is in use.
-function compare(files, srcDir, destDir) {
+// A file that exists but no longer matches this repo is not the file you think is in use,
+// unless you pinned it — then the installer left it alone on purpose and so does this.
+function compareFiles(files, srcDir, destDir, pinned) {
   const missing = [];
   const modified = [];
+  const kept = [];
   for (const f of files) {
     const dest = path.join(destDir, f);
     if (!exists(dest)) missing.push(f);
-    else if (!sameBytes(path.join(srcDir, f), dest)) modified.push(f);
+    else if (!sameBytes(path.join(srcDir, f), dest)) (pinned.has(path.resolve(dest)) ? kept : modified).push(f);
   }
-  return { missing, modified };
+  return { missing, modified, kept };
 }
 
 // A missing state file is an install that has not run yet; one that exists and will not parse
@@ -92,7 +94,18 @@ export function runChecks(options = {}) {
   const agentsDir = path.join(claudeDir, 'agents');
   const skillsDir = path.join(claudeDir, 'skills');
   const settingsPath = path.join(claudeDir, 'settings.json');
+  const statePath = path.join(claudeDir, STATE_FILE);
+  const { state, unreadable } = readState(statePath);
   const checks = [];
+
+  // Read before the first comparison because every one of them consults it.
+  const pinned = new Set((Array.isArray(state.pins) ? state.pins : []).map((p) => path.resolve(claudeDir, p)));
+  const pinnedDrift = [];
+  const compare = (files, srcDir, destDir) => {
+    const result = compareFiles(files, srcDir, destDir, pinned);
+    pinnedDrift.push(...result.kept.map((f) => path.relative(claudeDir, path.join(destDir, f)).replace(/\\/g, '/')));
+    return result;
+  };
 
   const missingRepoAssets = [
     ...HOOK_FILES.map((f) => path.join(repo, 'hooks', f)),
@@ -349,8 +362,6 @@ export function runChecks(options = {}) {
   // The same comparison update-check.mjs makes, for anyone who does not want the hook — or
   // cannot have it, since it stands down under CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC.
   // Blocking is fine in a CLI, so this one asks upstream directly instead of a cache.
-  const statePath = path.join(claudeDir, STATE_FILE);
-  const { state, unreadable } = readState(statePath);
   const installed = state.version || null;
   const latest = installed ? latestTag(repo) : null;
   checks.push(
@@ -362,6 +373,17 @@ export function runChecks(options = {}) {
           ? status('warn', 'version', `${latest} is out, ${installed} installed — cd ${repo} && git pull && node install.mjs`)
           : status('pass', 'version', `${installed} installed, up to date with ${repo}`)
   );
+
+  // Asked once and shared with the probe check below, which compares it against the record.
+  const claudeVersion = currentClaudeVersion(shellEnv);
+  const build = /^v?\d+\.\d+\.\d+/.exec(claudeVersion || '')?.[0];
+  if (build) {
+    checks.push(
+      compareTags(EFFORT_FLOOR, build) > 0
+        ? status('warn', 'claude version', `${claudeVersion} installed; before ${EFFORT_FLOOR} the effort: line in every agent file is ignored on models with a pinned default effort, and subagentPromptCacheTtl is not honored for subagent prompts — upgrade Claude Code`)
+        : status('pass', 'claude version', `${claudeVersion} honors the agents' effort: lines and subagentPromptCacheTtl`)
+    );
+  }
 
   // agent_id belongs to Claude Code, not to this repo, and every other check here would stay
   // green if it moved. --probe is the only one that reads the field off a running build.
@@ -392,7 +414,7 @@ export function runChecks(options = {}) {
   } else {
     const recorded = state.probe?.claudeVersion;
     const verifiedOn = () => `${recorded} verified on ${String(state.probe?.at || '').slice(0, 10)}`;
-    const current = recorded ? currentClaudeVersion(shellEnv) : null;
+    const current = recorded ? claudeVersion : null;
     checks.push(
       !recorded
         ? status('warn', 'gate payload probe', 'not run against this Claude Code build; run node doctor.mjs --probe')
@@ -420,11 +442,21 @@ export function runChecks(options = {}) {
     else if (absent.length) checks.push(status('warn', 'release permissions', `missing from settings.permissions.allow: ${list(absent)}; an unattended release stalls on the first denied command, so rerun node install.mjs --with-release-permissions`));
   }
 
+  // Drift in a file you pinned is the point of pinning it, so the checks above stay silent
+  // about it and this one says which files are yours.
+  if (pinned.size) {
+    checks.push(status('pass', 'pinned files', pinnedDrift.length
+      ? `install.mjs keeps these as yours rather than restoring this repo's copy: ${list(pinnedDrift)}`
+      : `${pinned.size} pinned in ${STATE_FILE}; none currently differ from this repo`));
+  }
+
   // Reported, never repaired: the old tree may hold hooks and skills of your own, and
   // this command writes nothing. Left alone it is only confusing, not harmful.
-  const legacy = path.join(home, '.claude');
+  // Asked of the CLI rather than guessed at ~/.claude, which is wrong whenever
+  // CLAUDE_CONFIG_DIR is set somewhere this process cannot see.
+  const legacy = claudeConfigDirectory(shellEnv) || path.join(home, '.claude');
   if (path.resolve(legacy) !== path.resolve(claudeDir) && exists(path.join(legacy, STATE_FILE))) {
-    checks.push(status('warn', 'stale install', `CLAUDE_CONFIG_DIR points at ${claudeDir}, but an earlier install is still in ${legacy}; Claude Code no longer reads it — remove it by hand once the new one checks out`));
+    checks.push(status('warn', 'stale install', `Claude Code reads ${legacy}, where an earlier install is still sitting; the one checked here is in ${claudeDir} — remove the old tree by hand once this one checks out`));
   }
 
   return checks;
@@ -472,6 +504,17 @@ const versionOptions = (env) => ({ env, encoding: 'utf8', timeout: 20_000, stdio
 // No `claude` on PATH is not a finding: the recorded verdict is all this run can say.
 function currentClaudeVersion(env) {
   try { return execFileSync('claude', ['--version'], versionOptions(env)).trim(); }
+  catch { return null; }
+}
+
+// Below this an agent file's `effort:` is dropped on every model whose default effort is
+// pinned, which is the model each of the six agents here names.
+const EFFORT_FLOOR = '2.1.267';
+
+// Where Claude Code itself says it reads config. Added in 2.1.268; an older build, no
+// `claude` on PATH, or any other answer falls back to the caller's guess.
+function claudeConfigDirectory(env) {
+  try { return JSON.parse(execFileSync('claude', ['auth', 'status', '--json'], versionOptions(env))).configDirectory || null; }
   catch { return null; }
 }
 

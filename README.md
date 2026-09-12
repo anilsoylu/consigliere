@@ -258,6 +258,14 @@ Or type `/consig-upgrade`, which runs exactly that in the clone the state file r
 
 Re-running the installer is the whole update — no flags needed the second time. The optional assets you opted into are recorded in the state file and reinstalled on every run; to drop one, run `node uninstall.mjs`; leaving the flag off does nothing. The exception is `--with-release-permissions`, whose entries the uninstaller leaves in `settings.permissions.allow` for you to remove by hand. You don't have to notice on your own: releases are plain `git tag v<major>.<minor>.<patch>`, `install.mjs` records the version it wrote into `~/.claude/.consigliere-state.json`, and `update-check.mjs` compares the two.
 
+If you have changed one of the installed files on purpose, list it under `pins` in that same state file and the installer will leave it alone:
+
+```json
+{ "pins": ["agents/reviewer.md"] }
+```
+
+Paths are relative to the config dir. `install.mjs` prints a line for each file it kept, and `node doctor.mjs` reports them as a `pinned files` pass instead of as drift. Without it every upgrade restores this repo's copy over yours, leaving only a `.consigliere.bak` behind. `uninstall.mjs` does not honour `pins` and still removes everything it installed.
+
 The check never blocks and never runs in the foreground. At session start the hook reads a cached answer and exits; at most once a day it hands the network work to a detached child that runs `git ls-remote --tags origin` in the clone you installed from and writes the result for the *next* session. Offline costs nothing, a fork checks its own origin rather than this one, and the clock advances whether or not the lookup succeeded — a failing check waits out the day like a successful one.
 
 That `git ls-remote` is the only thing this package ever sends anywhere: one tag listing, to the remote of a repo you already cloned. It stands down entirely under `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` or `CONSIGLIERE_NO_UPDATE_CHECK=1`. If you set either — and this repo's own recommended env sets the first — use `node doctor.mjs` instead, which makes the same comparison on demand and blocks while it does, because blocking in a CLI you ran on purpose is fine.

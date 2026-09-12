@@ -4,6 +4,41 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
+## 2.6.0 — 2026-09-12
+
+### Added
+- `maxEffortLevel: 'high'` in the recommended settings. Every agent file here asks for
+  `medium` or below, so the cap costs the ladder nothing and stops a stray `/effort xhigh`,
+  or a provider default, from spending the top tier on every call. Claude Code 2.1.267 added
+  the key.
+- `pins` in `.consigliere-state.json`: a list of installed paths you have deliberately
+  diverged from this repo. `install.mjs` skips them and says so instead of restoring its own
+  copy on every upgrade, and `doctor.mjs` reports them as a `pinned files` pass rather than
+  as drift. Set it by hand; there is no flag. `uninstall.mjs` does not honour it and still
+  removes everything.
+- A `claude version` check in `doctor.mjs`. Below 2.1.267 Claude Code dropped the `effort:`
+  line from agent, skill and command files on models whose default effort is pinned — Opus
+  4.7, Opus 4.8 and Fable 5, which is what all six agents here name — and did not honour
+  `subagentPromptCacheTtl` for subagent prompts. The whole effort ladder read as configured
+  and ran flat. The check shares the `claude --version` call the probe already made.
+
+### Changed
+- `doctor.mjs` asks Claude Code where it reads config (`claude auth status --json` →
+  `configDirectory`, added in 2.1.268) instead of assuming `~/.claude` when looking for a
+  stale install. The guess named the wrong directory whenever `CLAUDE_CONFIG_DIR` was set
+  somewhere the doctor's own process could not see. Falls back to the guess on an older
+  build or no `claude` on PATH.
+
+### Fixed
+- `orchestrator-gate.mjs` compared paths as strings, which was wrong in both directions on
+  macOS. `/private/tmp/x` and `/private/var/folders/...` are the same files as `/tmp/x` and
+  `os.tmpdir()`, but matched no prefix and were denied — and a symlink planted under a temp
+  root matched the prefix and carried a write out of it, through a gate that is supposed to
+  fail closed. Both sides now resolve through `realpathSync` first, walking up to the
+  nearest existing parent for a file not yet created. The posix-spelling clause added in
+  2.5.0 for Windows is now scoped to `win32`; on POSIX it was skipping the resolution and
+  was itself the hole.
+
 ## 2.5.0 — 2026-09-07
 
 ### Added

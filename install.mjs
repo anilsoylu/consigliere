@@ -28,6 +28,9 @@ try { state = JSON.parse(fs.readFileSync(statePath, 'utf8')); } catch {
   // whatever this one run passed. Say so, or the only trace is doctor reporting drift later.
   if (fs.existsSync(statePath)) warn(`${statePath} does not parse; treating this as a fresh install`);
 }
+// A path listed in state.pins is one you deliberately diverged from this repo — an upgrade
+// would otherwise restore our copy over it on every run, with only a .bak to show for it.
+const pinned = new Set((Array.isArray(state.pins) ? state.pins : []).map((p) => path.resolve(CLAUDE, p)));
 // Opting into an optional asset is a decision, not a per-run argument: a plain
 // `node install.mjs` on upgrade would otherwise skip what it installed last time and leave
 // it to drift out of date. Union, so the flags only ever add — uninstall.mjs takes away.
@@ -57,6 +60,10 @@ function copyAll(files, srcDir, destDir) {
   for (const f of files) {
     const src = path.join(srcDir, f);
     const dest = path.join(destDir, f);
+    if (pinned.has(path.resolve(dest))) {
+      log(`kept your ${path.relative(CLAUDE, dest).replace(/\\/g, '/')} — pinned in ${STATE_FILE}`);
+      continue;
+    }
     // per file, not once per skill: a manifest entry may be a nested path like rules/forms.md
     fs.mkdirSync(path.dirname(dest), { recursive: true });
     if (fs.existsSync(dest) && !fs.readFileSync(dest).equals(fs.readFileSync(src))) backup(dest);

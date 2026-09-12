@@ -354,6 +354,23 @@ test('backs up settings.json when the merge changes it, and not when it does not
   assert.equal(read(bak), before, 'the backup must hold what the merge replaced');
 });
 
+// Upgrading is `git pull && node install.mjs`, so without the pin a deliberate local edit
+// is restored to this repo's copy on every run, leaving only a .bak behind.
+test('leaves a pinned file alone instead of restoring this repo\'s copy', () => {
+  const home = install();
+  const pin = `agents/${AGENT_FILES.at(-1)}`;
+  const target = path.join(home, '.claude', pin);
+  const statePath = path.join(home, '.claude', STATE_FILE);
+  fs.writeFileSync(statePath, JSON.stringify({ ...JSON.parse(read(statePath)), pins: [pin] }));
+  fs.writeFileSync(target, 'my own reviewer\n');
+
+  install(home);
+
+  assert.equal(read(target), 'my own reviewer\n', 'the pinned file must survive the install');
+  assert.equal(fs.existsSync(`${target}.consigliere.bak`), false, 'nothing overwrote it, so there is nothing to back up');
+  assert.deepEqual(JSON.parse(read(statePath)).pins, [pin], 'and the pin survives the state rewrite');
+});
+
 // The regression: install.mjs used to copy hooks with no backup at all, so a customized
 // hook was destroyed on the next install while a customized rule was carefully preserved.
 for (const [label, live, repoFile, file] of [

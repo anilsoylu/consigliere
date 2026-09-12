@@ -6,7 +6,7 @@ import path from 'node:path';
 // Releases are `git tag v<VERSION>`; update-check.mjs and doctor.mjs both compare against
 // that tag list, so bumping this without tagging makes an installed copy look ahead of
 // upstream. Only vN.N.N sorts — the old `v1-sol` tag is deliberately unsortable.
-export const VERSION = '2.5.0';
+export const VERSION = '2.6.0';
 export const STATE_FILE = '.consigliere-state.json';
 
 export const HOOK_FILES = [
@@ -124,6 +124,9 @@ export const RECOMMENDED_SETTINGS = {
   // A subagent's prompt is cached for 5 minutes by default, which a delegation that waits
   // on a sibling routinely outlives; re-delegating to the same agent then pays full price.
   subagentPromptCacheTtl: '1h',
+  // Above every agent file's own `effort:`, so it caps nothing the ladder asks for and stops
+  // a stray /effort from spending xhigh on every call.
+  maxEffortLevel: 'high',
 };
 
 // Auto mode denies push, merge and tag from workers without these; opt-in via --with-release-permissions.

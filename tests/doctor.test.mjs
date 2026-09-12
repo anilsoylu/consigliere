@@ -94,6 +94,18 @@ function stubClaude(version) {
   return { ...process.env, PATH: bin };
 }
 
+// stubClaude echoes one string for every argv; this one answers `auth status --json` the
+// way 2.1.268 and later do, and `--version` like the stub above.
+function stubClaudeAuth(version, configDirectory) {
+  const bin = temp('consigliere-bin-');
+  const file = path.join(bin, 'claude');
+  writeFile(file, `#!/bin/sh\nif [ "$1" = auth ]; then echo '${JSON.stringify({ configDirectory })}'; else echo "${version}"; fi\n`);
+  fs.chmodSync(file, 0o755);
+  return { ...process.env, PATH: bin };
+}
+
+const NO_SHELL_STUB = process.platform === 'win32' && 'the stub on PATH is a shell script';
+
 // what --with-workflow adds on both sides at once: the rule plus every skill it names
 function installWorkflowFiles(home, repo) {
   for (const root of [repo, path.join(home, '.claude')]) {
@@ -153,10 +165,66 @@ test('warns when an earlier install is still sitting in ~/.claude', () => {
   const home = temp('consigliere-doctor-');
   installDefaultFiles(home);
 
-  const stale = check(runChecks({ home, repo: makeRepoFixture(), claudeDir: temp('consigliere-moved-') }), 'stale install');
+  const stale = check(runChecks({ home, repo: makeRepoFixture(), env: {}, claudeDir: temp('consigliere-moved-') }), 'stale install');
 
   assert.equal(stale.level, 'warn');
-  assert.match(stale.detail, /Claude Code no longer reads it/);
+  assert.match(stale.detail, /an earlier install is still sitting/);
+  assert.ok(stale.detail.includes(path.join(home, '.claude')), 'and names the directory Claude Code reads');
+});
+
+// CLAUDE_CONFIG_DIR can be set where this process cannot see it — in the desktop app's
+// environment, or a shell that is not this one — and then ~/.claude is the wrong guess.
+test('takes the live config dir from the CLI instead of guessing at ~/.claude', { skip: NO_SHELL_STUB }, () => {
+  const home = temp('consigliere-doctor-');
+  const live = temp('consigliere-live-');
+  installDefaultFiles(home);
+  writeFile(path.join(live, STATE_FILE), '{}');
+
+  const env = stubClaudeAuth(PROBE.claudeVersion, live);
+  const stale = check(runChecks({ home, repo: makeRepoFixture(), env }), 'stale install');
+
+  assert.equal(stale.level, 'warn', 'the guess at ~/.claude is the dir being checked, so only the CLI can find this');
+  assert.ok(stale.detail.includes(live));
+});
+
+// 2.1.267 is where `effort:` in an agent file started being honored on models with a pinned
+// default effort — every model the six agents name.
+test('warns when the installed Claude Code predates the effort floor', { skip: NO_SHELL_STUB }, () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+
+  const old = check(run(home, makeRepoFixture(), stubClaude('2.1.266 (Claude Code)')), 'claude version');
+  assert.equal(old.level, 'warn');
+  assert.match(old.detail, /effort: line in every agent file is ignored/);
+
+  assert.equal(check(run(home, makeRepoFixture(), stubClaude('2.1.267 (Claude Code)')), 'claude version').level, 'pass');
+  assert.equal(check(run(home, makeRepoFixture()), 'claude version'), undefined, 'no claude on PATH is not a finding');
+});
+
+// Reporting a pinned file as drift points at a rerun that would restore this repo's copy
+// over the edit you told the installer to keep.
+test('reports a pinned file as kept rather than as local drift', () => {
+  const home = temp('consigliere-doctor-');
+  const claude = path.join(home, '.claude');
+  installDefaultFiles(home);
+  const pin = `agents/${AGENT_FILES.at(-1)}`;
+  const state = JSON.parse(fs.readFileSync(path.join(claude, STATE_FILE), 'utf8'));
+  writeFile(path.join(claude, STATE_FILE), JSON.stringify({ ...state, pins: [pin] }));
+  writeFile(path.join(claude, pin), 'my own reviewer');
+
+  const checks = run(home, makeRepoFixture());
+
+  assert.equal(check(checks, 'agents').level, 'pass');
+  const pinned = check(checks, 'pinned files');
+  assert.equal(pinned.level, 'pass');
+  assert.match(pinned.detail, new RegExp(pin));
+});
+
+test('says nothing about pinned files when nothing is pinned', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+
+  assert.equal(check(run(home, makeRepoFixture()), 'pinned files'), undefined);
 });
 
 test('passes when the workflow rule ships with every skill it names', () => {
