@@ -169,7 +169,8 @@ test('warns when an earlier install is still sitting in ~/.claude', () => {
 
   assert.equal(stale.level, 'warn');
   assert.match(stale.detail, /an earlier install is still sitting/);
-  assert.ok(stale.detail.includes(path.join(home, '.claude')), 'and names the directory Claude Code reads');
+  assert.match(stale.detail, /remove the old tree by hand/);
+  assert.ok(stale.detail.includes(path.join(home, '.claude')), 'and names the tree that was not checked');
 });
 
 // CLAUDE_CONFIG_DIR can be set where this process cannot see it — in the desktop app's
@@ -185,6 +186,10 @@ test('takes the live config dir from the CLI instead of guessing at ~/.claude', 
 
   assert.equal(stale.level, 'warn', 'the guess at ~/.claude is the dir being checked, so only the CLI can find this');
   assert.ok(stale.detail.includes(live));
+  // The other branch tells you to delete the tree that was not checked. Here that tree is
+  // the live one, so the same sentence would walk you into deleting the config in use.
+  assert.match(stale.detail, /is not the one in use/);
+  assert.ok(stale.detail.includes(`remove ${path.join(home, '.claude')} by hand`));
 });
 
 // 2.1.267 is where `effort:` in an agent file started being honored on models with a pinned
@@ -218,6 +223,25 @@ test('reports a pinned file as kept rather than as local drift', () => {
   const pinned = check(checks, 'pinned files');
   assert.equal(pinned.level, 'pass');
   assert.match(pinned.detail, new RegExp(pin));
+});
+
+// The pinned file drops out of the comparison, so the check it belongs to cannot go on
+// claiming every file matches — least of all the one about the security hook.
+test('names a pinned file in the pass it was excluded from', () => {
+  const home = temp('consigliere-doctor-');
+  const claude = path.join(home, '.claude');
+  installDefaultFiles(home);
+  const pin = 'hooks/orchestrator-gate.mjs';
+  const state = JSON.parse(fs.readFileSync(path.join(claude, STATE_FILE), 'utf8'));
+  writeFile(path.join(claude, STATE_FILE), JSON.stringify({ ...state, pins: [pin] }));
+  writeFile(path.join(claude, pin), 'my own gate');
+
+  const checks = run(home, makeRepoFixture());
+  const hooks = check(checks, 'installed hooks');
+
+  assert.equal(hooks.level, 'pass');
+  assert.match(hooks.detail, /except orchestrator-gate\.mjs kept as yours/);
+  assert.doesNotMatch(check(checks, 'agents').detail, /except/, 'a check with nothing pinned reads as before');
 });
 
 test('says nothing about pinned files when nothing is pinned', () => {

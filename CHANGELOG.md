@@ -7,10 +7,10 @@ reconstructed from the tag history.
 ## 2.6.0 — 2026-09-12
 
 ### Added
-- `maxEffortLevel: 'high'` in the recommended settings. Every agent file here asks for
-  `medium` or below, so the cap costs the ladder nothing and stops a stray `/effort xhigh`,
-  or a provider default, from spending the top tier on every call. Claude Code 2.1.267 added
-  the key.
+- `maxEffortLevel: 'xhigh'` in the recommended settings. The effort enum runs
+  `low | medium | high | xhigh | max`, and this package's ladder tops out at `xhigh` on the
+  `/merge-readiness` stage that only returns a verdict, so the cap costs no role anything and
+  leaves `max` out of reach of a stray `/effort`. Claude Code 2.1.267 added the key.
 - `pins` in `.consigliere-state.json`: a list of installed paths you have deliberately
   diverged from this repo. `install.mjs` skips them and says so instead of restoring its own
   copy on every upgrade, and `doctor.mjs` reports them as a `pinned files` pass rather than

@@ -22,6 +22,9 @@ not on the main thread, and records the answer for later runs.`;
 const exists = (p) => fs.existsSync(p);
 const status = (level, name, detail) => ({ level, name, detail });
 const list = (files) => files.join(', ');
+// A pinned file that drifted is left out of the comparison, so a pass that still claimed
+// everything matched would be false about the one file you deliberately replaced.
+const except = (kept) => (kept.length ? `, except ${list(kept)} kept as yours` : '');
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const sameBytes = (a, b) => exists(a) && exists(b) && fs.readFileSync(a).equals(fs.readFileSync(b));
 
@@ -138,7 +141,7 @@ export function runChecks(options = {}) {
       ? status('warn', 'agents', `missing: ${list(agents.missing)}; orchestrator-gate.mjs will block the root's source edits naming subagents that do not exist — rerun node install.mjs`)
       : agents.modified.length
         ? status('warn', 'agents', `customized locally, no longer this repo's: ${list(agents.modified)}`)
-        : status('pass', 'agents', 'the six subagents are installed and match this repo')
+        : status('pass', 'agents', `the six subagents are installed and match this repo${except(agents.kept)}`)
   );
 
   const hooks = compare(HOOK_FILES, path.join(repo, 'hooks'), hooksDir);
@@ -147,7 +150,7 @@ export function runChecks(options = {}) {
       ? status('warn', 'installed hooks', `missing: ${list(hooks.missing)}; rerun node install.mjs`)
       : hooks.modified.length
         ? status('warn', 'installed hooks', `differ from this repo: ${list(hooks.modified)}; rerun node install.mjs to restore`)
-        : status('pass', 'installed hooks', 'all orchestrator hooks are installed and match this repo')
+        : status('pass', 'installed hooks', `all orchestrator hooks are installed and match this repo${except(hooks.kept)}`)
   );
 
   // Editing a rule is legitimate — the uninstaller keeps those — but a pass has to mean verified.
@@ -157,7 +160,7 @@ export function runChecks(options = {}) {
       ? status('warn', 'installed rules', `missing: ${list(rules.missing)}; rerun node install.mjs`)
       : rules.modified.length
         ? status('warn', 'installed rules', `customized locally, no longer this repo's: ${list(rules.modified)}`)
-        : status('pass', 'installed rules', 'the default rules are installed and match this repo')
+        : status('pass', 'installed rules', `the default rules are installed and match this repo${except(rules.kept)}`)
   );
 
   const upgrade = compare(UPGRADE_FILES, path.join(repo, 'skills', UPGRADE_SKILL), path.join(skillsDir, UPGRADE_SKILL));
@@ -166,7 +169,7 @@ export function runChecks(options = {}) {
       ? status('warn', 'upgrade skill', `not installed (${list(upgrade.missing)}); rerun node install.mjs to restore, or ignore this if you removed it on purpose`)
       : upgrade.modified.length
         ? status('warn', 'upgrade skill', `customized locally, no longer this repo's: ${list(upgrade.modified)}`)
-        : status('pass', 'upgrade skill', `the /${UPGRADE_SKILL} command is installed and matches this repo`)
+        : status('pass', 'upgrade skill', `the /${UPGRADE_SKILL} command is installed and matches this repo${except(upgrade.kept)}`)
   );
 
   // Default skill, so unlike merge-readiness its absence is a finding, not a skip.
@@ -176,7 +179,7 @@ export function runChecks(options = {}) {
       ? status('warn', 'yagni skill', `not installed (${list(yagni.missing)}); rerun node install.mjs to restore, or ignore this if you removed it on purpose`)
       : yagni.modified.length
         ? status('warn', 'yagni skill', `customized locally, no longer this repo's: ${list(yagni.modified)}`)
-        : status('pass', 'yagni skill', 'the yagni deletion pass is installed and matches this repo')
+        : status('pass', 'yagni skill', `the yagni deletion pass is installed and matches this repo${except(yagni.kept)}`)
   );
 
   // Default like yagni, and the pair is one feature: SKILL.md tells the root to pass the
@@ -187,22 +190,23 @@ export function runChecks(options = {}) {
       ? status('warn', 'implement-review-verify skill', `not installed (${list(implement.missing)}); rerun node install.mjs to restore, or ignore this if you removed it on purpose`)
       : implement.modified.length
         ? status('warn', 'implement-review-verify skill', `customized locally, no longer this repo's: ${list(implement.modified)}`)
-        : status('pass', 'implement-review-verify skill', 'the implement/review/verify workflow and its script are installed and match this repo')
+        : status('pass', 'implement-review-verify skill', `the implement/review/verify workflow and its script are installed and match this repo${except(implement.kept)}`)
   );
 
   // Default like yagni: a prompt file with no runtime cost, inert until it is invoked.
-  const grilling = { missing: [], modified: [] };
+  const grilling = { missing: [], modified: [], kept: [] };
   for (const skill of GRILLING_SKILLS) {
     const r = compare(GRILLING_FILES, path.join(repo, 'skills', skill), path.join(skillsDir, skill));
     grilling.missing.push(...r.missing.map((f) => `${skill}/${f}`));
     grilling.modified.push(...r.modified.map((f) => `${skill}/${f}`));
+    grilling.kept.push(...r.kept.map((f) => `${skill}/${f}`));
   }
   checks.push(
     grilling.missing.length
       ? status('warn', 'grilling skills', `not installed (${list(grilling.missing)}); rerun node install.mjs to restore, or ignore this if you removed it on purpose`)
       : grilling.modified.length
         ? status('warn', 'grilling skills', `customized locally, no longer this repo's: ${list(grilling.modified)}`)
-        : status('pass', 'grilling skills', 'the grilling interview and its /grill-me wrapper are installed and match this repo')
+        : status('pass', 'grilling skills', `the grilling interview and its /grill-me wrapper are installed and match this repo${except(grilling.kept)}`)
   );
 
   // Default, and model-invoked like shadcn: a missing one fails silently in use, because
@@ -213,7 +217,7 @@ export function runChecks(options = {}) {
       ? status('warn', 'systematic-debugging skill', `not installed (${list(debugging.missing)}); rerun node install.mjs to restore, or ignore this if you removed it on purpose`)
       : debugging.modified.length
         ? status('warn', 'systematic-debugging skill', `customized locally, no longer this repo's: ${list(debugging.modified)}`)
-        : status('pass', 'systematic-debugging skill', 'the debugging process and its techniques are installed and match this repo')
+        : status('pass', 'systematic-debugging skill', `the debugging process and its techniques are installed and match this repo${except(debugging.kept)}`)
   );
 
   // Default like yagni. template.sh is the library every generated wizard runs on, so a
@@ -224,7 +228,7 @@ export function runChecks(options = {}) {
       ? status('warn', 'wizard skill', `not installed (${list(wizard.missing)}); rerun node install.mjs to restore, or ignore this if you removed it on purpose`)
       : wizard.modified.length
         ? status('warn', 'wizard skill', `customized locally, no longer this repo's: ${list(wizard.modified)}`)
-        : status('pass', 'wizard skill', 'the wizard generator and its template are installed and match this repo')
+        : status('pass', 'wizard skill', `the wizard generator and its template are installed and match this repo${except(wizard.kept)}`)
   );
 
   // Also a default skill, and model-invoked rather than a slash command, so a missing
@@ -235,7 +239,7 @@ export function runChecks(options = {}) {
       ? status('warn', 'shadcn skill', `not installed (${list(shadcn.missing)}); rerun node install.mjs to restore, or ignore this if you removed it on purpose`)
       : shadcn.modified.length
         ? status('warn', 'shadcn skill', `customized locally, no longer this repo's: ${list(shadcn.modified)}`)
-        : status('pass', 'shadcn skill', 'the shadcn skill is installed and matches this repo')
+        : status('pass', 'shadcn skill', `the shadcn skill is installed and matches this repo${except(shadcn.kept)}`)
   );
 
   const { present, settings, error } = parseSettings(settingsPath);
@@ -325,8 +329,9 @@ export function runChecks(options = {}) {
       ...(exists(workflowRule) ? [] : [WORKFLOW_RULE]),
       ...workflowSkills.filter((s) => !exists(skillFile(skillsDir, s))).map((s) => `${s}/SKILL.md`),
     ];
+    const rule = compare([WORKFLOW_RULE], path.join(repo, 'rules'), rulesDir);
     const drifted = [
-      ...compare([WORKFLOW_RULE], path.join(repo, 'rules'), rulesDir).modified,
+      ...rule.modified,
       ...workflowSkills
         .filter((s) => exists(skillFile(skillsDir, s)) && !sameBytes(skillFile(path.join(repo, 'skills'), s), skillFile(skillsDir, s)))
         .map((s) => `${s}/SKILL.md`),
@@ -336,7 +341,7 @@ export function runChecks(options = {}) {
         ? status('warn', 'workflow assets', `the workflow rule and the skills it names install together; missing: ${list(absent)} — rerun node install.mjs --with-workflow`)
         : drifted.length
           ? status('warn', 'workflow assets', `customized locally, no longer this repo's: ${list(drifted)}`)
-          : status('pass', 'workflow assets', 'the workflow rule and every skill it names are installed and match this repo')
+          : status('pass', 'workflow assets', `the workflow rule and every skill it names are installed and match this repo${except(rule.kept)}`)
     );
     checks.push(
       hasRalphLoop(claudeDir)
@@ -355,7 +360,7 @@ export function runChecks(options = {}) {
         ? status('warn', 'merge-readiness skill', `missing: ${list(skill.missing)}; rerun node install.mjs --with-merge-readiness`)
         : skill.modified.length
           ? status('warn', 'merge-readiness skill', `customized locally, no longer this repo's: ${list(skill.modified)}`)
-          : status('pass', 'merge-readiness skill', 'skill and its workflow script are installed and match this repo')
+          : status('pass', 'merge-readiness skill', `skill and its workflow script are installed and match this repo${except(skill.kept)}`)
     );
   }
 
@@ -450,13 +455,18 @@ export function runChecks(options = {}) {
       : `${pinned.size} pinned in ${STATE_FILE}; none currently differ from this repo`));
   }
 
-  // Reported, never repaired: the old tree may hold hooks and skills of your own, and
+  // Reported, never repaired: the other tree may hold hooks and skills of your own, and
   // this command writes nothing. Left alone it is only confusing, not harmful.
   // Asked of the CLI rather than guessed at ~/.claude, which is wrong whenever
-  // CLAUDE_CONFIG_DIR is set somewhere this process cannot see.
-  const legacy = claudeConfigDirectory(shellEnv) || path.join(home, '.claude');
-  if (path.resolve(legacy) !== path.resolve(claudeDir) && exists(path.join(legacy, STATE_FILE))) {
-    checks.push(status('warn', 'stale install', `Claude Code reads ${legacy}, where an earlier install is still sitting; the one checked here is in ${claudeDir} — remove the old tree by hand once this one checks out`));
+  // CLAUDE_CONFIG_DIR is set somewhere this process cannot see. Which of the two is stale
+  // flips with the answer: a directory the CLI named is the live one, and the install
+  // checked here is then the dead copy.
+  const liveDir = claudeConfigDirectory(shellEnv);
+  const other = liveDir || path.join(home, '.claude');
+  if (path.resolve(other) !== path.resolve(claudeDir) && exists(path.join(other, STATE_FILE))) {
+    checks.push(status('warn', 'stale install', liveDir
+      ? `Claude Code reads ${liveDir}, which holds an install of its own; the one checked here in ${claudeDir} is not the one in use — rerun this against ${liveDir}, and remove ${claudeDir} by hand once it checks out`
+      : `an earlier install is still sitting in ${other}; the one checked here is in ${claudeDir} — remove the old tree by hand once this one checks out`));
   }
 
   return checks;

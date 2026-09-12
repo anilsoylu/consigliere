@@ -109,7 +109,7 @@ One numbering, one index, so `/improve` continues from where plan mode stopped: 
 
 ## Requirements
 
-- **Claude Code** (ships Node). That's it.
+- **Claude Code 2.1.267 or newer** (ships Node). That's it. Older builds dropped the `effort:` line on the models these agents name, so the ladder read as configured and ran flat. `node doctor.mjs` warns when the CLI it finds is below that.
 - **macOS, Linux, or Windows.** Every hook is Node and every installed hook command is `node "<absolute path>"`, so nothing here needs bash — Claude Code on Windows runs PowerShell or CMD just as often. The test suite runs on all three in CI.
 - *Optional, only for `--with-workflow`:* the **ralph-loop plugin** — `/plugin install ralph-loop@claude-plugins-official`.
 
@@ -146,13 +146,16 @@ Besides its hook entries, the installer fills in the settings this topology is t
   "includeCoAuthoredBy": false,
   "alwaysThinkingEnabled": true,
   "model": "claude-fable-5-1",
-  "subagentPromptCacheTtl": "1h"
+  "subagentPromptCacheTtl": "1h",
+  "maxEffortLevel": "xhigh"
 }
 ```
 
 `model` is the one that decides whether any of this pays off: the root only decides and delegates, which is the work worth spending the strongest model on. Adaptive thinking is off and the thinking budget is fixed rather than inferred, so a decision that looks routine does not get a shallower pass. `CLAUDE_CODE_DISABLE_ADVISOR_TOOL` keeps Claude Code's own built-in advisor tool out of the loop, where it would consult a second model server-side on top of the roles here; set the key to `""` to get `/advisor` and `advisorModel` back. The 1M context window is off on purpose: the design keeps each subagent's input small and deliberate, and a bigger window works against that.
 
 `subagentPromptCacheTtl` holds a subagent's prompt cache for an hour instead of the default five minutes, which a delegation waiting on a sibling routinely outlives; re-delegating to the same agent after that pays for the prompt again.
+
+`maxEffortLevel` caps every `effort:` line here, on every provider. It sits at `xhigh` because that is the top of this package's own ladder: the agents ask for `high` or less, and `/merge-readiness` asks for `xhigh` on the stage that only returns a verdict. So it takes nothing away from any role, and `max` stays out of reach of a stray `/effort`.
 
 Earlier versions filled `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` and this one does not. With it set, a named spawn becomes a teammate: the agent file is appended to the default system prompt instead of replacing it, and effort is inherited from the root. That leaves the reviewer reading a diff at the root's effort with the default prompt still under it, which is neither the fresh context nor the effort tier it was spawned for. The installer never overwrites a value you already have, so it and the doctor both warn while the key is still set.
 
@@ -264,7 +267,7 @@ If you have changed one of the installed files on purpose, list it under `pins` 
 { "pins": ["agents/reviewer.md"] }
 ```
 
-Paths are relative to the config dir. `install.mjs` prints a line for each file it kept, and `node doctor.mjs` reports them as a `pinned files` pass instead of as drift. Without it every upgrade restores this repo's copy over yours, leaving only a `.consigliere.bak` behind. `uninstall.mjs` does not honour `pins` and still removes everything it installed.
+Paths are relative to the config dir. `install.mjs` prints a line for each file it kept. `node doctor.mjs` counts a pinned file as a pass rather than drift, and says so in two places: the check it belongs to names it as an exception, and a `pinned files` line lists every pin. Without one, each upgrade restores this repo's copy over yours and leaves a `.consigliere.bak`. `uninstall.mjs` ignores `pins` and removes everything it installed.
 
 The check never blocks and never runs in the foreground. At session start the hook reads a cached answer and exits; at most once a day it hands the network work to a detached child that runs `git ls-remote --tags origin` in the clone you installed from and writes the result for the *next* session. Offline costs nothing, a fork checks its own origin rather than this one, and the clock advances whether or not the lookup succeeded — a failing check waits out the day like a successful one.
 
