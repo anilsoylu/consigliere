@@ -61,6 +61,7 @@ if (payload.hook_event_name === 'SessionStart') {
           'Anything slower than ~30s goes run_in_background: true. Never sleep to poll, never raise timeout.',
           'A backgrounded verifier is not finished until you have read its exit code.',
           'Full suite: once per verification batch at the end, not per todo item. Cheap verifiers (typecheck, lint, touched file) run per item.',
+          'Queue is frozen at batch start. A regression this batch caused is the batch\'s; everything else goes under ## Found while working and is reported, never appended to the queue.',
         ].join('\n'),
       },
     }));
