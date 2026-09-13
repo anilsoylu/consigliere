@@ -27,11 +27,12 @@ Never re-read a file already read this session; it is still in the context above
 
 ## Verification
 Never mark a task complete without proving it works: run the tests, check the logs, diff the behavior. Report failures with their actual output; report skipped checks as skipped.
-Run the narrowest test that can fail: the touched file's suite first, then its package. The full suite at most once per task, at the end, in the background; never re-run anything without an intervening change. A plan step is not self-justifying: if a prescribed check cannot change what you do next, skip it and say why.
+Run the narrowest test that can fail: the touched file's suite first, then its package. The full suite runs once per verification batch, at the end, in the background; never re-run anything without an intervening change. A batch is the work verified together — with a `tasks/todo.md` queue that is normally the whole queue, not one item. The suite is the expensive step, and a queue exists so it can be paid once. Per item run only the cheap verifiers — typecheck, lint, the touched file's suite — which catch a break while the change is fresh. A plan step is not self-justifying: if a prescribed check cannot change what you do next, skip it and say why.
 
 Never pipe a verifier through `tail`, `head`, or `grep`. The pipeline's exit status becomes the filter's, so a red run reads as green and `$?` lies; the lines a filter drops are usually the failure itself. Redirect instead — `<verifier> > /tmp/<name>.log 2>&1; echo "exit=$?"` — then grep the file.
 One verifier per Bash call. Never chain `A && B`: with a filter anywhere in A the guard does not hold, B runs against a tree A already condemned, and the two outputs interleave into a log where neither result is legible. Run A, read its exit code, then run B.
 A backgrounded verifier is not finished until you have read its exit code. If a turn ends without one, re-read the output file before anything else — never infer a pass from a notification that did not arrive.
+A verifier owns the files it covers while it runs. Do not edit them until it has reported, or its result belongs to neither version. The batch-end suite covers the tree, so while it runs the work is everything that is not an edit — reading the diff, drafting the PR body, planning the next batch.
 
 ## Elegance check
 For non-trivial changes, pause once: is there a more elegant way? If a fix feels hacky, redo it properly now that you understand the problem. Skip this for obvious fixes.
@@ -42,6 +43,7 @@ After any correction from the user, save a `type: feedback` memory capturing the
 ## Task tracking
 For multi-step implementation work, keep `tasks/todo.md` with checkable items and mark them off as you go. The `ralph-protocol` skill has the full template.
 Update it in batches, not per checkbox. A tick is a full tool round-trip that re-reads the context to change one character, so a plan file rewritten after every item costs more than the tracking is worth. Write it once when a group of items lands, when the plan itself changes, or before you stop.
+Plan a queue as a batch: implement the items, then verify once. Stopping to verify after each box pays the suite N times for one tree.
 
 ## Git & PR
 - Handoff is one pass per PR: verifier green → tier → at most one review → `cpr`, which
@@ -61,14 +63,16 @@ Update it in batches, not per checkbox. A tick is a full tool round-trip that re
 - Findings: a fork fixes every `[ADOPT]`, root re-runs the verifier, and a green run closes
   the finding. Nothing re-reviews the fix. Relay the other findings to the user. A branch
   whose whole diff came out of one `implement-review-verify` run is already reviewed.
-  `/merge-readiness` runs only when the user asks for it.
+  `/merge-readiness` runs only when the user asks for it. Once the verifier is green, no
+  review finding short of an `[ADOPT]` reopens the tree. Non-blocking notes go into the
+  project's todo file and ship as follow-ups.
 - `clean` is one read of the diff before the PR exists, not a round. Use `clean` or
   `pr-update` on their own only when the diff is not being shipped yet. If that read shows a
   compute-heavy routine (data loops, math kernels, parsers, media processing) was added or
   materially changed, run `optimize` before it; otherwise skip silently.
 - `pr-ready` is not part of that chain. It unblocks an already-open PR (stale base, red
   CI, open threads).
-- One branch per task: `feat/ fix/ chore/ refactor/` + kebab-case summary. Never commit straight to `main`.
+- One branch per verification batch: `feat/ fix/ chore/ refactor/` + kebab-case summary. Never commit straight to `main`.
 - Conventional commit subjects: `feat: … / fix: … / refactor: … / test: … / chore: … / docs: …`.
 - Before `gh pr create`: tests green, lint clean, and `git diff origin/main` self-reviewed line by line.
 - A draft PR on a repo you own is routine, not outward-facing: open it without asking. A

@@ -25,14 +25,16 @@ Each iteration:
 1. Read the plan and `tasks/todo.md`.
 2. Take the first incomplete, unblocked task.
 3. TDD for behavior changes; smallest change that satisfies the task.
-4. Run the focused verifier.
+4. Run the focused verifier — typecheck, lint, the touched file's suite. Not the full suite.
 5. Record approach, evidence, learning, next action in `tasks/todo.md`.
+
+When the queue is empty, run the full batch-end verification from the hierarchy below. That run is the one the stop conditions ask for; typecheck and lint alone never satisfy `RESULT: VERIFIED_COMPLETE`.
 
 Never repeat an unchanged failed approach. Re-plan when the same verifier fails twice or evidence invalidates an assumption. Max two re-plans per run.
 
 ## Verifier hierarchy
 
-Strongest available wins:
+Strongest available wins — this ranks the batch-end verification, not each iteration. Per iteration, use the narrowest verifier that can fail.
 
 1. End-to-end behavior / the project's `verify` skill
 2. Focused and relevant full tests

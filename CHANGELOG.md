@@ -4,6 +4,32 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
+## 2.7.0 — 2026-09-13
+
+### Changed
+- `workflow.md` scopes the full test suite to a verification batch rather than a task. A
+  `tasks/todo.md` queue read one box at a time paid the suite once per box: on a repo whose
+  suite runs 23 minutes and cannot run beside itself, three items cost 70 minutes of waiting
+  for 15 minutes of code. The queue exists so the work can be planned as a batch, and the
+  batch is now the unit — the whole queue, verified once at the end. Cheap verifiers,
+  typecheck and lint and the touched file's suite, still run per item, where they catch a
+  compile or locale break while the change is fresh.
+- `ralph-protocol` applies the same cadence to its iteration loop. Its verifier hierarchy
+  ranked end-to-end behaviour first on every pass; that ranking now scopes to a batch-end
+  verification that runs when the queue empties, and that run is what the stop conditions
+  ask for.
+- A branch is one per verification batch rather than one per task, in `workflow.md` and in
+  the `BRANCH GATE` text. Fixing the suite cadence alone left this re-imposing it: a branch
+  per box needs a green verifier per box.
+
+### Added
+- A verifier in `workflow.md` owns the files it covers while it runs, so they are not edited
+  until it has reported. An edit that lands mid-run leaves the result describing neither
+  version, which is how three verifiers came back stale in one session. The batch-end suite
+  covers the tree, so the work available while it runs is everything except an edit.
+- A green verifier closes the review in `workflow.md`. No finding short of an `[ADOPT]`
+  reopens the tree; non-blocking notes go to the project's todo file as follow-ups.
+
 ## 2.6.0 — 2026-09-12
 
 ### Added

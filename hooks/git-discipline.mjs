@@ -54,12 +54,13 @@ if (payload.hook_event_name === 'SessionStart') {
         additionalContext: [
           'WORKFLOW RULES (re-stated: the context was rebuilt, and these are what a summary drops).',
           'Handoff: verifier → tier → one review at most → /cpr (clean + pr-update) opens a PR. Nothing runs twice.',
-          'Branches: one per task, feat/ fix/ chore/ refactor/ + kebab. Never commit to main/master.',
+          'Branches: one per verification batch, feat/ fix/ chore/ refactor/ + kebab. Never commit to main/master.',
           'Commits: conventional subjects — feat: / fix: / refactor: / test: / chore: / docs:.',
           'Verifiers: never pipe one through tail/head/grep — the filter\'s exit status hides a red run.',
           'Redirect instead: <verifier> > /tmp/<name>.log 2>&1; echo exit=$?, then grep the file.',
           'Anything slower than ~30s goes run_in_background: true. Never sleep to poll, never raise timeout.',
           'A backgrounded verifier is not finished until you have read its exit code.',
+          'Full suite: once per verification batch at the end, not per todo item. Cheap verifiers (typecheck, lint, touched file) run per item.',
         ].join('\n'),
       },
     }));
@@ -129,7 +130,7 @@ if (commit) {
   } catch {} // detached HEAD, not a repo, no git — all fail open
   if (branch === 'main' || branch === 'master') {
     deny(
-      `BRANCH GATE: this commit targets ${branch}. rules/workflow.md: one branch per task, `
+      `BRANCH GATE: this commit targets ${branch}. rules/workflow.md: one branch per verification batch, `
       + 'never commit straight to the default branch. Create one first — '
       + '`git switch -c feat/<kebab-summary>` (or fix/ chore/ refactor/) — then run the same commit again.',
     );
