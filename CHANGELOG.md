@@ -4,6 +4,24 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
+## 2.8.0 — 2026-09-13
+
+### Changed
+- The `tasks/todo.md` queue is frozen when a batch starts. 2.7.0 made the batch the unit
+  that pays for the test suite, which only holds while the batch has an end; a run that
+  appends every discovery to its own queue never reaches one. Causation decides where a
+  discovery goes. A regression the batch caused is the one permitted append and the batch
+  is not done until it is green. Everything else — a test already red at the merge-base, an
+  adjacent bug, an improvement, a flake — goes under a `## Found while working` heading and
+  is reported at handoff.
+- A red batch-end suite is triaged before it is fixed, in `workflow.md`. The base commit or
+  a stashed tree settles what the batch caused in one run.
+- `ralph-protocol` carries the same rule. `## Found while working` joins the
+  `tasks/todo.md` template, `RESULT: VERIFIED_COMPLETE` reads the frozen queue, and a
+  populated findings section is reported without blocking the result.
+- The rule set `git-discipline.mjs` re-injects on compact and resume carries the freeze
+  rule. A long batch is the session that compacts.
+
 ## 2.7.0 — 2026-09-13
 
 ### Changed
