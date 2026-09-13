@@ -28,6 +28,8 @@ Each iteration:
 4. Run the focused verifier — typecheck, lint, the touched file's suite. Not the full suite.
 5. Record approach, evidence, learning, next action in `tasks/todo.md`.
 
+The queue is frozen at the start of the run. A discovery that is not a regression this run caused goes under `## Found while working`, never onto the task list — an appended task makes the queue unable to empty. A regression this run caused is the one permitted append: put it on the task list and keep iterating until it is green.
+
 When the queue is empty, run the full batch-end verification from the hierarchy below. That run is the one the stop conditions ask for; typecheck and lint alone never satisfy `RESULT: VERIFIED_COMPLETE`.
 
 Never repeat an unchanged failed approach. Re-plan when the same verifier fails twice or evidence invalidates an assumption. Max two re-plans per run.
@@ -49,7 +51,7 @@ Your own confidence, prose, or self-assigned score is not verification.
 
 Every terminal response: exactly one result line, then `<promise>RALPH_LOOP_STOP</promise>`.
 
-`RESULT: VERIFIED_COMPLETE` requires, in this session: fresh verification commands run and their full output plus exit status inspected; every acceptance criterion satisfied; runtime behavior exercised when there is a runtime surface; diff free of unrelated changes; no incomplete unblocked task left. Report skipped checks honestly — a required skipped check blocks a verified result.
+`RESULT: VERIFIED_COMPLETE` requires, in this session: fresh verification commands run and their full output plus exit status inspected; every acceptance criterion satisfied; runtime behavior exercised when there is a runtime surface; diff free of unrelated changes; no incomplete unblocked task left in the frozen queue. Report skipped checks honestly — a required skipped check blocks a verified result. A populated `## Found while working` never blocks a verified result, and every entry in it is reported.
 
 `RESULT: BLOCKED` when a genuine user/product/architecture decision is needed, credentials or access are missing, the next action is destructive or externally visible without approval, criteria conflict or cannot be verified, or the iteration/re-plan cap is hit. Record the blocker evidence and required user action in `tasks/todo.md` first. Never claim success in a blocked result.
 
@@ -69,6 +71,7 @@ A loop that stops mid-run with no message usually means the session identity cha
 - Evidence/result
 - Learning
 - Next action
+## Found while working
 ## Review
 - Changes made
 - Verification evidence
