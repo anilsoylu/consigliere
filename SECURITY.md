@@ -6,8 +6,8 @@
 (`$CLAUDE_CONFIG_DIR`, or `~/.claude`): an agent definition, hooks, rules, skills, a
 state file, and hook entries merged into `settings.json`. It backs up any file it would
 overwrite and never removes a hook entry it did not write. Nothing runs as root. At
-runtime the hooks also write per-session marker files into the OS temp directory; those
-are the only bytes that land anywhere else.
+runtime the hooks also write empty marker files into the OS temp directory, one per session
+and branch; those are the only bytes that land anywhere else.
 
 ## Network
 

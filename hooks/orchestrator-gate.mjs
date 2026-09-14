@@ -134,6 +134,7 @@ const GH_ALLOWED = {
 // so `npm test` passes and `npm run build` does not.
 const VERIFIERS = [
   (a) => a[0] === 'node' && a[1] === '--test',
+  (a) => a[0] === 'node' && a[1] === '--check',
   (a) => a[0] === 'node' && path.resolve(a[1] || '') === path.join(cfgDir(), 'hooks', 'review-tier.mjs'),
   (a) => /^(npm|pnpm|yarn|bun)$/.test(a[0]) && (a[1] === 'test' || (a[1] === 'run' && /^test/.test(a[2] || ''))),
   (a) => a[0] === 'npx' && /^(vitest|jest|mocha|tap)$/.test(a[1] || ''),

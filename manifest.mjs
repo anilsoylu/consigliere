@@ -6,13 +6,13 @@ import path from 'node:path';
 // Releases are `git tag v<VERSION>`; update-check.mjs and doctor.mjs both compare against
 // that tag list, so bumping this without tagging makes an installed copy look ahead of
 // upstream. Only vN.N.N sorts — the old `v1-sol` tag is deliberately unsortable.
-export const VERSION = '2.8.0';
+export const VERSION = '2.9.0';
 export const STATE_FILE = '.consigliere-state.json';
 
 export const HOOK_FILES = [
-  // First, and with no HOOK_ENTRIES lines of their own: modules the hooks import rather than
-  // hooks, and copying them after their importers leaves an upgrade window where an import throws.
-  'config-dir.mjs', 'approval.mjs',
+  // First, and with no HOOK_ENTRIES line of its own: a module the hooks import rather than a
+  // hook, and copying it after its importers leaves an upgrade window where an import throws.
+  'config-dir.mjs',
   'orchestrator-gate.mjs', 'commit-language.mjs',
   'update-check.mjs', 'review-tier.mjs', 'git-discipline.mjs', 'read-gate.mjs', 'comment-ratio.mjs',
   'plan-capture.mjs',
@@ -20,7 +20,7 @@ export const HOOK_FILES = [
 // Files an earlier version installed and this one does not. Dropping a name from
 // HOOK_FILES alone leaves an orphan nothing removes and doctor no longer looks at, so
 // install.mjs deletes these and uninstall.mjs sweeps them.
-export const OBSOLETE_HOOK_FILES = ['review-tier.sh', 'advisor-inject.mjs', 'advisor-mark.mjs', 'advisor-gate.mjs'];
+export const OBSOLETE_HOOK_FILES = ['review-tier.sh', 'advisor-inject.mjs', 'advisor-mark.mjs', 'advisor-gate.mjs', 'approval.mjs'];
 // Same reason, for the other two directories: the advisor loop this version replaced.
 export const OBSOLETE_AGENT_FILES = ['advisor.md'];
 export const OBSOLETE_RULE_FILES = ['advisor-executor.md'];
