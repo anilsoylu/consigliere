@@ -178,6 +178,9 @@ test('gate denies commands that write, spawn or expand', () => {
     'git -c alias.status=!rm status',
     'rm /tmp/x',
     'node script.mjs',
+    // Preload modules run before the parse-only step, so a flag after --check executes.
+    'node --check -r /tmp/p.js hooks/x.mjs',
+    'node --check --import /tmp/p.js hooks/x.mjs',
     'npm run build',
     'node --test > out.log',
     'cat < x',

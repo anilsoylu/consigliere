@@ -32,10 +32,11 @@ reconstructed from the tag history.
 - The rule set `git-discipline.mjs` re-injects on compact and resume carries that rule. A long
   session is where the permission denial arrives and where the summary has already dropped the
   rule that says not to hand the command over.
-- `node --check` joins the verifiers the root may run in `orchestrator-gate.mjs`. It parses a
-  file and exits without executing it, so it was only ever denied as arbitrary `node`. Leaving
-  it out meant a syntax check fell to the agent that had just made the edit, where the
-  classifier reads it as part of a self-modification sequence and denies it.
+- `node --check <file>` joins the verifiers the root may run in `orchestrator-gate.mjs`.
+  Leaving it out meant a syntax check fell to the agent that had just made the edit, where the
+  classifier reads it as part of a self-modification sequence and denies it. The allowance is
+  pinned to exactly one operand with no flag after it, because node runs `-r`/`--import`
+  preload modules before the parse-only step: `node --check -r p.js x.mjs` executes `p.js`.
 
 ### Removed
 - `hooks/approval.mjs`. Its last consumer was the per-prompt clear above; the advisor gate

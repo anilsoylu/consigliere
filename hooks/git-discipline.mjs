@@ -143,14 +143,14 @@ if (commit) {
     dir = last ? (last[1] ?? last[2] ?? last[3]) : '';
   }
   dir = dir ? path.resolve(payload.cwd || process.cwd(), dir) : (payload.cwd || process.cwd());
-  let branch = '';
+  let commitBranch = '';
   try {
-    branch = execFileSync('git', ['-C', dir, 'symbolic-ref', '-q', '--short', 'HEAD'],
+    commitBranch = execFileSync('git', ['-C', dir, 'symbolic-ref', '-q', '--short', 'HEAD'],
       { encoding: 'utf8', timeout: 2000, stdio: ['ignore', 'pipe', 'ignore'] }).trim();
   } catch {} // detached HEAD, not a repo, no git — all fail open
-  if (branch === 'main' || branch === 'master') {
+  if (commitBranch === 'main' || commitBranch === 'master') {
     deny(
-      `BRANCH GATE: this commit targets ${branch}. rules/workflow.md: one branch per verification batch, `
+      `BRANCH GATE: this commit targets ${commitBranch}. rules/workflow.md: one branch per verification batch, `
       + 'never commit straight to the default branch. Create one first — '
       + '`git switch -c feat/<kebab-summary>` (or fix/ chore/ refactor/) — then run the same commit again.',
     );

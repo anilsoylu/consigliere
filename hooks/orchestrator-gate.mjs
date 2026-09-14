@@ -134,7 +134,9 @@ const GH_ALLOWED = {
 // so `npm test` passes and `npm run build` does not.
 const VERIFIERS = [
   (a) => a[0] === 'node' && a[1] === '--test',
-  (a) => a[0] === 'node' && a[1] === '--check',
+  // One operand, no flags after it: node runs `-r`/`--import` preloads before the parse-only
+  // step, so `node --check -r p.js x.mjs` executes p.js.
+  (a) => a[0] === 'node' && a[1] === '--check' && a.length === 3 && !a[2].startsWith('-'),
   (a) => a[0] === 'node' && path.resolve(a[1] || '') === path.join(cfgDir(), 'hooks', 'review-tier.mjs'),
   (a) => /^(npm|pnpm|yarn|bun)$/.test(a[0]) && (a[1] === 'test' || (a[1] === 'run' && /^test/.test(a[2] || ''))),
   (a) => a[0] === 'npx' && /^(vitest|jest|mocha|tap)$/.test(a[1] || ''),
