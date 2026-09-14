@@ -4,6 +4,45 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
+## 2.9.0 — 2026-09-14
+
+### Fixed
+- The handoff gate's marker is keyed to the session and the branch, and is no longer cleared
+  on every user prompt. v1.10.0 cleared it on any prompt that was neither a short approval nor
+  a subagent notification, on the theory that a new prompt meant a new task; the signal it
+  actually read was "the user said anything". An unrelated question between `/clean` and the PR
+  revoked the permission the chain had just earned, and the `gh pr create` was denied.
+  Re-running the chain re-opened and re-closed it the same way. `rules/workflow.md` gives each
+  verification batch its own branch, so the branch is the task boundary the clear was written
+  for. One chain per PR still holds: the `PostToolUse` clear on a successful create is what
+  enforces it.
+- The `HANDOFF GATE` deny text names an action that leads somewhere. Its last sentence said a
+  repeat denial meant the hook was broken and to say so and stop, and following it produced a
+  `gh pr create` handed to the user to paste — which `rules/workflow.md` forbids. It now names
+  the marker path and asks for the hook to be fixed.
+
+### Changed
+- `rules/workflow.md` describes what auto mode's classifier does to a write under `~/.claude`,
+  in two Planning bullets. Hook and config code is denied as `[Self-Modification]`, nothing
+  pre-authorizes it, and rewording the edit or handing it to a subagent are not routes. It
+  clears one way: name what was flagged and ask whether the flag is wrong. The second bullet
+  draws the boundary against the no-questions rule — git plumbing on your own repos never
+  produces a question, and this category does because the named question is its only clearing
+  mechanism.
+- The rule set `git-discipline.mjs` re-injects on compact and resume carries that rule. A long
+  session is where the permission denial arrives and where the summary has already dropped the
+  rule that says not to hand the command over.
+- `node --check <file>` joins the verifiers the root may run in `orchestrator-gate.mjs`.
+  Leaving it out meant a syntax check fell to the agent that had just made the edit, where the
+  classifier reads it as part of a self-modification sequence and denies it. The allowance is
+  pinned to exactly one operand with no flag after it, because node runs `-r`/`--import`
+  preload modules before the parse-only step: `node --check -r p.js x.mjs` executes `p.js`.
+
+### Removed
+- `hooks/approval.mjs`. Its last consumer was the per-prompt clear above; the advisor gate
+  that shared it went in 2.0.0. Listed in `OBSOLETE_HOOK_FILES`, so an upgrade backs up the
+  installed copy and removes it.
+
 ## 2.8.0 — 2026-09-13
 
 ### Changed

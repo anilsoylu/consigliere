@@ -16,12 +16,33 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { cfgDir } from './config-dir.mjs';
-import { isApproval, isNotification } from './approval.mjs';
 
 let payload = {};
 try { payload = JSON.parse(fs.readFileSync(0, 'utf8')); } catch { process.exit(0); }
 const sid = payload.session_id || 'default';
-const flag = path.join(os.tmpdir(), `handoff-${sid}.flag`);
+// Keyed to the branch, not the session alone: workflow.md gives each verification batch its
+// own branch, so the branch is the task boundary the gate wants. Read from .git/HEAD rather
+// than execFileSync — this runs on every prompt. The walk up is what makes a monorepo's
+// nested cwd resolve to the same key as its root, instead of both falling back to 'default'.
+const branch = (() => {
+  try {
+    let cur = path.resolve(payload.cwd || process.cwd());
+    let dotgit = '';
+    for (;;) {
+      dotgit = path.join(cur, '.git');
+      if (fs.existsSync(dotgit)) break;
+      const up = path.dirname(cur);
+      if (up === cur) return 'default';
+      cur = up;
+    }
+    const dir = fs.statSync(dotgit).isFile()
+      ? path.resolve(path.dirname(dotgit), fs.readFileSync(dotgit, 'utf8').replace(/^gitdir:\s*/, '').trim())
+      : dotgit;
+    return fs.readFileSync(path.join(dir, 'HEAD'), 'utf8').trim()
+      .replace(/^ref:\s*refs\/heads\//, '').replace(/[^\w.-]/g, '_');
+  } catch { return 'default'; }
+})();
+const flag = path.join(os.tmpdir(), `handoff-${sid}-${branch}.flag`);
 const clear = () => {
   try { fs.rmSync(flag, { force: true }); }
   catch (error) { console.error(`[consigliere] git-discipline: cannot clear ${flag}: ${error.message}`); }
@@ -62,6 +83,7 @@ if (payload.hook_event_name === 'SessionStart') {
           'A backgrounded verifier is not finished until you have read its exit code.',
           'Full suite: once per verification batch at the end, not per todo item. Cheap verifiers (typecheck, lint, touched file) run per item.',
           'Queue is frozen at batch start. A regression this batch caused is the batch\'s; everything else goes under ## Found while working and is reported, never appended to the queue.',
+          'Blocked on a ~/.claude edit or a permission denial: never hand the command to the user. Name what was flagged and ask whether the flag is wrong.',
         ].join('\n'),
       },
     }));
@@ -76,9 +98,6 @@ if (payload.tool_name === 'Skill') {
   process.exit(0);
 }
 if (typeof payload.prompt === 'string' && payload.prompt !== '') {
-  // Per task, not per session: one /clean used to open the gate for every PR that followed.
-  // A notification is not a new task — the backgrounded full-suite run lands here too.
-  if (!isNotification(payload.prompt) && !isApproval(payload.prompt)) clear();
   const typed = new RegExp(`(?:<command-name>|^\\s*)/(?:${CHAIN.join('|')})\\b`);
   if (typed.test(payload.prompt)) mark();
   process.exit(0);
@@ -124,14 +143,14 @@ if (commit) {
     dir = last ? (last[1] ?? last[2] ?? last[3]) : '';
   }
   dir = dir ? path.resolve(payload.cwd || process.cwd(), dir) : (payload.cwd || process.cwd());
-  let branch = '';
+  let commitBranch = '';
   try {
-    branch = execFileSync('git', ['-C', dir, 'symbolic-ref', '-q', '--short', 'HEAD'],
+    commitBranch = execFileSync('git', ['-C', dir, 'symbolic-ref', '-q', '--short', 'HEAD'],
       { encoding: 'utf8', timeout: 2000, stdio: ['ignore', 'pipe', 'ignore'] }).trim();
   } catch {} // detached HEAD, not a repo, no git — all fail open
-  if (branch === 'main' || branch === 'master') {
+  if (commitBranch === 'main' || commitBranch === 'master') {
     deny(
-      `BRANCH GATE: this commit targets ${branch}. rules/workflow.md: one branch per verification batch, `
+      `BRANCH GATE: this commit targets ${commitBranch}. rules/workflow.md: one branch per verification batch, `
       + 'never commit straight to the default branch. Create one first — '
       + '`git switch -c feat/<kebab-summary>` (or fix/ chore/ refactor/) — then run the same commit again.',
     );
@@ -205,11 +224,11 @@ if (PR_CREATE.test(cmd)
   && fs.existsSync(path.join(cfg, 'skills', 'clean', 'SKILL.md'))
   && !fs.existsSync(flag)) {
   deny(
-    'HANDOFF GATE: no handoff skill has run this session. rules/workflow.md orders '
+    'HANDOFF GATE: no handoff skill has run on this branch. rules/workflow.md orders '
     + 'review → /cpr before a PR opens; /cpr runs /clean then /pr-update, which creates the PR. '
     + 'Run /optimize first instead when the diff adds a compute-heavy routine. '
     + 'Start the chain now — the gate opens on the first chain skill. If this deny arrives '
-    + 'again right after /clean or /pr-update ran, the hook is broken rather than '
-    + 'unsatisfied: say so and stop instead of re-running the chain.',
+    + `again right after a chain skill ran, the flag write failed or its key moved: report ${flag} `
+    + 'and fix this hook, rather than re-running the chain or handing the command to the user.',
   );
 }

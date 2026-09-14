@@ -10,7 +10,7 @@ const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const GATE = path.join(ROOT, 'hooks', 'orchestrator-gate.mjs');
 const LANG = path.join(ROOT, 'hooks', 'commit-language.mjs');
 
-const handoffPath = (sid) => path.join(os.tmpdir(), `handoff-${sid}.flag`);
+const handoffPath = (sid, branch) => path.join(os.tmpdir(), `handoff-${sid}-${branch}.flag`);
 const sids = [];
 const homes = [];
 
@@ -23,7 +23,14 @@ function session(name) {
 }
 
 test.after(() => {
-  for (const sid of sids) fs.rmSync(handoffPath(sid), { force: true });
+  // By prefix rather than by name: the branch is half the key, and a flag written under an
+  // unexpected branch is what a resolution regression leaves behind.
+  const tmp = fs.readdirSync(os.tmpdir());
+  for (const sid of sids) {
+    for (const f of tmp.filter((n) => n.startsWith(`handoff-${sid}-`))) {
+      fs.rmSync(path.join(os.tmpdir(), f), { force: true });
+    }
+  }
   for (const home of homes) fs.rmSync(home, { recursive: true, force: true });
 });
 
@@ -127,6 +134,8 @@ test('gate allows read-only root commands, the plumbing and the verifiers', () =
     'gh pr merge 5 --squash',
     'gh pr ready 5',
     'node --test tests/*.test.mjs > /tmp/t.log 2>&1',
+    // Parses and exits, so it reads the file without running it — unlike `node script.mjs`.
+    'node --check hooks/git-discipline.mjs',
     'npm test',
     'pytest -q',
     `node ${cfg}/hooks/review-tier.mjs . abc`,
@@ -169,6 +178,9 @@ test('gate denies commands that write, spawn or expand', () => {
     'git -c alias.status=!rm status',
     'rm /tmp/x',
     'node script.mjs',
+    // Preload modules run before the parse-only step, so a flag after --check executes.
+    'node --check -r /tmp/p.js hooks/x.mjs',
+    'node --check --import /tmp/p.js hooks/x.mjs',
     'npm run build',
     'node --test > out.log',
     'cat < x',
@@ -185,7 +197,6 @@ test('gate denies commands that write, spawn or expand', () => {
     'sed -n p x',
     'awk 1 x',
     'bash -c "rm x"',
-    'node --check x.mjs',
     'ls & rm x',
     'ls\nrm -rf x',
     // A backslash-escaped quote does not open a quoted span, so the mask must not treat
@@ -478,6 +489,10 @@ function envHook(script, payload, cfg) {
 
 const denyReason = (out) => JSON.parse(out).hookSpecificOutput.permissionDecisionReason;
 const bash = (sid, cwd, command) => ({ tool_name: 'Bash', session_id: sid, cwd, tool_input: { command } });
+// The flag is keyed to session and branch, so a mark payload has to carry the cwd its gate
+// payload will be checked from — without one the hook reads the branch of the test runner.
+const asked = (sid, cwd, text) => ({ session_id: sid, cwd, prompt: text });
+const invoked = (sid, cwd, name) => ({ tool_name: 'Skill', session_id: sid, cwd, tool_input: { skill: name } });
 
 test('discipline gate blocks a commit on the default branch, allows one on a task branch', () => {
   const cfg = cfgFixture();
@@ -526,7 +541,7 @@ test('discipline gate ignores commands that merely mention git in prose', () => 
   // unanchored regex, and the heredoc's first line was read as the commit subject.
   const cfg = cfgFixture();
   const sid = session('prose');
-  fs.writeFileSync(handoffPath(sid), '');
+  fs.writeFileSync(handoffPath(sid, 'main'), '');
   const body = `gh pr edit 1 --body "$(cat <<'EOF'\n## Summary\ndenies a git commit aimed at main and a gh pr create before the chain ran\nEOF\n)"`;
   assert.equal(envHook(DISCIPLINE, bash(sid, repo('main'), body), cfg), '');
   assert.equal(envHook(DISCIPLINE, bash(session('prose-log'), repo('main'), 'git log --grep "git commit"'), cfg), '');
@@ -547,43 +562,47 @@ test('discipline gate stands down without rules/workflow.md', () => {
 test('handoff gate denies a PR until a chain skill has run', () => {
   const cfg = cfgFixture();
   const sid = session('handoff-skill');
-  const pr = bash(sid, repo('feat/x'), 'gh pr create --draft --title "feat: x" --body "body"');
+  const dir = repo('feat/x');
+  const pr = bash(sid, dir, 'gh pr create --draft --title "feat: x" --body "body"');
   assert.match(denyReason(envHook(DISCIPLINE, pr, cfg)), /HANDOFF GATE/);
   // A pre-chain skill must not open the gate a step early.
-  envHook(DISCIPLINE, { tool_name: 'Skill', session_id: sid, tool_input: { skill: 'optimize' } }, cfg);
+  envHook(DISCIPLINE, invoked(sid, dir, 'optimize'), cfg);
   assert.match(denyReason(envHook(DISCIPLINE, pr, cfg)), /HANDOFF GATE/);
   // The payload shape a model-invoked skill actually carries, per live transcripts.
-  envHook(DISCIPLINE, { tool_name: 'Skill', session_id: sid, tool_input: { skill: 'clean' } }, cfg);
+  envHook(DISCIPLINE, invoked(sid, dir, 'clean'), cfg);
   assert.equal(envHook(DISCIPLINE, pr, cfg), '');
 });
 
 test('a user-typed slash command opens the handoff gate too', () => {
   const cfg = cfgFixture();
   const sid = session('handoff-typed');
-  const pr = bash(sid, repo('feat/x'), 'gh pr create --fill');
+  const dir = repo('feat/x');
+  const pr = bash(sid, dir, 'gh pr create --fill');
   assert.match(denyReason(envHook(DISCIPLINE, pr, cfg)), /HANDOFF GATE/);
   // A typed slash reaches hooks only as a UserPromptSubmit prompt, never as a Skill call.
-  envHook(DISCIPLINE, { session_id: sid, prompt: '<command-name>/pr-update</command-name>\n<command-args></command-args>' }, cfg);
+  envHook(DISCIPLINE, asked(sid, dir, '<command-name>/pr-update</command-name>\n<command-args></command-args>'), cfg);
   assert.equal(envHook(DISCIPLINE, pr, cfg), '');
 });
 
 test('/cpr opens the handoff gate', () => {
   const cfg = cfgFixture();
   const sid = session('handoff-cpr');
-  const pr = bash(sid, repo('feat/x'), 'gh pr create --fill');
+  const dir = repo('feat/x');
+  const pr = bash(sid, dir, 'gh pr create --fill');
   assert.match(denyReason(envHook(DISCIPLINE, pr, cfg)), /HANDOFF GATE/);
-  envHook(DISCIPLINE, { tool_name: 'Skill', session_id: sid, tool_input: { skill: 'cpr' } }, cfg);
+  envHook(DISCIPLINE, invoked(sid, dir, 'cpr'), cfg);
   assert.equal(envHook(DISCIPLINE, pr, cfg), '');
 });
 
 test('a prompt that merely mentions /clean does not open the handoff gate', () => {
   const cfg = cfgFixture();
+  const dir = repo('feat/x');
   const sid = session('handoff-mention');
-  envHook(DISCIPLINE, { session_id: sid, prompt: '/clean' }, cfg);
-  assert.equal(fs.existsSync(handoffPath(sid)), true, 'a bare leading slash command does mark');
+  envHook(DISCIPLINE, asked(sid, dir, '/clean'), cfg);
+  assert.equal(fs.existsSync(handoffPath(sid, 'feat_x')), true, 'a bare leading slash command does mark');
   const sid2 = session('handoff-mid');
-  envHook(DISCIPLINE, { session_id: sid2, prompt: 'why did /clean not run earlier?' }, cfg);
-  assert.equal(fs.existsSync(handoffPath(sid2)), false, 'a mid-sentence mention is not a command');
+  envHook(DISCIPLINE, asked(sid2, dir, 'why did /clean not run earlier?'), cfg);
+  assert.equal(fs.existsSync(handoffPath(sid2, 'feat_x')), false, 'a mid-sentence mention is not a command');
 });
 
 test('handoff gate stands down when the clean skill is not installed', () => {
@@ -591,44 +610,63 @@ test('handoff gate stands down when the clean skill is not installed', () => {
   assert.equal(envHook(DISCIPLINE, bash(session('handoff-noskill'), repo('feat/x'), 'gh pr create --fill'), cfg), '');
 });
 
-// The bug this covers: the flag was written once and never cleared, so the first /clean of a
-// session opened the gate for every PR after it — nine, in the transcript that prompted this.
-test('a new task prompt re-arms the handoff gate, an approval does not', () => {
+// The regression this covers: the flag was cleared on every prompt that was not a short
+// approval, so an unrelated question between /clean and the PR revoked the permission the
+// chain had just earned and the create was denied. The notification shapes are in the same
+// list because the rules put the full suite in the background before a handoff, which lands
+// its notification inside exactly that window.
+test('an unrelated prompt does not close the handoff gate', () => {
   const cfg = cfgFixture();
-  const sid = session('handoff-rearm');
-  const pr = bash(sid, repo('feat/x'), 'gh pr create --fill');
-  envHook(DISCIPLINE, { session_id: sid, prompt: '/clean' }, cfg);
-  assert.equal(envHook(DISCIPLINE, pr, cfg), '', 'the chain opened it');
-  envHook(DISCIPLINE, { session_id: sid, prompt: '  devam \n' }, cfg);
-  assert.equal(envHook(DISCIPLINE, pr, cfg), '', 'an approval continues the same task, padding included');
-  envHook(DISCIPLINE, { session_id: sid, prompt: 'now add the export button to the toolbar' }, cfg);
-  assert.match(denyReason(envHook(DISCIPLINE, pr, cfg)), /HANDOFF GATE/, 'a new task re-arms');
-});
-
-// The rules put the full suite in the background before a handoff, so its notification lands
-// between /clean and gh pr create. Re-arming on it would deny the PR its own chain prepared.
-test('a subagent notification does not re-arm the handoff gate', () => {
-  const cfg = cfgFixture();
-  const pr = (sid) => bash(sid, repo('feat/x'), 'gh pr create --fill');
+  const dir = repo('feat/x');
   const shapes = [
+    'now add the export button to the toolbar',
     '[SYSTEM NOTIFICATION - NOT USER INPUT] the background job exited',
     '<task-notification>\n<task-id>bubvqt1pj</task-id>\n<status>completed</status>\n</task-notification>',
     '<agent-message teammate_id="reviewer" from="reviewer">SHIP</agent-message>',
   ];
-  for (const prompt of shapes) {
-    const sid = session(`handoff-notify-${shapes.indexOf(prompt)}`);
-    envHook(DISCIPLINE, { session_id: sid, prompt: '/clean' }, cfg);
-    envHook(DISCIPLINE, { session_id: sid, prompt }, cfg);
-    assert.equal(envHook(DISCIPLINE, pr(sid), cfg), '', prompt.slice(0, 24));
+  for (const [i, text] of shapes.entries()) {
+    const sid = session(`handoff-open-${i}`);
+    const pr = bash(sid, dir, 'gh pr create --fill');
+    envHook(DISCIPLINE, asked(sid, dir, '/clean'), cfg);
+    assert.equal(envHook(DISCIPLINE, pr, cfg), '', 'the chain opened it');
+    envHook(DISCIPLINE, asked(sid, dir, text), cfg);
+    assert.equal(envHook(DISCIPLINE, pr, cfg), '', text.slice(0, 24));
   }
 });
 
-// One chain per PR. Cleared on the Post event so a denied or failed create keeps the chain.
+// One branch per verification batch, so the branch is the task boundary the gate wants: the
+// chain that prepared one branch does not carry over to the next.
+test('the handoff gate is keyed to the branch, not to the session alone', () => {
+  const cfg = cfgFixture();
+  const sid = session('handoff-branch');
+  envHook(DISCIPLINE, asked(sid, repo('feat/x'), '/clean'), cfg);
+  const next = bash(sid, repo('feat/y'), 'gh pr create --fill');
+  assert.match(denyReason(envHook(DISCIPLINE, next, cfg)), /HANDOFF GATE/);
+});
+
+// A monorepo runs from below the repo root, so the hook walks up for .git. Without the walk
+// both keys fall back to 'default' and the branch silently stops being part of the key.
+test('a cwd below the repo root keys to the same branch as the root', () => {
+  const cfg = cfgFixture();
+  const sid = session('handoff-nested');
+  const dir = repo('feat/x');
+  const nested = path.join(dir, 'packages', 'app');
+  fs.mkdirSync(nested, { recursive: true });
+  envHook(DISCIPLINE, asked(sid, nested, '/clean'), cfg);
+  assert.equal(fs.existsSync(handoffPath(sid, 'feat_x')), true, 'the walk up found the repo');
+  assert.equal(envHook(DISCIPLINE, bash(sid, dir, 'gh pr create --fill'), cfg), '');
+});
+
+// One chain per PR, and now the only thing that re-arms the gate. The bug: the flag was
+// written once and never cleared, so the first /clean of a session opened the gate for every
+// PR after it — nine, in the transcript that prompted this. Cleared on the Post event so a
+// denied or failed create keeps the chain.
 test('the handoff gate re-arms once the PR has actually opened', () => {
   const cfg = cfgFixture();
   const sid = session('handoff-perpr');
-  const pr = bash(sid, repo('feat/x'), 'gh pr create --fill');
-  envHook(DISCIPLINE, { session_id: sid, prompt: '/clean' }, cfg);
+  const dir = repo('feat/x');
+  const pr = bash(sid, dir, 'gh pr create --fill');
+  envHook(DISCIPLINE, asked(sid, dir, '/clean'), cfg);
   assert.equal(envHook(DISCIPLINE, pr, cfg), '');
   envHook(DISCIPLINE, { ...pr, hook_event_name: 'PostToolUse', tool_response: { exit_code: 1 } }, cfg);
   assert.equal(envHook(DISCIPLINE, pr, cfg), '', 'a create that failed keeps the chain');
@@ -640,8 +678,9 @@ test('the handoff gate re-arms once the PR has actually opened', () => {
 test('a root gh pr create after /clean passes the gate and the discipline hook', () => {
   const cfg = cfgFixture();
   const sid = session('handoff-root');
-  const pr = bash(sid, repo('feat/x'), 'gh pr create --fill');
-  envHook(DISCIPLINE, { session_id: sid, prompt: '/clean' }, cfg);
+  const dir = repo('feat/x');
+  const pr = bash(sid, dir, 'gh pr create --fill');
+  envHook(DISCIPLINE, asked(sid, dir, '/clean'), cfg);
   assert.equal(envHook(GATE, pr, cfg), '');
   assert.equal(envHook(DISCIPLINE, pr, cfg), '');
 });
