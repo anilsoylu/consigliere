@@ -130,6 +130,11 @@ const GH_ALLOWED = {
   run: ['view', 'list'],
   release: ['view', 'list'],
 };
+// path.resolve keeps `~` as a literal segment and reads the hook's own cwd, not the call's.
+const expand = (p) => (p.startsWith('~')
+  ? path.join(os.homedir(), p.slice(1).replace(/^[/\\]/, ''))
+  : path.resolve(cwd, p));
+
 // Test runners the root reads an exit code from. Anything else on these roots stays denied,
 // so `npm test` passes and `npm run build` does not.
 const VERIFIERS = [
@@ -137,10 +142,13 @@ const VERIFIERS = [
   // One operand, no flags after it: node runs `-r`/`--import` preloads before the parse-only
   // step, so `node --check -r p.js x.mjs` executes p.js.
   (a) => a[0] === 'node' && a[1] === '--check' && a.length === 3 && !a[2].startsWith('-'),
-  (a) => a[0] === 'node' && path.resolve(a[1] || '') === path.join(cfgDir(), 'hooks', 'review-tier.mjs'),
+  (a) => a[0] === 'node' && canon(expand(a[1] || '')) === canon(path.join(cfgDir(), 'hooks', 'review-tier.mjs')),
   (a) => /^(npm|pnpm|yarn|bun)$/.test(a[0]) && (a[1] === 'test' || (a[1] === 'run' && /^test/.test(a[2] || ''))),
   (a) => a[0] === 'npx' && /^(vitest|jest|mocha|tap)$/.test(a[1] || ''),
   (a) => a[0] === 'pytest',
+  // Not a verifier: the root reading which build it is on. Bare `claude` would let it spawn
+  // a session that writes, so nothing past the version flag passes.
+  (a) => a[0] === 'claude' && a.length === 2 && /^(--version|-v)$/.test(a[1]),
   (a) => (a[0] === 'go' || a[0] === 'cargo') && a[1] === 'test',
 ];
 // Options that turn an otherwise read-only command into a writer or a launcher.

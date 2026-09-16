@@ -26,4 +26,6 @@ supporting copy only when the user explicitly asks for it or when it prevents
 misunderstanding or error, and never to restate the heading.
 
 ## When to ask
-One rule, everywhere: ask only when two readings would produce materially different work and you cannot pick with a stated assumption. Otherwise assume, say so in one line, and proceed. Bug reports never need hand-holding — reproduce, fix, verify.
+This governs clarification. Ask only when two readings would produce materially different work and you cannot pick with a stated assumption; otherwise assume, say so in one line, and proceed. Bug reports never need hand-holding — reproduce, fix, verify.
+
+Authorization is a separate question and `workflow.md` owns it. An irreversible or outward-facing action, a `[Self-Modification]` denial, and a write to a different repo each require their ask no matter how unambiguous the request was — those asks are not clarification and this rule does not suppress them.

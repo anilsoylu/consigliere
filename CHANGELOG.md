@@ -4,6 +4,44 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
+## 2.10.0 — 2026-09-17
+
+### Fixed
+- `orchestrator-gate.mjs` expands a leading `~` in the `review-tier.mjs` path. It compared the
+  operand with `path.resolve`, which keeps `~` as a literal segment and resolves it against the
+  hook's own cwd rather than the caller's, so the tier command `rules/workflow.md` tells the
+  root to run was denied whenever it was spelled `~/.claude/hooks/review-tier.mjs`. Both sides
+  of the comparison now go through the same realpath canonicalization the write gate uses, so a
+  symlinked config dir matches too. A path under a different config dir is still denied.
+- `claude --version` and `claude -v` join the commands the root may run. Reading the build
+  number is how the root answers a version question and what `doctor.mjs` reports on, and it
+  was denied along with everything else on the `claude` root. Bare `claude` stays denied,
+  because it starts a session that writes, and the match is pinned to exactly one operand.
+
+### Changed
+- `agents/reviewer.md` runs `model: opus` at `effort: xhigh`. It was Fable at medium. The
+  verdict is the one step in the loop with no verifier behind it, so it gets the effort cap's
+  ceiling rather than the middle of the ladder. `DESIGN.md` and `README.md` carry the new
+  values.
+- `rules/workflow.md` drops three lines that repeated a rule already stated. The Round-trips
+  section said to fold a known next call into the current turn, which the batching sentence
+  above it already covers. The Elegance check opened with a prompt to pause and ask for a more
+  elegant way, which is what the sentence after it says concretely. Core opened with "No
+  laziness", an instruction with nothing to check against. The Delegation paragraph now states
+  the rule for a cold subagent — one focused task each — instead of restating when to reach
+  for one.
+- `rules/coding-discipline.md`'s "When to ask" separates clarification from authorization and
+  hands the second to `rules/workflow.md`. Read as one rule it suppressed the asks that are not
+  clarification at all: an irreversible or outward-facing action, a `[Self-Modification]`
+  denial, and a write to a different repo each need their ask however unambiguous the request
+  was.
+- `rules/orchestrator.md` narrows the `tester` row to reproducing a bug or writing a test for
+  one. "Write or run tests" read as an invitation to delegate the verifier, which the
+  Delegation section already assigns to the root.
+- `agents/worker.md` names the bug-fix test as part of the fix rather than an addition to it.
+  The out-of-scope list ruled out tests beyond what the criteria ask for, which a worker fixing
+  a bug could read as a reason to ship the fix untested.
+
 ## 2.9.0 — 2026-09-14
 
 ### Fixed

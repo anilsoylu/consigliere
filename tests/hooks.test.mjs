@@ -139,6 +139,9 @@ test('gate allows read-only root commands, the plumbing and the verifiers', () =
     'npm test',
     'pytest -q',
     `node ${cfg}/hooks/review-tier.mjs . abc`,
+    // Reading the build number, not starting a session — hence the exact-arity match below.
+    'claude --version',
+    'claude -v',
     'echo hi > /tmp/x',
     'git -C /x status',
     'git branch -a',
@@ -174,6 +177,9 @@ test('gate denies commands that write, spawn or expand', () => {
     'git switch --discard-changes b',
     'git switch -C b',
     'node /Users/x/.claude/hooks/review-tier.mjs . abc',
+    // Bare `claude` spawns a session that writes, and a second operand is not a version read.
+    'claude',
+    'claude --version extra',
     'echo x > /tmp/../etc/passwd',
     'git -c alias.status=!rm status',
     'rm /tmp/x',
@@ -224,6 +230,17 @@ test('gate denies commands that write, spawn or expand', () => {
   // the session cwd rather than read as a branch.
   const pathspec = { ...rootBash('git checkout HEAD~1 manifest.mjs'), cwd: ROOT };
   assert.equal(decision(envHook(GATE, pathspec, cfg)), 'deny');
+});
+
+// path.resolve leaves `~` as a literal segment, so the tier command the handoff tells the root
+// to run was denied whenever it was spelled with one.
+test('gate expands ~ in the review-tier path, and only for that script', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'consigliere-home-'));
+  homes.push(home);
+  const cfg = cfgFixture({ at: path.join(home, '.claude') });
+  assert.equal(envHook(GATE, rootBash('node ~/.claude/hooks/review-tier.mjs . abc'), cfg, home), '');
+  const other = envHook(GATE, rootBash('node ~/.claude/hooks/orchestrator-gate.mjs'), cfg, home);
+  assert.equal(decision(other), 'deny');
 });
 
 const PROBE = path.join(ROOT, 'hooks', 'payload-probe.mjs');
@@ -458,9 +475,11 @@ const RATIO = path.join(ROOT, 'hooks', 'comment-ratio.mjs');
 
 // These hooks self-gate on the rule file each enforces, so every case points
 // CLAUDE_CONFIG_DIR at a fixture carrying exactly the files it needs.
-function cfgFixture({ workflow = true, discipline = true, clean = true, communication = true, orchestrator = true } = {}) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'consigliere-cfg-'));
-  homes.push(dir);
+// `at` places the fixture at an exact path instead of a random one, which the `~` case needs:
+// the gate only matches a tilde path when the config dir really is <home>/.claude.
+function cfgFixture({ workflow = true, discipline = true, clean = true, communication = true, orchestrator = true, at = null } = {}) {
+  const dir = at || fs.mkdtempSync(path.join(os.tmpdir(), 'consigliere-cfg-'));
+  if (!at) homes.push(dir);
   fs.mkdirSync(path.join(dir, 'rules'), { recursive: true });
   if (orchestrator) fs.writeFileSync(path.join(dir, 'rules', 'orchestrator.md'), '');
   if (workflow) fs.writeFileSync(path.join(dir, 'rules', 'workflow.md'), '');
@@ -480,11 +499,11 @@ function repo(branch) {
   return dir;
 }
 
-function envHook(script, payload, cfg) {
-  return execFileSync(process.execPath, [script], {
-    input: JSON.stringify(payload), encoding: 'utf8',
-    env: { ...process.env, CLAUDE_CONFIG_DIR: cfg },
-  });
+function envHook(script, payload, cfg, home = null) {
+  const env = { ...process.env, CLAUDE_CONFIG_DIR: cfg };
+  // os.homedir() reads HOME on POSIX and USERPROFILE on Windows, so a tilde case sets both.
+  if (home) Object.assign(env, { HOME: home, USERPROFILE: home });
+  return execFileSync(process.execPath, [script], { input: JSON.stringify(payload), encoding: 'utf8', env });
 }
 
 const denyReason = (out) => JSON.parse(out).hookSpecificOutput.permissionDecisionReason;

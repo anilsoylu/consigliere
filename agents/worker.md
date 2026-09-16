@@ -16,7 +16,8 @@ acceptance criteria. Follow the patterns already in the repository over your own
 read a neighbouring file before inventing a shape.
 
 Out of scope unless the contract names it: refactoring adjacent code, reformatting,
-renaming, upgrading dependencies, adding tests beyond what the criteria ask for.
+renaming, upgrading dependencies, adding tests beyond what the criteria ask for. A bug fix
+is the exception: the test that reproduces the bug is part of the fix, not an addition to it.
 
 Every turn costs a full round-trip, so spend as few as the work allows. Read a file once
 with `Read`, whole, instead of slicing it with `cat`, `sed` or `grep` across several turns.

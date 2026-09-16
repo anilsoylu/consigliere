@@ -26,7 +26,7 @@ read-only   read-only   read-only    writes      writes
                            Opus
                              |
                          reviewer
-                          Fable
+                           Opus
                              |
                              v
                         Fable 5.1
@@ -44,7 +44,7 @@ That tree is not a convention the root is asked to follow. It cannot write sourc
 | `explorer` | sonnet | medium | Read, Grep, Glob | no |
 | `reader` | haiku | low | Read, Grep, Glob | no |
 | `researcher` | opus | medium | Read, Grep, Glob, WebFetch, WebSearch | no |
-| `reviewer` | fable | medium | Read, Grep, Glob | no |
+| `reviewer` | opus | xhigh | Read, Grep, Glob | no |
 
 `rules/orchestrator.md` ships with the package and holds the rest: what the root owns, the six-part contract every delegation carries, what a subagent escalates instead of deciding, and the five-field report each one returns.
 
@@ -131,7 +131,7 @@ If you changed an installed file on purpose, add it to `"pins": ["agents/reviewe
 
 ## Limits
 
-- **Fable availability:** on a plan that can't reach Fable, Claude Code silently falls back to the inherited model — everything keeps working, but the decision and the verdict come from the same model as the code. `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` and `CLAUDE_CODE_SUBAGENT_MODEL` override `model:` in every agent file, so leave them unset; `node doctor.mjs` warns when either is set. See [Requirements](#requirements).
+- **Fable availability:** on a plan that can't reach Fable, Claude Code silently falls back to the inherited model — everything keeps working, but the decision comes from the same model as the code. `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` and `CLAUDE_CODE_SUBAGENT_MODEL` override `model:` in every agent file, so leave them unset; `node doctor.mjs` warns when either is set. See [Requirements](#requirements).
 - **The gate is a boundary, not a sandbox.** It reads the command text, so it stops the root's mistakes rather than a determined bypass; a worker holds every tool the root gave up.
 - **Two skills still need a POSIX shell:** `wizard` generates bash around `template.sh`, and `systematic-debugging` bisects test pollution with `find-polluter.sh`. On Windows, run those two under Git Bash or WSL.
 - **The auto-mode classifier can still deny a push, merge or tag.** The gate allowing a command is not the classifier allowing it; `--with-release-permissions` writes the rules that clear it.
