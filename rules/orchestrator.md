@@ -19,7 +19,7 @@ notes, `~/.claude` and `/tmp` stay open to root.
 |---|---|
 | Write or change code | `fork` |
 | Independent parallel work, or a long job that would flood root's context | `worker` |
-| Reproduce a bug, write or run tests | `tester` |
+| Reproduce a bug, or write a test for one | `tester` |
 | Find code, map how something works | `explorer` |
 | Read a large file, or extract a few facts from it | `reader` |
 | A fact outside the repository | `researcher` |

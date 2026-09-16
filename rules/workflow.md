@@ -12,7 +12,7 @@
 - Write only inside the current project. The boundary is the repo, not the working directory — in a monorepo, sibling `packages/*` and `apps/*` are in scope even from a nested cwd. A *different* repo is never in scope by implication: ask first, even for a one-line fix, even to undo your own change.
 
 ## Delegation
-Match the primitive to the task. Deterministic steps belong in scripts. Implementation goes to a `fork`: it starts with root's context, so there is no discovery pass and no restated contract. A cold `worker` is for independent parallel work, or a job whose output should stay out of root's context. Root runs the verifier itself instead of spawning a tester for it. Reserve cold subagents for research and parallel exploration that would otherwise pollute main context — one focused task each. If one subagent can complete the task, use one rather than several, and keep spawn counts low. Never spawn a subagent to verify or double-check your own work — independent review comes from the one handoff review.
+Match the primitive to the task. Deterministic steps belong in scripts. Implementation goes to a `fork`: it starts with root's context, so there is no discovery pass and no restated contract. A cold `worker` is for independent parallel work, or a job whose output should stay out of root's context. Root runs the verifier itself instead of spawning a tester for it. Give a cold subagent one focused task each time. If one subagent can complete the task, use one rather than several, and keep spawn counts low. Never spawn a subagent to verify or double-check your own work — independent review comes from the one handoff review.
 
 ## Continuation loops
 For work with a verifiable exit criterion, use exactly one runtime continuation mechanism: `/goal` or Ralph, never both. Before presenting or starting any `/ralph-loop`, read the `ralph-protocol` skill.
@@ -24,7 +24,6 @@ Search with Grep/Glob, not shell `grep`/`find`/`ls`. The tools return instantly,
 
 ## Round-trips
 Every tool call is a separate request that re-reads the entire context, so a turn carrying a single call pays for the whole context to advance one step. Batch independent calls into a single response — parallel Reads, Globs, Greps, unrelated Bash checks. Serialize only when a call's input depends on a prior result.
-Before sending a turn with one call in it, ask whether the next call is already known. If it is, it belongs in this turn.
 Never re-read a file already read this session; it is still in the context above. The harness suppresses the duplicate and returns "Wasted call" instead, so the repeat buys nothing and still costs a round-trip.
 
 ## Verification
@@ -38,7 +37,7 @@ A backgrounded verifier is not finished until you have read its exit code. If a 
 A verifier owns the files it covers while it runs. Do not edit them until it has reported, or its result belongs to neither version. The batch-end suite covers the tree, so while it runs the work is everything that is not an edit — reading the diff, drafting the PR body, planning the next batch.
 
 ## Elegance check
-For non-trivial changes, pause once: is there a more elegant way? If a fix feels hacky, redo it properly now that you understand the problem. Skip this for obvious fixes.
+If a fix feels hacky, redo it properly now that you understand the problem. Skip this for obvious fixes.
 
 ## Self-improvement
 After any correction from the user, save a `type: feedback` memory capturing the pattern, the why, and how to apply it. Recalled feedback memories are the single source of truth — no separate lessons file.
@@ -91,4 +90,4 @@ The queue is frozen when the batch starts. Work found while it runs goes under a
   call.
 
 ## Core
-No laziness. Find root causes, no temporary patches.
+Find root causes, no temporary patches.
