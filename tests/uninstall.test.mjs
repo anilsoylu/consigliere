@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { HOOK_FILES, OBSOLETE_HOOK_FILES, AGENT_FILES, DEFAULT_RULES, HANDOFF_SKILLS, GRILLING_SKILLS, OPTIMIZE_SKILLS, UPGRADE_SKILL, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, WIZARD_SKILL, DEBUGGING_SKILL, SHADCN_SKILL, RELEASE_PERMISSIONS, hookCommand } from '../manifest.mjs';
+import { HOOK_FILES, OBSOLETE_HOOK_FILES, AGENT_FILES, DEFAULT_RULES, HANDOFF_SKILLS, GRILLING_SKILLS, OPTIMIZE_SKILLS, UPGRADE_SKILL, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, REVIEW_SKILL, REVIEW_FILES, WIZARD_SKILL, DEBUGGING_SKILL, SHADCN_SKILL, RELEASE_PERMISSIONS, hookCommand } from '../manifest.mjs';
 
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const INSTALL = path.join(REPO, 'install.mjs');
@@ -42,6 +42,7 @@ const agentPath = (home, f) => path.join(home, '.claude', 'agents', f);
 const rulePath = (home, f) => path.join(home, '.claude', 'rules', f);
 const yagniPath = (home, f) => path.join(home, '.claude', 'skills', YAGNI_SKILL, f);
 const implementPath = (home, f) => path.join(home, '.claude', 'skills', IMPLEMENT_SKILL, f);
+const reviewPath = (home, f) => path.join(home, '.claude', 'skills', REVIEW_SKILL, f);
 const settingsPath = (home) => path.join(home, '.claude', 'settings.json');
 const readSettings = (home) => JSON.parse(fs.readFileSync(settingsPath(home), 'utf8'));
 
@@ -60,6 +61,7 @@ test('removes the files it placed, and running it twice is not an error', () => 
   assert.equal(fs.existsSync(path.join(home, '.claude', 'skills', WIZARD_SKILL)), false, `${WIZARD_SKILL} should be gone`);
   assert.equal(fs.existsSync(path.join(home, '.claude', 'skills', DEBUGGING_SKILL)), false, `${DEBUGGING_SKILL} should be gone`);
   assert.equal(fs.existsSync(path.join(home, '.claude', 'skills', IMPLEMENT_SKILL)), false, `${IMPLEMENT_SKILL} should be gone`);
+  assert.equal(fs.existsSync(path.join(home, '.claude', 'skills', REVIEW_SKILL)), false, `${REVIEW_SKILL} should be gone`);
 });
 
 // Uninstalling from a HOME that was never upgraded has to clear the old names too, or
@@ -106,6 +108,7 @@ for (const [label, live, file] of [
   ['rule', rulePath, DEFAULT_RULES[0]],
   ['yagni skill file', yagniPath, YAGNI_FILES[0]],
   ['implement workflow script', implementPath, IMPLEMENT_FILES[1]],
+  ['review lint script', reviewPath, REVIEW_FILES[1]],
 ]) {
   test(`keeps a ${label} you customized instead of deleting it`, () => {
     const home = installed();

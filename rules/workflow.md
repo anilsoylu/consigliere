@@ -49,26 +49,22 @@ Plan a queue as a batch: implement the items, then verify once. Stopping to veri
 The queue is frozen when the batch starts. Work found while it runs goes under a `## Found while working` heading in the same file, not into the queue. Only a regression this batch caused belongs to this batch: it is the one permitted append, goes back onto the task list, and the batch is not done until it is green. Report the rest at handoff and let the user pick what becomes the next batch.
 
 ## Git & PR
-- Handoff is one pass per PR: verifier green → tier → at most one review → `cpr`, which
-  runs `clean` then `pr-update` with no gap. No step runs twice.
-- Tier: root runs `git merge-base origin/main HEAD`, then pastes the sha (the gate denies
-  `$(…)`):
-
-      node ~/.claude/hooks/review-tier.mjs . <sha>
-
-  It prints `none | medium | high | xhigh`. Always pass the merge-base; the bare form reads
-  the working tree only. `none` and `medium` get no reviewer: the verifier and root's own
-  diff read cover them. `high` and `xhigh` spawn `reviewer` fresh, once, with the diff and
-  the tier named in the prompt and no rationale — a judge that has read the justification
-  anchors to it. Escalate the tier with a stated reason, never downgrade it. A repo can
-  raise the floor for its own paths with a `.review-tiers` file at the root, one
-  `<xhigh|high> <regex>` rule per line.
-- Findings: a fork fixes every `[ADOPT]`, root re-runs the verifier, and a green run closes
-  the finding. Nothing re-reviews the fix. Relay the other findings to the user. A branch
-  whose whole diff came out of one `implement-review-verify` run is already reviewed.
-  `/merge-readiness` runs only when the user asks for it. Once the verifier is green, no
-  review finding short of an `[ADOPT]` reopens the tree. Non-blocking notes go under the
-  `## Found while working` heading and ship as follow-ups.
+- Handoff is one pass per PR: verifier green → `review` → `cpr`, which runs `clean` then
+  `pr-update` with no gap. No step runs twice.
+- Review is the `review` skill, and it is the only review path. It runs the tier check
+  itself — `node ~/.claude/hooks/review-tier.mjs . <merge-base>`, printing
+  `none | medium | high | xhigh` — stops on `none`/`medium`, and otherwise spawns `reviewer`
+  fresh, once, with the diff and the tier and no rationale. Always pass the merge-base; the
+  bare form reads the working tree only. Escalate the tier with a stated reason, never
+  downgrade it. A repo can raise the floor for its own paths with a `.review-tiers` file at
+  the root, one `<xhigh|high> <regex>` rule per line.
+- Findings come back under two labels: `[ADOPT]` blocks the merge, `[NOTE]` does not. A fork
+  fixes every `[ADOPT]`, root re-runs the verifier, and a green run closes the finding.
+  Nothing re-reviews the fix. A branch whose whole diff came out of one
+  `implement-review-verify` run is already reviewed. `/merge-readiness` runs only when the
+  user asks for it. Once the verifier is green, no finding short of an `[ADOPT]` reopens the
+  tree. `[NOTE]` findings go under the `## Found while working` heading and ship as
+  follow-ups.
 - `clean` is one read of the diff before the PR exists, not a round. Use `clean` or
   `pr-update` on their own only when the diff is not being shipped yet. If that read shows a
   compute-heavy routine (data loops, math kernels, parsers, media processing) was added or

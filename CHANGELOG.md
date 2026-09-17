@@ -4,6 +4,51 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
+## 2.11.0 — 2026-09-17
+
+### Added
+- `skills/review` — the handoff's review step as a skill, and the only review path. It runs
+  the tier check itself, stops on `none` and `medium`, spawns one `reviewer` with the diff
+  pasted into the prompt, then lints what came back. `rules/workflow.md` named a sequence the
+  root had to reassemble each time; it now names a skill. The diff goes in as text because
+  `reviewer` holds `Read`, `Grep` and `Glob` and no `Bash`, so a reviewer handed a command
+  reconstructs the wrong change from the working tree.
+- `skills/review/review-lint.mjs` — checks the shape of a review and never the code it
+  reviewed: the labels, the caps, and whether every cited path is in the diff that was handed
+  over. Its result goes to the root and never back to the reviewer, because an edge back to
+  the judge is how a second round starts. It reports and exits 0; shadow mode until it has run
+  clean on enough real reviews to have earned a gate.
+
+### Changed
+- `agents/reviewer.md` reviews for precision rather than recall. It raises an issue only when
+  it is confident, scores each finding 0–100 for being real and material and drops everything
+  under 80, and caps a review at 5 `[ADOPT]` and 3 `[NOTE]`. A review that reports nothing is
+  now stated to be a valid review. Findings a linter or typechecker already catches, findings
+  about unchanged or deleted lines, and findings inferred from a name rather than read from the
+  code are listed as never findings.
+
+  v2.10 told it to report everything and let the root prioritize. What came back was findings
+  padded with nitpicks, and with no floor under a finding there was no point at which the
+  review was done. Measured on one real diff at tier `high`: the old contract returned 6
+  findings, 5 of them cosmetic, verdict FIX-FIRST; the new one returned 3, none cosmetic,
+  verdict SHIP, and named a real defect both earlier runs had missed. That is n=1 — one diff is
+  not an eval set, and the sample says nothing yet about what the 80 floor drops on a diff
+  where the defect is marginal.
+- The four finding labels become two. `[ADOPT]` blocks the merge, `[NOTE]` does not and ships
+  as a follow-up under `## Found while working`. `[DISCUSS]`, `[STYLE]` and `[OVER-ENGINEERED]`
+  all meant "not blocking" and differed only in tone, which is a distinction the root paid for
+  and never used. `skills/implement-review-verify/implement-review-verify.js` carries the new
+  enum, and its review prompt no longer asks for everything with no severity filter — it
+  contradicted the contract the reviewer now runs under.
+- A cost is `[ADOPT]` when crossing it changes what the code does, not how fast it does it: an
+  unbounded loop inside a lock, a lease, a transaction, a request timeout or a batch window,
+  where past the boundary the guarantee stops holding and nothing says so. The rule it replaces
+  keyed on whether a number was needed, which produced findings whose stated reason was that a
+  number was missing rather than what would break. A cost that only makes things slower is
+  `[NOTE]`, and measuring it still belongs to `/perf` or `merge-readiness`.
+- `rules/workflow.md`'s Git & PR section names the `review` skill instead of restating the
+  tier command and the finding routing inline.
+
 ## 2.10.0 — 2026-09-17
 
 ### Fixed

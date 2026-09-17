@@ -62,7 +62,7 @@ That tree is not a convention the root is asked to follow. It cannot write sourc
 | `update-check.mjs` | one line at session start when a newer tag exists upstream |
 
 - **Rules:** `orchestrator.md`, the behavioral spec Claude reads every session, and `coding-discipline.md` — minimum code, surgical edits, comments as a last resort, plain repo prose.
-- **Skills:** `shadcn`, `grilling` with `/grill-me`, `systematic-debugging`, `implement-review-verify`, `/consig-upgrade`, `/yagni`, `/wizard`.
+- **Skills:** `shadcn`, `grilling` with `/grill-me`, `systematic-debugging`, `implement-review-verify`, `review`, `/consig-upgrade`, `/yagni`, `/wizard`.
 
 ## Requirements
 
@@ -108,6 +108,7 @@ Those are filled in **only where you have no value of your own**, and the uninst
 | Merge-readiness graph | `/merge-readiness`: four lenses read the diff in parallel, then every finding goes to a judge that did not write it and is told to refute it. Up to 13 agents a run, so nothing routes here on its own | `node install.mjs --with-merge-readiness` |
 | Release allow rules | eight `Bash(...)` entries in `permissions.allow` so an unattended release is not stopped at its first push — see [Auto mode](#auto-mode) | `node install.mjs --with-release-permissions` |
 | implement-review-verify | one contract as a graph: a worker implements, a reviewer and a tester judge at one barrier, one fix round closes the findings. Five agents at most | ships by default |
+| review | the one review path: the tier check, one reviewer, then `review-lint.mjs` on what came back. `[ADOPT]` blocks the merge, `[NOTE]` ships as a follow-up | ships by default |
 
 ## Auto mode
 

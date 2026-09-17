@@ -51,7 +51,7 @@ const REVIEW = {
         type: 'object',
         required: ['label', 'text'],
         properties: {
-          label: { enum: ['ADOPT', 'DISCUSS', 'STYLE', 'OVER-ENGINEERED'] },
+          label: { enum: ['ADOPT', 'NOTE'] },
           text: { type: 'string', description: 'the finding in one or two sentences, with its file and line' },
         },
       },
@@ -115,7 +115,7 @@ Open any of these files when you need the code around a hunk:
 
 ${fileList}
 
-You have not been told why any of this was written the way it was, and you should not go looking for the reasoning: a judge that reads the justification anchors to it. Report everything you find, with no severity filter. Label a finding ADOPT only when you can name the defect and the line it is on. Do not write code.`,
+You have not been told why any of this was written the way it was, and you should not go looking for the reasoning: a judge that reads the justification anchors to it. Raise an issue only when you are confident it is a real defect: a finding qualifies only if you can name the input or state that triggers it and block the merge on it. A review that reports nothing is a valid review. Label a finding ADOPT only when you can name the defect and the line it is on; everything else is NOTE. Do not write code.`,
     { label: 'review', phase: 'Judge', agentType: 'reviewer', schema: REVIEW },
   ),
   () => runVerifier('verify', 'Judge'),
