@@ -139,6 +139,7 @@ test('gate allows read-only root commands, the plumbing and the verifiers', () =
     'npm test',
     'pytest -q',
     `node ${cfg}/hooks/review-tier.mjs . abc`,
+    `node ${cfg}/skills/review/review-lint.mjs /tmp/review/diff.patch /tmp/review/findings.json`,
     // Reading the build number, not starting a session — hence the exact-arity match below.
     'claude --version',
     'claude -v',
@@ -177,6 +178,8 @@ test('gate denies commands that write, spawn or expand', () => {
     'git switch --discard-changes b',
     'git switch -C b',
     'node /Users/x/.claude/hooks/review-tier.mjs . abc',
+    // The lint is allowed by its exact path, so a sibling a skill ships stays denied.
+    `node ${cfg}/skills/review/other.mjs`,
     // Bare `claude` spawns a session that writes, and a second operand is not a version read.
     'claude',
     'claude --version extra',
@@ -234,11 +237,12 @@ test('gate denies commands that write, spawn or expand', () => {
 
 // path.resolve leaves `~` as a literal segment, so the tier command the handoff tells the root
 // to run was denied whenever it was spelled with one.
-test('gate expands ~ in the review-tier path, and only for that script', () => {
+test('gate expands ~ in a root script path, and only for those scripts', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'consigliere-home-'));
   homes.push(home);
   const cfg = cfgFixture({ at: path.join(home, '.claude') });
   assert.equal(envHook(GATE, rootBash('node ~/.claude/hooks/review-tier.mjs . abc'), cfg, home), '');
+  assert.equal(envHook(GATE, rootBash('node ~/.claude/skills/review/review-lint.mjs d.patch f.json'), cfg, home), '');
   const other = envHook(GATE, rootBash('node ~/.claude/hooks/orchestrator-gate.mjs'), cfg, home);
   assert.equal(decision(other), 'deny');
 });

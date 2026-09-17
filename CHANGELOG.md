@@ -48,6 +48,9 @@ reconstructed from the tag history.
   `[NOTE]`, and measuring it still belongs to `/perf` or `merge-readiness`.
 - `rules/workflow.md`'s Git & PR section names the `review` skill instead of restating the
   tier command and the finding routing inline.
+- `hooks/orchestrator-gate.mjs` lets the root run `skills/review/review-lint.mjs` as well as
+  `hooks/review-tier.mjs`. Both are matched as exact paths under the config directory, because
+  a prefix on `skills/` would open every script a skill ships.
 
 ## 2.10.0 — 2026-09-17
 
