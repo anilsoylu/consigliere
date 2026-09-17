@@ -142,7 +142,10 @@ const VERIFIERS = [
   // One operand, no flags after it: node runs `-r`/`--import` preloads before the parse-only
   // step, so `node --check -r p.js x.mjs` executes p.js.
   (a) => a[0] === 'node' && a[1] === '--check' && a.length === 3 && !a[2].startsWith('-'),
-  (a) => a[0] === 'node' && canon(expand(a[1] || '')) === canon(path.join(cfgDir(), 'hooks', 'review-tier.mjs')),
+  // The two scripts the handoff tells the root to run itself. Matched as exact paths: a prefix
+  // on `skills/` would open every script a skill ships.
+  (a) => a[0] === 'node' && [['hooks', 'review-tier.mjs'], ['skills', 'review', 'review-lint.mjs']]
+    .some((s) => canon(expand(a[1] || '')) === canon(path.join(cfgDir(), ...s))),
   (a) => /^(npm|pnpm|yarn|bun)$/.test(a[0]) && (a[1] === 'test' || (a[1] === 'run' && /^test/.test(a[2] || ''))),
   (a) => a[0] === 'npx' && /^(vitest|jest|mocha|tap)$/.test(a[1] || ''),
   (a) => a[0] === 'pytest',

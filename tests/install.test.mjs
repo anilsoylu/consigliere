@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { STATE_FILE, HOOK_FILES, OBSOLETE_HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RELEASE_PERMISSIONS, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, hookCommand } from '../manifest.mjs';
+import { STATE_FILE, HOOK_FILES, OBSOLETE_HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, REVIEW_SKILL, REVIEW_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RELEASE_PERMISSIONS, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, hookCommand } from '../manifest.mjs';
 
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const INSTALL = path.join(REPO, 'install.mjs');
@@ -229,6 +229,21 @@ test('a default install ships both halves of the implement workflow, bytes intac
     assert.ok(
       fs.readFileSync(installed).equals(fs.readFileSync(path.join(REPO, 'skills', IMPLEMENT_SKILL, f))),
       `skills/${IMPLEMENT_SKILL}/${f} must match this repo byte for byte`
+    );
+  }
+});
+
+// rules/workflow.md names the review skill as the handoff's review step, and SKILL.md
+// runs the lint from beside itself — either half alone is a reference to nothing.
+test('a default install ships both halves of the review skill, bytes intact', () => {
+  const home = install();
+
+  for (const f of REVIEW_FILES) {
+    const installed = path.join(home, '.claude', 'skills', REVIEW_SKILL, f);
+    assert.ok(fs.existsSync(installed), `skills/${REVIEW_SKILL}/${f} should be installed`);
+    assert.ok(
+      fs.readFileSync(installed).equals(fs.readFileSync(path.join(REPO, 'skills', REVIEW_SKILL, f))),
+      `skills/${REVIEW_SKILL}/${f} must match this repo byte for byte`
     );
   }
 });

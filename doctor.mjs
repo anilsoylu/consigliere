@@ -6,7 +6,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { STATE_FILE, HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RELEASE_PERMISSIONS, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, claudeDir as resolveClaudeDir, hookCommand, hasRalphLoop } from './manifest.mjs';
+import { STATE_FILE, HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, REVIEW_SKILL, REVIEW_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RELEASE_PERMISSIONS, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, claudeDir as resolveClaudeDir, hookCommand, hasRalphLoop } from './manifest.mjs';
 
 const REPO = path.dirname(fileURLToPath(import.meta.url));
 const USAGE = `Usage: node doctor.mjs [--json] [--probe]
@@ -191,6 +191,17 @@ export function runChecks(options = {}) {
       : implement.modified.length
         ? status('warn', 'implement-review-verify skill', `customized locally, no longer this repo's: ${list(implement.modified)}`)
         : status('pass', 'implement-review-verify skill', `the implement/review/verify workflow and its script are installed and match this repo${except(implement.kept)}`)
+  );
+
+  // The handoff's review step. rules/workflow.md names it, so a missing one leaves the rule
+  // pointing at nothing.
+  const review = compare(REVIEW_FILES, path.join(repo, 'skills', REVIEW_SKILL), path.join(skillsDir, REVIEW_SKILL));
+  checks.push(
+    review.missing.length
+      ? status('warn', 'review skill', `not installed (${list(review.missing)}); rerun node install.mjs to restore, or ignore this if you removed it on purpose`)
+      : review.modified.length
+        ? status('warn', 'review skill', `customized locally, no longer this repo's: ${list(review.modified)}`)
+        : status('pass', 'review skill', `the review path and its lint are installed and match this repo${except(review.kept)}`)
   );
 
   // Default like yagni: a prompt file with no runtime cost, inert until it is invoked.

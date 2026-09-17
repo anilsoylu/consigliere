@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import { runChecks, summarize, compareTags, assessProbe, probeArgs } from '../doctor.mjs';
-import { VERSION, STATE_FILE, HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RELEASE_PERMISSIONS, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, hookCommand } from '../manifest.mjs';
+import { VERSION, STATE_FILE, HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, REVIEW_SKILL, REVIEW_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RELEASE_PERMISSIONS, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, hookCommand } from '../manifest.mjs';
 
 const DOCTOR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'doctor.mjs');
 const temps = [];
@@ -36,6 +36,7 @@ function makeRepoFixture() {
   for (const file of UPGRADE_FILES) writeFile(path.join(repo, 'skills', UPGRADE_SKILL, file), file);
   for (const file of YAGNI_FILES) writeFile(path.join(repo, 'skills', YAGNI_SKILL, file), file);
   for (const file of IMPLEMENT_FILES) writeFile(path.join(repo, 'skills', IMPLEMENT_SKILL, file), file);
+  for (const file of REVIEW_FILES) writeFile(path.join(repo, 'skills', REVIEW_SKILL, file), file);
   for (const skill of GRILLING_SKILLS) for (const file of GRILLING_FILES) writeFile(path.join(repo, 'skills', skill, file), file);
   for (const file of WIZARD_FILES) writeFile(path.join(repo, 'skills', WIZARD_SKILL, file), file);
   for (const file of DEBUGGING_FILES) writeFile(path.join(repo, 'skills', DEBUGGING_SKILL, file), file);
@@ -70,6 +71,7 @@ function installDefaultFiles(home) {
   for (const file of UPGRADE_FILES) writeFile(path.join(claude, 'skills', UPGRADE_SKILL, file), file);
   for (const file of YAGNI_FILES) writeFile(path.join(claude, 'skills', YAGNI_SKILL, file), file);
   for (const file of IMPLEMENT_FILES) writeFile(path.join(claude, 'skills', IMPLEMENT_SKILL, file), file);
+  for (const file of REVIEW_FILES) writeFile(path.join(claude, 'skills', REVIEW_SKILL, file), file);
   for (const skill of GRILLING_SKILLS) for (const file of GRILLING_FILES) writeFile(path.join(claude, 'skills', skill, file), file);
   for (const file of WIZARD_FILES) writeFile(path.join(claude, 'skills', WIZARD_SKILL, file), file);
   for (const file of DEBUGGING_FILES) writeFile(path.join(claude, 'skills', DEBUGGING_SKILL, file), file);
@@ -575,6 +577,31 @@ test('warns about a locally customized implement workflow script instead of cert
 
   assert.equal(skill.level, 'warn');
   assert.match(skill.detail, /customized locally.*implement-review-verify\.js/);
+});
+
+// rules/workflow.md points the root at this skill by name, so a missing one leaves the
+// rule naming nothing and the review step quietly unenforced.
+test('warns when the review skill was never installed', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+  fs.rmSync(path.join(home, '.claude', 'skills', REVIEW_SKILL), { recursive: true });
+
+  const skill = check(run(home, makeRepoFixture()), 'review skill');
+
+  assert.equal(skill.level, 'warn');
+  assert.match(skill.detail, /not installed \(SKILL\.md, review-lint\.mjs\)/);
+  assert.match(skill.detail, /ignore this if you removed it on purpose/);
+});
+
+test('warns about a locally customized review lint instead of certifying it', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+  writeFile(path.join(home, '.claude', 'skills', REVIEW_SKILL, 'review-lint.mjs'), 'my own version');
+
+  const skill = check(run(home, makeRepoFixture()), 'review skill');
+
+  assert.equal(skill.level, 'warn');
+  assert.match(skill.detail, /customized locally.*review-lint\.mjs/);
 });
 
 // the library, not SKILL.md, is what every generated wizard runs on

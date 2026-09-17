@@ -6,7 +6,7 @@ import path from 'node:path';
 // Releases are `git tag v<VERSION>`; update-check.mjs and doctor.mjs both compare against
 // that tag list, so bumping this without tagging makes an installed copy look ahead of
 // upstream. Only vN.N.N sorts — the old `v1-sol` tag is deliberately unsortable.
-export const VERSION = '2.10.0';
+export const VERSION = '2.11.0';
 export const STATE_FILE = '.consigliere-state.json';
 
 export const HOOK_FILES = [
@@ -77,6 +77,12 @@ export const YAGNI_FILES = ['SKILL.md'];
 // Workflow call reads them.
 export const IMPLEMENT_SKILL = 'implement-review-verify';
 export const IMPLEMENT_FILES = ['SKILL.md', 'implement-review-verify.js'];
+
+// The one review path rules/workflow.md names, and the lint that checks the shape of what
+// comes back. Ships by default: the rule points at the skill, and a rule naming an absent
+// skill is the same dangling reference as a gate with no agent.
+export const REVIEW_SKILL = 'review';
+export const REVIEW_FILES = ['SKILL.md', 'review-lint.mjs'];
 
 // obra/superpowers's debugging process, plus the three techniques SKILL.md points at by
 // filename and the two scripts they reference. Model-invoked on any bug, so it ships by
