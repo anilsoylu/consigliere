@@ -55,10 +55,10 @@ The queue is frozen when the batch starts. Work found while it runs goes under a
 - Review is the `review` skill, and it is the only review path. It runs the tier check
   itself — `node ~/.claude/hooks/review-tier.mjs . <merge-base>`, printing
   `none | medium | high | xhigh` — stops on `none`/`medium`, and otherwise spawns `reviewer`
-  fresh, once, with the diff and the tier and no rationale. Always pass the merge-base; the
-  bare form reads the working tree only. Escalate the tier with a stated reason, never
-  downgrade it. A repo can raise the floor for its own paths with a `.review-tiers` file at
-  the root, one `<xhigh|high> <regex>` rule per line.
+  fresh, once, with the diff, the request in one sentence, the tier, and no rationale.
+  Always pass the merge-base; the bare form reads the working tree only. Escalate the tier
+  with a stated reason, never downgrade it. A repo can raise the floor for its own paths
+  with a `.review-tiers` file at the root, one `<xhigh|high> <regex>` rule per line.
 - Findings come back under two labels: `[ADOPT]` blocks the merge, `[NOTE]` does not. A fork
   fixes every `[ADOPT]`, root re-runs the verifier, and a green run closes the finding.
   Nothing re-reviews the fix. A branch whose whole diff came out of one
