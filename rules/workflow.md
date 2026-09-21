@@ -13,13 +13,14 @@
 
 ## Delegation
 Match the primitive to the task. Deterministic steps belong in scripts. Implementation goes to a `fork`: it starts with root's context, so there is no discovery pass and no restated contract. A cold `worker` is for independent parallel work, or a job whose output should stay out of root's context. Root runs the verifier itself instead of spawning a tester for it. Give a cold subagent one focused task each time. If one subagent can complete the task, use one rather than several, and keep spawn counts low. Never spawn a subagent to verify or double-check your own work — independent review comes from the one handoff review.
+Load a skill when the task is the one it covers, not because a keyword in the prompt matches its name.
 
 ## Continuation loops
 For work with a verifiable exit criterion, use exactly one runtime continuation mechanism: `/goal` or Ralph, never both. Before presenting or starting any `/ralph-loop`, read the `ralph-protocol` skill.
 
 ## Waiting
 Never `sleep N` to poll a command. Blocking costs the wall-clock of the sleep, not of the job — and the estimate is always too long. Anything slower than ~30s goes `run_in_background: true`; keep working and the harness wakes you when it exits.
-Never raise Bash's `timeout` parameter either. Reaching for a bigger ceiling means you expect a long run, and an expected-long run belongs in the background; if you don't expect one, the default 120000ms already covers it. Same for `TaskOutput` on a job you just backgrounded — the notification is coming, don't block on it.
+Never raise Bash's `timeout` parameter either. Reaching for a bigger ceiling means you expect a long run, and an expected-long run belongs in the background; if you don't expect one, the default 120000ms already covers it. Same for reading a backgrounded job's output file before its notification arrives — the notification is coming, don't poll for it.
 Search with Grep/Glob, not shell `grep`/`find`/`ls`. The tools return instantly, a shell round-trip does not.
 
 ## Round-trips

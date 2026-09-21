@@ -6,7 +6,7 @@ import path from 'node:path';
 // Releases are `git tag v<VERSION>`; update-check.mjs and doctor.mjs both compare against
 // that tag list, so bumping this without tagging makes an installed copy look ahead of
 // upstream. Only vN.N.N sorts — the old `v1-sol` tag is deliberately unsortable.
-export const VERSION = '2.11.0';
+export const VERSION = '2.12.0';
 export const STATE_FILE = '.consigliere-state.json';
 
 export const HOOK_FILES = [
@@ -123,6 +123,9 @@ export const RECOMMENDED_ENV = {
 };
 export const RECOMMENDED_SETTINGS = {
   includeCoAuthoredBy: false,
+  // Skills and plugins synced from claude.ai would land beside the installed set unreviewed.
+  syncClaudeAiSkills: false,
+  syncClaudeAiPlugins: false,
   alwaysThinkingEnabled: true,
   // The root must be the most capable model for the topology to mean anything: it decides
   // and delegates, and the Opus subagents execute. Filled only when you have no value.

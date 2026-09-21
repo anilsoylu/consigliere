@@ -89,6 +89,8 @@ The installer is idempotent. It backs up `settings.json` and any file it would o
     "CLAUDE_CODE_DISABLE_ADVISOR_TOOL": "1"
   },
   "includeCoAuthoredBy": false,
+  "syncClaudeAiSkills": false,
+  "syncClaudeAiPlugins": false,
   "alwaysThinkingEnabled": true,
   "model": "claude-fable-5-1",
   "subagentPromptCacheTtl": "1h",
@@ -108,7 +110,7 @@ Those are filled in **only where you have no value of your own**, and the uninst
 | Merge-readiness graph | `/merge-readiness`: four lenses read the diff in parallel, then every finding goes to a judge that did not write it and is told to refute it. Up to 13 agents a run, so nothing routes here on its own | `node install.mjs --with-merge-readiness` |
 | Release allow rules | eight `Bash(...)` entries in `permissions.allow` so an unattended release is not stopped at its first push — see [Auto mode](#auto-mode) | `node install.mjs --with-release-permissions` |
 | implement-review-verify | one contract as a graph: a worker implements, a reviewer and a tester judge at one barrier, one fix round closes the findings. Five agents at most | ships by default |
-| review | the one review path: the tier check, one reviewer, then `review-lint.mjs` on what came back. `[ADOPT]` blocks the merge, `[NOTE]` ships as a follow-up | ships by default |
+| review | the one review path: the tier check, one reviewer, then `review-lint.mjs` on what came back. `[ADOPT]` blocks the merge, `[NOTE]` ships as a follow-up; the reviewer closes with an Inefficiency pass whose items ship as `[NOTE]` | ships by default |
 
 ## Auto mode
 
@@ -136,6 +138,7 @@ If you changed an installed file on purpose, add it to `"pins": ["agents/reviewe
 - **The gate is a boundary, not a sandbox.** It reads the command text, so it stops the root's mistakes rather than a determined bypass; a worker holds every tool the root gave up.
 - **Two skills still need a POSIX shell:** `wizard` generates bash around `template.sh`, and `systematic-debugging` bisects test pollution with `find-polluter.sh`. On Windows, run those two under Git Bash or WSL.
 - **The auto-mode classifier can still deny a push, merge or tag.** The gate allowing a command is not the classifier allowing it; `--with-release-permissions` writes the rules that clear it.
+- **Cloud sessions run ungated.** Claude Code on the web and Projects load no user-scope hooks or rules, so a session started there runs with none of this package's gates.
 
 ## License
 

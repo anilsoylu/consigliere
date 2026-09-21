@@ -39,8 +39,9 @@ One pass. One reviewer. No step runs twice.
    judge and never goes back to the reviewer.
 
 5. **Route.** A `fork` fixes every `[ADOPT]`. Root re-runs the verifier, and a green run
-   closes the finding — nothing re-reviews the fix. **Write** `[NOTE]` findings under `## Found
-   while working`; a follow-up nobody wrote down is a finding nobody made.
+   closes the finding — nothing re-reviews the fix. **Write** `[NOTE]` findings, including
+   the reviewer's Inefficiency items, under `## Found while working`; a follow-up nobody
+   wrote down is a finding nobody made.
 
 6. **Stop.** Once the verifier is green, nothing short of a new `[ADOPT]` reopens the tree.
 

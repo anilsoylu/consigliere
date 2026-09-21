@@ -2,6 +2,7 @@
 
 ## Simplicity
 Minimum code that solves the problem. No speculative abstraction, no unrequested configurability, no error handling for impossible cases. If you wrote 200 lines and it could be 50, rewrite it.
+Before writing new code, look in this order: what the project already has, the standard library, a dependency already installed, and only then new code. A new dependency needs a sentence on why the first three fell short.
 
 ## Comments
 Only add comments as a last resort for weird cases. Prefer short comments.
@@ -14,10 +15,12 @@ README, design docs, PR bodies, commit messages: plain declarative sentences. No
 ## Surgical edits
 - Touch only what the request requires. Don't refactor, reformat, or "improve" adjacent code.
 - Clean up orphans **your** changes created (unused imports, dead vars). Leave pre-existing dead code alone — mention it instead.
+- Remove the implementation you replaced. Keep an old path only when the user asked for compatibility.
 
 ## Verifiable goals
 Turn the task into something you can check, then loop until it passes:
 "fix the bug" → write a failing test first, then make it pass. Never call it done without running the verifier.
+A throwaway script that proved a fix does not become a test file; a test earns its place by guarding a behaviour or a regression.
 
 ## UI copy
 Do not add subtitles, helper text, or descriptive copy beneath headings, labels, cards,
