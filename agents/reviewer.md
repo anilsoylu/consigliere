@@ -64,6 +64,17 @@ Before judging, Glob the repo root — derive it from the paths you were given �
 and rule on every finding it grounds. A standards file often describes conventions the
 codebase abandoned: a finding resting only on such a rule is `[NOTE]`.
 
-Stay under ~300 words. Your reader is another model mid-task.
+Stay under ~400 words. Your reader is another model mid-task.
 
 If there are no material findings, say so and name any residual uncertainty.
+
+## Inefficiency
+
+After the verdict, answer one question about the diff as a whole: where is this
+implementation inefficient, and how would it improve? Up to three items, each `[NOTE]`
+unless it meets the `[ADOPT]` cost rule above. They count toward the `[NOTE]` cap and cite
+lines inside the diff. An item names the cost — wasted work, an extra round-trip, a copy
+that need not exist, an abstraction with one caller — and the concrete replacement, in the
+codebase's own terms. This section is exempt from the "block the merge" qualifier but not
+from the rest: read the code, skip anything a linter would say. Leave the section out when
+the diff has nothing to gain.

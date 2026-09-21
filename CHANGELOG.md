@@ -4,6 +4,33 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
+## 2.12.0 — 2026-09-21
+
+### Added
+- `agents/reviewer.md` closes with an Inefficiency section: after the verdict, the reviewer
+  answers where the diff is inefficient and how it would improve, in up to three items. Each
+  item names the cost and the concrete replacement and ships as `[NOTE]` unless it meets the
+  `[ADOPT]` cost rule. The section is exempt from the "block the merge" qualifier and from
+  nothing else. `skills/review/SKILL.md` routes those items under `## Found while working`
+  with the other `[NOTE]` findings, and they count toward the `[NOTE]` cap, so `review-lint.mjs`
+  is unchanged.
+- `rules/coding-discipline.md` gains three lines: look for existing project code, then the
+  standard library, then an installed dependency before writing new code, and justify a new
+  dependency in a sentence; remove the implementation you replaced unless the user asked for
+  compatibility; a throwaway script that proved a fix does not become a test file.
+- `rules/workflow.md` says to load a skill for the task it covers, not for a keyword in the
+  prompt that matches its name.
+- `RECOMMENDED_SETTINGS` carries `syncClaudeAiSkills: false` and `syncClaudeAiPlugins: false`,
+  so `doctor.mjs` reports their absence. Skills and plugins synced from claude.ai would land
+  beside the installed set unreviewed.
+- README Limits notes that cloud sessions (Claude Code on the web, Projects) load no
+  user-scope hooks or rules and so run with none of this package's gates.
+
+### Changed
+- `rules/workflow.md` no longer names `TaskOutput`; Claude Code 2.1.277 removed the tool. The
+  sentence now says not to poll a backgrounded job's output file before its notification.
+- The reviewer's word budget is ~400 words instead of ~300, to hold the Inefficiency section.
+
 ## 2.11.0 — 2026-09-17
 
 ### Added
