@@ -4,6 +4,21 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
+## 2.13.0 — 2026-09-21
+
+### Added
+- `agents/reviewer.md` receives the original requirement in one sentence. A diff that does
+  not deliver it is `[ADOPT]` even when every line of it is correct; that finding names the
+  missing behaviour in place of a triggering input.
+- `skills/review/SKILL.md` hands that sentence to the reviewer with the tier and still
+  withholds the rationale: the requirement is not the justification, and without it a
+  correct diff that does the wrong thing ships. The sentence is verbatim when the request is
+  one sentence and root's restatement otherwise. `rules/workflow.md` and `DESIGN.md` list it
+  in the reviewer hand-over.
+- `rules/coding-discipline.md` gains two lines: after a bug fix, repeat the reporter's steps
+  as reported, not only the test you wrote; a UI change is done when the empty, loading and
+  failure states are handled, not only the one with data.
+
 ## 2.12.0 — 2026-09-21
 
 ### Added

@@ -26,8 +26,11 @@ One pass. One reviewer. No step runs twice.
 3. **Review.** Spawn `reviewer` fresh, once. **Paste the diff text into the prompt** —
    `reviewer` has `Read, Grep, Glob` and no Bash, so it cannot fetch the diff itself, and a
    reviewer handed only a command reconstructs the wrong change from the working tree. Name
-   the repo root so it can open the files around the hunks. Give it the tier and no
-   rationale: a judge that has read the justification anchors to it.
+   the repo root so it can open the files around the hunks. Give it the user's request in
+   one sentence — verbatim when the request is one sentence, otherwise root's one-sentence
+   restatement of what was asked and not why — and the tier, and no rationale: a judge that
+   has read the justification anchors to it. The requirement is not the rationale; without
+   it a correct diff that does the wrong thing ships.
 
 4. **Lint the review.** `Write` the diff and the findings — `[{label, file, line, text}]` — to
    `/tmp/review/` (the gate denies root a `>`; `Write` is open), then:
