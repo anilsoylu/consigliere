@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import { runChecks, summarize, compareTags, assessProbe, probeArgs } from '../doctor.mjs';
-import { VERSION, STATE_FILE, HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, REVIEW_SKILL, REVIEW_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RELEASE_PERMISSIONS, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, hookCommand } from '../manifest.mjs';
+import { VERSION, STATE_FILE, HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, HOOK_ENTRIES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, REVIEW_SKILL, REVIEW_FILES, WIZARD_SKILL, WIZARD_FILES, ALMOST_PAID_SKILL, ALMOST_PAID_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RELEASE_PERMISSIONS, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, hookCommand } from '../manifest.mjs';
 
 const DOCTOR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'doctor.mjs');
 const temps = [];
@@ -39,6 +39,7 @@ function makeRepoFixture() {
   for (const file of REVIEW_FILES) writeFile(path.join(repo, 'skills', REVIEW_SKILL, file), file);
   for (const skill of GRILLING_SKILLS) for (const file of GRILLING_FILES) writeFile(path.join(repo, 'skills', skill, file), file);
   for (const file of WIZARD_FILES) writeFile(path.join(repo, 'skills', WIZARD_SKILL, file), file);
+  for (const file of ALMOST_PAID_FILES) writeFile(path.join(repo, 'skills', ALMOST_PAID_SKILL, file), file);
   for (const file of DEBUGGING_FILES) writeFile(path.join(repo, 'skills', DEBUGGING_SKILL, file), file);
   for (const file of SHADCN_FILES) writeFile(path.join(repo, 'skills', SHADCN_SKILL, file), file);
   writeFile(path.join(repo, 'install.mjs'));
@@ -74,6 +75,7 @@ function installDefaultFiles(home) {
   for (const file of REVIEW_FILES) writeFile(path.join(claude, 'skills', REVIEW_SKILL, file), file);
   for (const skill of GRILLING_SKILLS) for (const file of GRILLING_FILES) writeFile(path.join(claude, 'skills', skill, file), file);
   for (const file of WIZARD_FILES) writeFile(path.join(claude, 'skills', WIZARD_SKILL, file), file);
+  for (const file of ALMOST_PAID_FILES) writeFile(path.join(claude, 'skills', ALMOST_PAID_SKILL, file), file);
   for (const file of DEBUGGING_FILES) writeFile(path.join(claude, 'skills', DEBUGGING_SKILL, file), file);
   for (const file of SHADCN_FILES) writeFile(path.join(claude, 'skills', SHADCN_SKILL, file), file);
   writeFile(path.join(claude, 'settings.json'), settingsFor(home));
@@ -614,6 +616,18 @@ test('warns about a locally customized wizard template instead of certifying it'
 
   assert.equal(skill.level, 'warn');
   assert.match(skill.detail, /customized locally.*template\.sh/);
+});
+
+// the pricing tool, not SKILL.md, is what every projection on the dashboard comes from
+test('warns about a locally customized almost-paid pricing tool instead of certifying it', () => {
+  const home = temp('consigliere-doctor-');
+  installDefaultFiles(home);
+  writeFile(path.join(home, '.claude', 'skills', ALMOST_PAID_SKILL, 'tools', 'cohort_value.py'), 'my own version');
+
+  const skill = check(run(home, makeRepoFixture()), 'almost-paid skill');
+
+  assert.equal(skill.level, 'warn');
+  assert.match(skill.detail, /customized locally.*cohort_value\.py/);
 });
 
 // the pair is one feature, so losing either half is the same finding

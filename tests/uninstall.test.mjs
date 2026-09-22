@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { HOOK_FILES, OBSOLETE_HOOK_FILES, AGENT_FILES, DEFAULT_RULES, HANDOFF_SKILLS, GRILLING_SKILLS, OPTIMIZE_SKILLS, UPGRADE_SKILL, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, REVIEW_SKILL, REVIEW_FILES, WIZARD_SKILL, DEBUGGING_SKILL, SHADCN_SKILL, RELEASE_PERMISSIONS, hookCommand } from '../manifest.mjs';
+import { HOOK_FILES, OBSOLETE_HOOK_FILES, AGENT_FILES, DEFAULT_RULES, HANDOFF_SKILLS, GRILLING_SKILLS, OPTIMIZE_SKILLS, UPGRADE_SKILL, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, REVIEW_SKILL, REVIEW_FILES, WIZARD_SKILL, ALMOST_PAID_SKILL, DEBUGGING_SKILL, SHADCN_SKILL, RELEASE_PERMISSIONS, hookCommand } from '../manifest.mjs';
 
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const INSTALL = path.join(REPO, 'install.mjs');
@@ -59,6 +59,7 @@ test('removes the files it placed, and running it twice is not an error', () => 
   for (const skill of GRILLING_SKILLS) assert.equal(fs.existsSync(path.join(home, '.claude', 'skills', skill)), false, `${skill} should be gone`);
   assert.equal(fs.existsSync(path.join(home, '.claude', 'skills', UPGRADE_SKILL)), false, `${UPGRADE_SKILL} should be gone`);
   assert.equal(fs.existsSync(path.join(home, '.claude', 'skills', WIZARD_SKILL)), false, `${WIZARD_SKILL} should be gone`);
+  assert.equal(fs.existsSync(path.join(home, '.claude', 'skills', ALMOST_PAID_SKILL)), false, `${ALMOST_PAID_SKILL} should be gone`);
   assert.equal(fs.existsSync(path.join(home, '.claude', 'skills', DEBUGGING_SKILL)), false, `${DEBUGGING_SKILL} should be gone`);
   assert.equal(fs.existsSync(path.join(home, '.claude', 'skills', IMPLEMENT_SKILL)), false, `${IMPLEMENT_SKILL} should be gone`);
   assert.equal(fs.existsSync(path.join(home, '.claude', 'skills', REVIEW_SKILL)), false, `${REVIEW_SKILL} should be gone`);

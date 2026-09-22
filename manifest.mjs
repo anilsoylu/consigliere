@@ -6,7 +6,7 @@ import path from 'node:path';
 // Releases are `git tag v<VERSION>`; update-check.mjs and doctor.mjs both compare against
 // that tag list, so bumping this without tagging makes an installed copy look ahead of
 // upstream. Only vN.N.N sorts — the old `v1-sol` tag is deliberately unsortable.
-export const VERSION = '2.13.0';
+export const VERSION = '2.14.0';
 export const STATE_FILE = '.consigliere-state.json';
 
 export const HOOK_FILES = [
@@ -98,6 +98,15 @@ export const DEBUGGING_FILES = [
 // /wizard. See README for attribution.
 export const WIZARD_SKILL = 'wizard';
 export const WIZARD_FILES = ['SKILL.md', 'template.sh'];
+
+// nestyme/awesome-prompts' revenue-recovery skill. Ships by default, inert until you run
+// /almost-paid; tools/cohort_value.py beside it prices the cohorts and renders the
+// dashboard template, so the three ship together. See README for attribution.
+export const ALMOST_PAID_SKILL = 'almost-paid';
+export const ALMOST_PAID_FILES = [
+  'SKILL.md', 'templates/cohort-spec.md', 'templates/dashboard.html', 'templates/offers.md',
+  'tools/cohort_value.py',
+];
 
 // shadcn/ui's own skill, with this repo's edits to its rules/*.md. Upstream is
 // shadcn/ui; see the attribution in README.md. Nested paths, so copyAll() creates

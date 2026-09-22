@@ -6,7 +6,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { STATE_FILE, HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, REVIEW_SKILL, REVIEW_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RELEASE_PERMISSIONS, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, claudeDir as resolveClaudeDir, hookCommand, hasRalphLoop } from './manifest.mjs';
+import { STATE_FILE, HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, REVIEW_SKILL, REVIEW_FILES, WIZARD_SKILL, WIZARD_FILES, ALMOST_PAID_SKILL, ALMOST_PAID_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RELEASE_PERMISSIONS, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, claudeDir as resolveClaudeDir, hookCommand, hasRalphLoop } from './manifest.mjs';
 
 const REPO = path.dirname(fileURLToPath(import.meta.url));
 const USAGE = `Usage: node doctor.mjs [--json] [--probe]
@@ -240,6 +240,17 @@ export function runChecks(options = {}) {
       : wizard.modified.length
         ? status('warn', 'wizard skill', `customized locally, no longer this repo's: ${list(wizard.modified)}`)
         : status('pass', 'wizard skill', `the wizard generator and its template are installed and match this repo${except(wizard.kept)}`)
+  );
+
+  // Default like yagni. cohort_value.py is what prices every cohort, so a modified one
+  // changes every projection the skill puts on a dashboard.
+  const almostPaid = compare(ALMOST_PAID_FILES, path.join(repo, 'skills', ALMOST_PAID_SKILL), path.join(skillsDir, ALMOST_PAID_SKILL));
+  checks.push(
+    almostPaid.missing.length
+      ? status('warn', 'almost-paid skill', `not installed (${list(almostPaid.missing)}); rerun node install.mjs to restore, or ignore this if you removed it on purpose`)
+      : almostPaid.modified.length
+        ? status('warn', 'almost-paid skill', `customized locally, no longer this repo's: ${list(almostPaid.modified)}`)
+        : status('pass', 'almost-paid skill', `the almost-paid skill and its pricing tool are installed and match this repo${except(almostPaid.kept)}`)
   );
 
   // Also a default skill, and model-invoked rather than a slash command, so a missing

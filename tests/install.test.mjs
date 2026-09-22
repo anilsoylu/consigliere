@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { STATE_FILE, HOOK_FILES, OBSOLETE_HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, REVIEW_SKILL, REVIEW_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RELEASE_PERMISSIONS, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, hookCommand } from '../manifest.mjs';
+import { STATE_FILE, HOOK_FILES, OBSOLETE_HOOK_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HANDOFF_SKILLS, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, REVIEW_SKILL, REVIEW_FILES, WIZARD_SKILL, WIZARD_FILES, ALMOST_PAID_SKILL, ALMOST_PAID_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RELEASE_PERMISSIONS, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, hookCommand } from '../manifest.mjs';
 
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const INSTALL = path.join(REPO, 'install.mjs');
@@ -214,6 +214,21 @@ test('a default install ships both halves of the wizard, bytes intact', () => {
     assert.ok(
       fs.readFileSync(installed).equals(fs.readFileSync(path.join(REPO, 'skills', WIZARD_SKILL, f))),
       `skills/${WIZARD_SKILL}/${f} must match this repo byte for byte`
+    );
+  }
+});
+
+// SKILL.md sends the user to tools/cohort_value.py and the templates it fills, so a skill
+// installed without them describes a step nobody can run.
+test('a default install ships the almost-paid skill with its tool and templates, bytes intact', () => {
+  const home = install();
+
+  for (const f of ALMOST_PAID_FILES) {
+    const installed = path.join(home, '.claude', 'skills', ALMOST_PAID_SKILL, f);
+    assert.ok(fs.existsSync(installed), `skills/${ALMOST_PAID_SKILL}/${f} should be installed`);
+    assert.ok(
+      fs.readFileSync(installed).equals(fs.readFileSync(path.join(REPO, 'skills', ALMOST_PAID_SKILL, f))),
+      `skills/${ALMOST_PAID_SKILL}/${f} must match this repo byte for byte`
     );
   }
 });
