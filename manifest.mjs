@@ -6,7 +6,7 @@ import path from 'node:path';
 // Releases are `git tag v<VERSION>`; update-check.mjs and doctor.mjs both compare against
 // that tag list, so bumping this without tagging makes an installed copy look ahead of
 // upstream. Only vN.N.N sorts — the old `v1-sol` tag is deliberately unsortable.
-export const VERSION = '2.14.0';
+export const VERSION = '2.15.0';
 export const STATE_FILE = '.consigliere-state.json';
 
 export const HOOK_FILES = [
@@ -136,9 +136,10 @@ export const RECOMMENDED_SETTINGS = {
   syncClaudeAiSkills: false,
   syncClaudeAiPlugins: false,
   alwaysThinkingEnabled: true,
-  // The root must be the most capable model for the topology to mean anything: it decides
-  // and delegates, and the Opus subagents execute. Filled only when you have no value.
-  model: 'claude-fable-5-1',
+  // The root decides and delegates and spends more tokens than any role, so it runs the
+  // strongest model per dollar: Fable-class at $4/$20 against Fable 5.1's $10/$50.
+  // Filled only when you have no value.
+  model: 'claude-opus-5-5',
   // A subagent's prompt is cached for 5 minutes by default, which a delegation that waits
   // on a sibling routinely outlives; re-delegating to the same agent then pays full price.
   subagentPromptCacheTtl: '1h',

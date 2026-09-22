@@ -4,6 +4,20 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
+## 2.15.0 — 2026-09-22
+
+### Changed
+- The recommended root model is `claude-opus-5-5`, replacing `claude-fable-5-1`. Opus 5.5
+  reasons at Fable's level for $4/$20 per Mtok against Fable 5.1's $10/$50, and the root
+  spends more tokens than any role. The installer still fills the key only when you have no
+  value, so an existing `claude-fable-5-1` stays; `node doctor.mjs` now names
+  `claude-opus-5-5` when it reports the root model.
+- Claude Code 2.1.280 resolves the `opus` alias to Opus 5.5, so the worker, tester,
+  researcher and reviewer move to it with no change to their agent files. Older builds keep
+  them on Opus 5.
+- The README's Fable-availability limit now covers only `/merge-readiness`, the one stage
+  that still runs on Fable.
+
 ## 2.14.0 — 2026-09-22
 
 ### Added
