@@ -11,7 +11,7 @@ Authority has to sit where the tools are not. Version 1 ran an advisor whose adv
 ## How it works
 
 ```
-                        Fable 5.1
+                        Opus 5.5
                     root / orchestrator
                              |
     +-----------+-----------+-----------+-----------+
@@ -29,7 +29,7 @@ read-only   read-only   read-only    writes      writes
                            Opus
                              |
                              v
-                        Fable 5.1
+                        Opus 5.5
                     integrate + verify
 ```
 
@@ -66,7 +66,7 @@ That tree is not a convention the root is asked to follow. It cannot write sourc
 
 ## Requirements
 
-- **Claude Code 2.1.267 or newer** (ships Node). That is it, unless you run `/almost-paid`: its steps 3 and 5 call `tools/cohort_value.py`, which needs `python3` on `PATH` and nothing beyond the standard library. Older builds dropped the `effort:` line on the models these agents name, so the ladder read as configured and ran flat. `node doctor.mjs` warns when the CLI it finds is below that.
+- **Claude Code 2.1.267 or newer** (ships Node). That is it, unless you run `/almost-paid`: its steps 3 and 5 call `tools/cohort_value.py`, which needs `python3` on `PATH` and nothing beyond the standard library. Older builds dropped the `effort:` line on the models these agents name, so the ladder read as configured and ran flat. `node doctor.mjs` warns when the CLI it finds is below that. The `opus` alias the agents name resolves to Opus 5.5 from 2.1.280; older builds run those roles on Opus 5.
 - **macOS, Linux, or Windows.** Every hook is Node and every installed hook command is `node "<absolute path>"`, so nothing here needs bash. The test suite runs on all three in CI.
 - *Optional, only for `--with-workflow`:* the **ralph-loop plugin** — `/plugin install ralph-loop@claude-plugins-official`.
 
@@ -92,7 +92,7 @@ The installer is idempotent. It backs up `settings.json` and any file it would o
   "syncClaudeAiSkills": false,
   "syncClaudeAiPlugins": false,
   "alwaysThinkingEnabled": true,
-  "model": "claude-fable-5-1",
+  "model": "claude-opus-5-5",
   "subagentPromptCacheTtl": "1h",
   "maxEffortLevel": "xhigh"
 }
@@ -134,7 +134,7 @@ If you changed an installed file on purpose, add it to `"pins": ["agents/reviewe
 
 ## Limits
 
-- **Fable availability:** on a plan that can't reach Fable, Claude Code silently falls back to the inherited model — everything keeps working, but the decision comes from the same model as the code. `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` and `CLAUDE_CODE_SUBAGENT_MODEL` override `model:` in every agent file, so leave them unset; `node doctor.mjs` warns when either is set. See [Requirements](#requirements).
+- **Model overrides:** `/merge-readiness` settles disputed findings on Fable, and on a plan that can't reach Fable, Claude Code silently falls back to the inherited model. `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` and `CLAUDE_CODE_SUBAGENT_MODEL` override `model:` in every agent file, so leave them unset; `node doctor.mjs` warns when either is set. See [Requirements](#requirements).
 - **The gate is a boundary, not a sandbox.** It reads the command text, so it stops the root's mistakes rather than a determined bypass; a worker holds every tool the root gave up.
 - **Two skills still need a POSIX shell, and one needs Python:** `wizard` generates bash around `template.sh`, and `systematic-debugging` bisects test pollution with `find-polluter.sh`. On Windows, run those two under Git Bash or WSL. `almost-paid` prices its cohorts with `tools/cohort_value.py`, so steps 3 and 5 need `python3` on `PATH` (standard library only, no packages).
 - **The auto-mode classifier can still deny a push, merge or tag.** The gate allowing a command is not the classifier allowing it; `--with-release-permissions` writes the rules that clear it.
