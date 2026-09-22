@@ -81,8 +81,6 @@ The installer is idempotent. It backs up `settings.json` and any file it would o
 ```json
 {
   "env": {
-    "CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING": "1",
-    "MAX_THINKING_TOKENS": "31999",
     "CLAUDE_CODE_DISABLE_1M_CONTEXT": "1",
     "CLAUDE_CODE_NO_FLICKER": "1",
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
@@ -91,7 +89,6 @@ The installer is idempotent. It backs up `settings.json` and any file it would o
   "includeCoAuthoredBy": false,
   "syncClaudeAiSkills": false,
   "syncClaudeAiPlugins": false,
-  "alwaysThinkingEnabled": true,
   "model": "claude-opus-5-5",
   "subagentPromptCacheTtl": "1h",
   "maxEffortLevel": "xhigh"

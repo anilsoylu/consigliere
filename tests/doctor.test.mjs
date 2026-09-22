@@ -696,7 +696,7 @@ test('reports the recommended keys instead of crashing on an env of the wrong ty
   const recommended = check(run(home, makeRepoFixture()), 'recommended settings');
 
   assert.equal(recommended.level, 'warn');
-  assert.match(recommended.detail, /env\.CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING/);
+  assert.match(recommended.detail, new RegExp(`env\\.${Object.keys(RECOMMENDED_ENV)[0]}`));
 });
 
 // The root decides and delegates, which is the one seat the topology needs at the top

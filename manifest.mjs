@@ -6,7 +6,7 @@ import path from 'node:path';
 // Releases are `git tag v<VERSION>`; update-check.mjs and doctor.mjs both compare against
 // that tag list, so bumping this without tagging makes an installed copy look ahead of
 // upstream. Only vN.N.N sorts — the old `v1-sol` tag is deliberately unsortable.
-export const VERSION = '2.15.0';
+export const VERSION = '2.16.0';
 export const STATE_FILE = '.consigliere-state.json';
 
 export const HOOK_FILES = [
@@ -123,8 +123,6 @@ export const SHADCN_FILES = [
 // absent and never overwrites one you already set; doctor.mjs reports the gaps.
 // Claude Code reads env at startup, so these take effect on the next `claude`.
 export const RECOMMENDED_ENV = {
-  CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING: '1',
-  MAX_THINKING_TOKENS: '31999',
   CLAUDE_CODE_DISABLE_1M_CONTEXT: '1',
   CLAUDE_CODE_NO_FLICKER: '1',
   CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
@@ -135,7 +133,6 @@ export const RECOMMENDED_SETTINGS = {
   // Skills and plugins synced from claude.ai would land beside the installed set unreviewed.
   syncClaudeAiSkills: false,
   syncClaudeAiPlugins: false,
-  alwaysThinkingEnabled: true,
   // The root decides and delegates and spends more tokens than any role, so it runs the
   // strongest model per dollar: Fable-class at $4/$20 against Fable 5.1's $10/$50.
   // Filled only when you have no value.

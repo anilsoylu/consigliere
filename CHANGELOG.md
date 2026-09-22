@@ -4,6 +4,15 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
+## 2.16.0 — 2026-09-22
+
+### Changed
+- The installer no longer writes `CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING`,
+  `MAX_THINKING_TOKENS` or `alwaysThinkingEnabled`. Opus 5.5, Sonnet 5 and Fable reason
+  adaptively and ignore all three, so how deep a role thinks is its `effort:` line. An
+  existing value stays where it is, because the installer never overwrites one; it has no
+  effect on these models and is safe to delete.
+
 ## 2.15.0 — 2026-09-22
 
 ### Changed
