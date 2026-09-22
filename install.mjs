@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { VERSION, STATE_FILE, HOOK_FILES, OBSOLETE_HOOK_FILES, OBSOLETE_AGENT_FILES, OBSOLETE_RULE_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, HANDOFF_FILES, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, OPTIMIZE_FILES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, REVIEW_SKILL, REVIEW_FILES, WIZARD_SKILL, WIZARD_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RELEASE_PERMISSIONS, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, claudeDir, hookCommand, hasRalphLoop } from './manifest.mjs';
+import { VERSION, STATE_FILE, HOOK_FILES, OBSOLETE_HOOK_FILES, OBSOLETE_AGENT_FILES, OBSOLETE_RULE_FILES, AGENT_FILES, DEFAULT_RULES, WORKFLOW_RULE, HOOK_ENTRIES, HANDOFF_SKILLS, HANDOFF_FILES, GRILLING_SKILLS, GRILLING_FILES, OPTIMIZE_SKILLS, OPTIMIZE_FILES, MERGE_READINESS_SKILL, MERGE_READINESS_FILES, UPGRADE_SKILL, UPGRADE_FILES, YAGNI_SKILL, YAGNI_FILES, IMPLEMENT_SKILL, IMPLEMENT_FILES, REVIEW_SKILL, REVIEW_FILES, WIZARD_SKILL, WIZARD_FILES, ALMOST_PAID_SKILL, ALMOST_PAID_FILES, DEBUGGING_SKILL, DEBUGGING_FILES, SHADCN_SKILL, SHADCN_FILES, RELEASE_PERMISSIONS, RECOMMENDED_ENV, RECOMMENDED_SETTINGS, claudeDir, hookCommand, hasRalphLoop } from './manifest.mjs';
 
 const REPO = path.dirname(fileURLToPath(import.meta.url));
 const CLAUDE = claudeDir();
@@ -161,6 +161,10 @@ log(`copied skills/${DEBUGGING_SKILL} → ${SKILLS} (upstream obra/superpowers, 
 // No flag: like yagni, it is inert until you run /wizard.
 copyAll(WIZARD_FILES, path.join(REPO, 'skills', WIZARD_SKILL), path.join(SKILLS, WIZARD_SKILL));
 log(`copied skills/${WIZARD_SKILL} → ${SKILLS} (run it with /${WIZARD_SKILL}; upstream mattpocock/skills, see README for attribution)`);
+
+// No flag: like yagni, it is inert until you run /almost-paid.
+copyAll(ALMOST_PAID_FILES, path.join(REPO, 'skills', ALMOST_PAID_SKILL), path.join(SKILLS, ALMOST_PAID_SKILL));
+log(`copied skills/${ALMOST_PAID_SKILL} → ${SKILLS} (run it with /${ALMOST_PAID_SKILL}; upstream nestyme/awesome-prompts, see README for attribution)`);
 
 // shadcn/ui's skill, carrying this repo's edits to its rules. Model-invoked rather than
 // a slash command, so it costs nothing until Claude is actually working on shadcn code.

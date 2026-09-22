@@ -62,7 +62,7 @@ That tree is not a convention the root is asked to follow. It cannot write sourc
 | `update-check.mjs` | one line at session start when a newer tag exists upstream |
 
 - **Rules:** `orchestrator.md`, the behavioral spec Claude reads every session, and `coding-discipline.md` — minimum code, surgical edits, comments as a last resort, plain repo prose.
-- **Skills:** `shadcn`, `grilling` with `/grill-me`, `systematic-debugging`, `implement-review-verify`, `review`, `/consig-upgrade`, `/yagni`, `/wizard`.
+- **Skills:** `shadcn`, `grilling` with `/grill-me`, `systematic-debugging`, `implement-review-verify`, `review`, `/consig-upgrade`, `/yagni`, `/wizard`, `/almost-paid`.
 
 ## Requirements
 
@@ -142,7 +142,7 @@ If you changed an installed file on purpose, add it to `"pins": ["agents/reviewe
 
 ## License
 
-Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). The vendored skills below keep their upstream MIT terms.
+Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). The vendored skills below keep their upstream terms.
 
 | Skill | Upstream | What changed here |
 | --- | --- | --- |
@@ -151,4 +151,5 @@ Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). The vendored skills bel
 | `grilling`, `grill-me` | [mattpocock/skills](https://github.com/mattpocock/skills), MIT | a plain-markdown question format, and the handoff into the delegation contract |
 | `wizard` | [mattpocock/skills](https://github.com/mattpocock/skills), MIT | three places: one paragraph on what may be handed to a human at all, a step 1 that reads key names instead of live secrets, and a `template.sh` that single-quotes values into `.env` and unquotes them back out |
 | `systematic-debugging` | [obra/superpowers](https://github.com/obra/superpowers), MIT | four places: a Phase 1 that demands a failing-then-passing command before any Phase 2, grep-tagged debug instrumentation, a ranked 3-5 hypothesis Phase 3, and a Phase 4 that sends the same error back to the root after two failed fixes; plus two `superpowers:*` references swapped for the equivalent `coding-discipline.md` rules |
+| `almost-paid` | [nestyme/awesome-prompts](https://github.com/nestyme/awesome-prompts), shared publicly for reuse, no license file upstream | `cohort_value.py` moved from the repo-level `tools/` into the skill, its `_common` helpers inlined, its template path adjusted, and the dashboard placeholder match made whitespace-tolerant |
 | `optimize` | original to this repo | — |

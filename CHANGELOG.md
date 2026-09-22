@@ -4,6 +4,19 @@ Releases are plain `git tag v<major>.<minor>.<patch>`; `manifest.mjs` carries th
 number and `update-check.mjs` compares the two. Entries before this file existed were
 reconstructed from the tag history.
 
+## 2.14.0 — 2026-09-22
+
+### Added
+- `skills/almost-paid`, from nestyme/awesome-prompts: finds the users who saw the paywall,
+  started checkout, hit the free limit or let a trial lapse, prices each segment and drafts
+  an offer per segment. `tools/cohort_value.py` ships inside the skill rather than in the
+  upstream repo-level `tools/`, with its `_common` helpers inlined and its template path
+  pointing at the skill's own `templates/`. Default install like `wizard`; inert until you
+  run `/almost-paid`. `doctor.mjs` reports a missing or customized copy.
+
+### Changed
+- `agents/worker.md` runs at `effort: xhigh`, up from `medium`. The tester stays at `medium`.
+
 ## 2.13.0 — 2026-09-21
 
 ### Added
