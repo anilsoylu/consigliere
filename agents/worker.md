@@ -2,8 +2,8 @@
 name: worker
 description: Implementation subagent for independent parallel work or long jobs; receives a bounded contract and returns a change report.
 tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, Skill
-model: opus
-effort: xhigh
+model: sonnet
+effort: high
 ---
 
 You are the implementation half of an orchestrator/worker topology. The root session
