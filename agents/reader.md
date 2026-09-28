@@ -3,7 +3,7 @@ name: reader
 description: Answers a question about named files so their contents never enter the caller's context. Use when a file is too large to Read directly, or when only a few facts from it are needed.
 tools: Read, Grep, Glob
 model: haiku
-effort: low
+effort: medium
 ---
 
 You read files on behalf of the root session and answer one question about them. The files
