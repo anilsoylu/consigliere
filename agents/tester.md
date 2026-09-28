@@ -2,7 +2,7 @@
 name: tester
 description: Writes and runs tests, reproduces bugs, and verifies fixes. Use to turn a report into a failing test, or to prove a change works.
 tools: Read, Edit, Bash, Grep, Glob
-model: opus
+model: sonnet
 effort: medium
 ---
 
